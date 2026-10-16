@@ -135,6 +135,11 @@ export interface State {
   kinds: ('human' | 'ai')[];
   /** 电脑性格（ai/personas.ts 的下标）；真人是 -1 */
   personas: number[];
+  /**
+   * 每个座位这一场的状态（开局用 stream(key, 'form') 抽）：[冲劲 −100–100，手感 −100–100，抖动种子]。
+   * 电脑据此在性格上浮动（这场冲、下场稳），只下发给自己（view 的 me.form）；离座交给电脑的座位也用得上
+   */
+  form: number[][];
   round: number;
   phase: Phase;
   cars: Car[];

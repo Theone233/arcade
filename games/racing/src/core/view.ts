@@ -40,6 +40,8 @@ export interface MeView {
   plan: Plan | null;
   /** 牌堆 + 弃牌堆里每种牌还有几张：下标是种类（0–11） */
   pool: number[];
+  /** 自己这一场的状态（State.form），电脑据此浮动 */
+  form: number[];
 }
 
 export interface View {
@@ -91,6 +93,7 @@ export function view(s: State, seat: number | null): View {
       hand: c.hand.map((id) => ({ id, kind: c.kinds[id]! })).sort((a, b) => a.kind - b.kind || a.id - b.id),
       plan: c.plan ? structuredClone(c.plan) : null,
       pool,
+      form: [...(s.form[seat] ?? [0, 0, 0])],
     };
   }
   const cur = s.phase === 'act' && s.ask !== null ? (s.order[s.at] ?? null) : null;

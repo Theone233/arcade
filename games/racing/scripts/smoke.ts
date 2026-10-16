@@ -1,6 +1,8 @@
 /**
  * 冒烟（AGENTS.md 第 4 节"每个游戏一个无头浏览器冒烟"）：起 vite 开发服务器（系统分配端口），单机跑完一整场（?turbo 动画和电脑不停顿），
- * 横屏、竖屏各一遍；检查控制台零报错（开发时平台接口没起，/api 的 502、504 不算）、结算出来、比赛中点"大厅"先确认、"跟车"和"全图"能点。
+ * 横屏、竖屏各一遍；检查控制台零报错、结算出来、比赛中点"大厅"先确认、"跟车"和"全图"能点。
+ * 资源：开发时平台接口没起，只放过 /api/ 下的 502、504；别的请求失败或 4xx、5xx（比如资源 404）都算失败。
+ * 手机：竖屏那一遍按手机模拟（触屏、像素比 3、CPU 降速 4 倍当省内存设备）；横屏那一遍模拟一次双指放大（visualViewport.scale = 2 时舞台不能重排）。
  * 我这辆车：挂 2–3 挡、出最小的牌（稳着开）；问冲刺、拼劲、尾流一律"不了"，问弃牌"不弃"。
  * 用法：npm run smoke。截图在 shots/smoke-*.png。
  */
@@ -56,15 +58,22 @@ for (const [name, viewport] of [
   ['land', { width: 1000, height: 560 }],
   ['port', { width: 390, height: 780 }],
 ] as const) {
-  const page = await browser.newPage({ viewport });
+  const page = await browser.newPage(name === 'port' ? { viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport });
   const errors: string[] = [];
+  const isApi = (url: string, status: number): boolean => new URL(url).pathname.startsWith('/api/') && (status === 502 || status === 504);
+  page.on('response', (r) => {
+    if (r.status() >= 400 && !isApi(r.url(), r.status())) errors.push(`${r.status()} ${new URL(r.url()).pathname}`);
+  });
+  page.on('requestfailed', (r) => errors.push(`请求失败 ${new URL(r.url()).pathname}：${r.failure()?.errorText ?? ''}`));
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
-    const t = m.text();
-    if (/status of 50[24]|Failed to load resource/.test(t)) return;
-    errors.push(t);
+    // 加载失败的资源由上面的 response 逐条核对（浏览器这条消息不带地址），这里不重复记
+    if (/^Failed to load resource/.test(m.text())) return;
+    errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
+  const cdp = await page.context().newCDPSession(page);
+  if (name === 'port') await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.goto(`http://127.0.0.1:${port}/games/racing/?turbo`);
   await page.waitForSelector('.track-card');
   await page.screenshot({ path: `${root}shots/smoke-${name}-lobby.png` });
@@ -76,6 +85,21 @@ for (const [name, viewport] of [
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${root}shots/smoke-${name}-follow.png` });
   await page.click('.board-tools button:has-text("全图")');
+  if (name === 'land') {
+    // 双指放大：CDP 设页面缩放 = 手指捏开的结果；放大时舞台的尺寸和缩放不能跟着变，缩回 1 倍后照常
+    const stageStyle = () => page.locator('.stage').evaluate((e) => (e as HTMLElement).style.cssText);
+    const before = await stageStyle();
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 });
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await page.waitForTimeout(600);
+    const zoomed = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+    await page.screenshot({ path: `${root}shots/smoke-${name}-pinch.png` });
+    if (zoomed < 1.5) errors.push(`页面没放大（scale ${zoomed}）`);
+    if ((await stageStyle()) !== before) errors.push('双指放大时舞台重排了');
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await page.waitForTimeout(600);
+  }
   // 比赛中点"大厅"：先问一次，点"接着跑"留下
   await page.click('.topbar .home');
   await page.waitForSelector('.mask.confirm');

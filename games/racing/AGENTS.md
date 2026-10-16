@@ -6,7 +6,7 @@
 - 只改 `games/racing/`；不读、不引用其他游戏的源码。共用的东西只走 `packages/arcade-kit` 和平台的公开 `/api`。
 - 规则核心 `src/core/`、赛道数据 `src/track/`（`shape.ts` 除外）、电脑 `src/ai/`、房间规则 `src/room/` 是纯函数：不碰 DOM、网络；
   不用 `Math.random`、`Date.now`、`new Date`、三角函数和 `Math.exp/log/pow/sqrt` 这类结果依赖平台的数学函数；
-  随机只用 `arcade-kit/rng`（ChaCha20）按"用途 + 序号"分流（`grid` 发车格、`deck` 每辆车每次洗牌、`persona` 挑电脑）。`test/arch.test.ts` 检查这些。
+  随机只用 `arcade-kit/rng`（ChaCha20）按"用途 + 序号"分流（`grid` 发车格、`deck` 每辆车每次洗牌、`persona` 挑电脑、`form` 每个座位这一场的状态）。`test/arch.test.ts` 检查这些。
 - 规则只认一维赛道（一圈几格、弯道线在哪、限速）；画法在 `src/track/shape.ts`，只有画面层和 `scripts/track.ts` 用。
   改了赛道的形状，跑 `node scripts/track.ts --png` 看弯道线还在不在弯的入口，`test/track.test.ts` 也会查。
 - 隐藏信息：视图只放这个座位能看到的；别人的手牌、任何人的牌堆顺序、密钥一律不下发；交计划时别人只看得到"选好了没有"。

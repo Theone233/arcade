@@ -10,4 +10,4 @@
 | 音效 | WebAudio 现合成（`src/view/sound.ts`） |
 | 表情包、扔的道具 | `arcade-kit/fun`（kit 自己程序画的，见 kit 的说明） |
 
-赛道、名字、卡面都是自己设计的；玩法机制参考《Heat: Pedal to the Metal》（Days of Wonder），没有用原作的名字、美术、赛道图和卡面文字。
+赛道、名字、术语、卡面、规则文字都是原创的。

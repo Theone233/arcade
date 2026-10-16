@@ -135,6 +135,25 @@ export async function createRoom(opts: RoomOpts): Promise<{ code: string } | { e
 
 export const createError = (e: string): string => createText(e);
 
+/**
+ * 本地时钟比服务端快多少毫秒（倒计时用）：房间发的截止时间是服务端的时钟，手机时钟不准时直接拿 Date.now() 去减会偏。
+ * kit 的消息里不带服务端时间，所以进房时对页面自己的脚本发一次 HEAD（静态资源，不过 Worker），看回话的 Date 头。
+ * Date 只到秒，差不到 2 秒的按 0 算；拿不到就是 0
+ */
+export async function clockSkew(): Promise<number> {
+  try {
+    const t0 = Date.now();
+    const r = await fetch(new URL(import.meta.url), { method: 'HEAD', cache: 'no-store' });
+    const t1 = Date.now();
+    const server = Date.parse(r.headers.get('date') ?? '');
+    if (!Number.isFinite(server)) return 0;
+    const skew = (t0 + t1) / 2 - (server + 500);
+    return Math.abs(skew) < 2_000 ? 0 : skew;
+  } catch {
+    return 0;
+  }
+}
+
 /** 房间拒了一个操作：规则的错误码按 MOVE_ERROR 说人话，"局面变了"这类不提示 */
 function errorText(code: string): string {
   switch (code) {

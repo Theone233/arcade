@@ -6,7 +6,7 @@ import { PERSONAS } from './ai/personas.ts';
 import { DEFAULT_OPTS, checkOpts } from './core/rules.ts';
 import type { Action, Ev, Opts, Plan } from './core/types.ts';
 import type { View } from './core/view.ts';
-import { createError, createRoom, Online, type OnlineState } from './online.ts';
+import { clockSkew, createError, createRoom, Online, type OnlineState } from './online.ts';
 import { clearSolo, loadSolo, ME, newSolo, Solo } from './solo.ts';
 import { getTrack } from './track/index.ts';
 import { Board } from './view/board.ts';
@@ -352,6 +352,8 @@ let online: Online | null = null;
 let hosting = false;
 let shownN = -1;
 let comms: Comms | null = null;
+/** 本地时钟比服务端快多少（进房时量一次，online.ts 的 clockSkew） */
+let skew = 0;
 let arrive: { seat: number; sit: boolean } | null = null;
 let followTimer = 0;
 const FOLLOW_MS = 5_000;
@@ -388,6 +390,7 @@ function enterRoom(code: string, host: boolean, from: { seat: number; sit: boole
   screen.className = 'screen room';
   el('p', 'room-hint', screen, '正在进房……');
   online = new Online(code, onlineUi);
+  void clockSkew().then((ms) => (skew = ms));
   paintTop();
 }
 
@@ -476,7 +479,7 @@ async function drawRoomRace(s: OnlineState, fresh: boolean): Promise<void> {
   await race.show(replay ? { ...v, events: [] } : v, roomNames(s, v), {
     fresh: replay,
     thinking: turn?.seats ?? (turn ? [turn.seat] : []),
-    until: turn?.deadline ?? null,
+    until: turn?.deadline ? turn.deadline + skew : null,
   });
   roomOver(s);
 }

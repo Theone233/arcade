@@ -106,12 +106,14 @@ export function begin(key: Entropy, opts: Opts, kinds: ('human' | 'ai')[], perso
     };
     cars.push(car);
   }
+  const fr = stream(key, 'form');
   const s: State = {
     v: RULES_VERSION,
     key: [...key],
     opts: { ...opts },
     kinds: Array.from({ length: n }, (_, i) => kinds[i] ?? 'ai'),
     personas: Array.from({ length: n }, (_, i) => personas[i] ?? -1),
+    form: Array.from({ length: n }, () => [fr.below(201) - 100, fr.below(201) - 100, fr.below(1_000_000_000)]),
     round: 0,
     phase: 'plan',
     cars,
