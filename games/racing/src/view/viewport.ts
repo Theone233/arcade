@@ -3,13 +3,13 @@
  * - 高度不用 100vh：CSS 先写 100vh → 100dvh，再由这里按 visualViewport（没有就 innerHeight）写 --app-h；
  *   转屏、收放地址栏后重算，转屏后过一会儿再补算一次（iOS 转屏时第一次拿到的尺寸常常是旧的）；
  * - 双指放大时（visualViewport.scale 明显不是 1）不改尺寸、不重排，缩回 1 倍再说；
- * - 舞台是设计尺寸（横屏 1000×560、竖屏 560×1000），按看得见的区域等比缩放，safe-area 由 CSS 让出来；
- *   竖屏的高度跟着屏幕比例在 860–1000 之间变。
+ * - 舞台是设计尺寸（横屏 1000×560、竖屏宽 560），按看得见的区域等比缩放，safe-area 由 CSS 让出来；
+ *   竖屏的高度跟着屏幕比例在 860–1240 之间变（多出来的给赛道）：现在的手机大多比 1:1.8 还细长，原来封顶 1000 时上下各空一条黑边。
  * 赛道是 DOM + SVG，没有画布和 WebGL，"渲染倍数封顶 2""WebGL 上下文丢失"那两条不适用。
  */
 export type Orient = 'land' | 'port';
 
-const STAGE: Record<Orient, { w: number; h: number }> = { land: { w: 1000, h: 560 }, port: { w: 560, h: 1000 } };
+const STAGE: Record<Orient, { w: number; h: number }> = { land: { w: 1000, h: 560 }, port: { w: 560, h: 1240 } };
 const PORT_MIN_H = 860;
 
 export function watchViewport(app: HTMLElement, stage: HTMLElement, onChange: (o: Orient) => void): void {

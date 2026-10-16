@@ -28,7 +28,7 @@
 四边用 `env(safe-area-inset-*, 0px)` 让出刘海；横屏、竖屏各有一套布局。赛道和牌是 DOM + SVG，没有画布和 WebGL，"画布倍数封顶 2""WebGL 上下文丢失"不适用。
 
 ### 素材
-全部由本模块的代码生成，没有图片、音频、字体文件，没有第三方素材，见 [ASSETS.md](ASSETS.md)。
+全部由本模块的代码生成，没有第三方素材：画面是程序画的 SVG，写实的纹理（草坪、沥青、砂石、水面等）由 `scripts/art.ts` 生成成 `public/art/*.webp`；没有音频和字体文件。见 [ASSETS.md](ASSETS.md)。
 
 ## 本地开发
 ```bash
@@ -42,6 +42,7 @@ npm run smoke         # 冒烟：起 vite、无头 Chromium 横屏竖屏各跑�
 npm run sim 200       # 模拟器：电脑对跑，量回合数、打滑、各性格名次（DESIGN.md 5.3）
 node scripts/track.ts --png   # 赛道自查：按形状找弯、和弯道线对一对，截图到 shots/
 node scripts/shots.ts         # PR 用的截图（电脑 1280×720、手机横屏）到 shots/pr-*.png
+node scripts/art.ts           # 重新生成 public/art/ 的写实纹理（ASSETS.md），总览截图在 shots/art.png
 node scripts/tune.ts 40       # 调电脑参数（网格搜索，开发用）
 ```
 
@@ -87,10 +88,10 @@ node scripts/tune.ts 40       # 调电脑参数（网格搜索，开发用）
 | `src/room/` | 好友房的规则：把规则接到 kit 的 `RoomGame` 上（纯函数，房间和页面共用） |
 | `src/game/` | 交流编号（`emotes.ts`）、电脑的互动（`banter.ts`，单机和好友房共用） |
 | `src/solo.ts`、`src/online.ts`、`src/main.ts` | 单机控制器、好友房连接、页面入口 |
-| `src/view/` | 画面（DOM + SVG）：`board.ts` 赛道和车、`dash.ts` 驾驶台、`side.ts` 名次栏、`cards.ts` 卡面、`lobby.ts` 选桌页、`room.ts` 等人页、`comms.ts` 交流，其余见目录 |
+| `src/view/` | 画面（DOM + SVG）：`board.ts` 镜头和走车动画、`scenery.ts` 写实的赛道场景和车、`dash.ts` 驾驶台、`side.ts` 名次栏、`cards.ts` 卡面、`lobby.ts` 选桌页、`room.ts` 等人页、`comms.ts` 交流，其余见目录 |
 | `worker/` | racing Worker：`main.ts` 路由、登录闸门和独立模式、`room.ts` 好友房 DO（电脑的互动在这里发） |
 | `test/` | vitest；`test/worker/` 跑在 workerd 里 |
-| `scripts/` | `sim.ts` 模拟器、`smoke.ts` 冒烟、`track.ts` 赛道自查、`shots.ts` 截图、`tune.ts` 调电脑、`browser.ts` 无头浏览器 |
+| `scripts/` | `sim.ts` 模拟器、`smoke.ts` 冒烟、`drive.ts` 冒烟和截图共用的开车、`track.ts` 赛道自查、`shots.ts` 截图、`art.ts` 生成纹理、`tune.ts` 调电脑、`browser.ts` 无头浏览器 |
 
 ## 许可证
 

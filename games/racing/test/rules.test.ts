@@ -460,6 +460,19 @@ describe('视图', () => {
     }
   });
 
+  it('自己的弃牌堆只在自己的视图里，别人只看得到最上面一张', () => {
+    let s = duel();
+    setCar(s, 0, { pos: 0, hand: [1, 2, 3, 4, 1, 2, 3] });
+    s = plan(s, 0, 1, [0], { discard: [1, 2] });
+    s = plan(s, 1, 1, [0]);
+    const mine = view(s, 0).me!.discard;
+    expect(mine.length).toBe(s.cars[0]!.discard.length);
+    expect(mine).toEqual(s.cars[0]!.discard.map((id) => s.cars[0]!.kinds[id]));
+    const theirs = view(s, 1);
+    expect(theirs.cars[0]!.discardTop).toBe(mine.at(-1));
+    expect(JSON.stringify(theirs)).not.toContain(JSON.stringify(mine));
+  });
+
   it('自己的牌堆加弃牌堆的成分对得上', () => {
     const s = begin(keyOf(9), OPTS, ['human', 'human'], []);
     const v = view(s, 0);

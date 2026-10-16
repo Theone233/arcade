@@ -1,7 +1,7 @@
 /**
  * 视图（DESIGN.md 2.6）：按座位过滤，只放这个座位能看到的。
  * 公开：每辆车的位置、挡位（亮牌以后的）、引擎几张、手里几张、牌堆几张、弃牌堆最上面一张、这回合打出和翻出来的、交没交计划。
- * 只给自己：手牌、自己交的计划、自己牌堆加弃牌堆里各种牌还剩几张（顺序不给）。
+ * 只给自己：手牌、自己交的计划、自己牌堆加弃牌堆里各种牌还剩几张（牌堆的顺序不给）、自己的弃牌堆（翻看用）。
  * 谁也不给：牌堆顺序、随机数密钥。
  */
 import { finishLine, racing } from './rules.ts';
@@ -42,6 +42,8 @@ export interface MeView {
   pool: number[];
   /** 自己这一场的状态（State.form），电脑据此浮动 */
   form: number[];
+  /** 自己的弃牌堆（种类，从早到晚）：自己打过、弃过的牌本来就记得住，驾驶台点弃牌区能翻看；别人只看得到最上面一张（discardTop） */
+  discard: number[];
 }
 
 export interface View {
@@ -94,6 +96,7 @@ export function view(s: State, seat: number | null): View {
       plan: c.plan ? structuredClone(c.plan) : null,
       pool,
       form: [...(s.form[seat] ?? [0, 0, 0])],
+      discard: c.discard.map((id) => c.kinds[id]!),
     };
   }
   const cur = s.phase === 'act' && s.ask !== null ? (s.order[s.at] ?? null) : null;

@@ -106,6 +106,13 @@ export interface Geometry {
   edges: { c: Pt; angle: number }[];
   /** 每格的弯曲程度（这一格里方向转了多少弧度，带正负） */
   turn: number[];
+  /** 弧长 s 处的点和行进方向（s 可以是任意实数，按一圈取模） */
+  at(s: number): { c: Pt; angle: number };
+  /**
+   * 沿赛道从第 from 格到第 to 格（可以跨过 0 号格，to < from 时按下一圈算），往左偏 offset（负数往右）的一条折线，每 step 取一个点。
+   * 画路肩、砂石区、轮胎墙、看台用
+   */
+  strip(from: number, to: number, offset: number, step?: number): Pt[];
 }
 
 /** 向心 Catmull-Rom：p1 到 p2 之间的一段，t 从 0 到 1 */
@@ -192,7 +199,18 @@ export function geometry(track: Track): Geometry {
     return d;
   });
   const path = `M${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('L')}Z`;
-  const g: Geometry = { path, length, width: def.width, scene: def.scene, cells, edges, turn };
+  const strip = (from: number, to: number, offset: number, stepPx = 4): Pt[] => {
+    const a = from * step;
+    let b = to * step;
+    if (b <= a) b += length;
+    const out: Pt[] = [];
+    for (let s = a; s <= b + 1e-6; s += stepPx) {
+      const p = at(s);
+      out.push({ x: p.c.x + Math.sin(p.angle) * offset, y: p.c.y - Math.cos(p.angle) * offset });
+    }
+    return out;
+  };
+  const g: Geometry = { path, length, width: def.width, scene: def.scene, cells, edges, turn, at, strip };
   cache.set(track.id, g);
   return g;
 }
