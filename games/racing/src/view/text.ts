@@ -39,7 +39,7 @@ export const MOVE_ERROR: Record<string, string> = {
   stale: '局面变了，按新的来',
 };
 
-/** 好友房的快捷短语（kit emote 编号 0 起，只说比赛不说人） */
+/** 快捷短语（编号 0 起，下标和 game/emotes.ts 的 PHRASE 一致；只说比赛不说人） */
 export const PHRASES: readonly string[] = [
   '让一让！',
   '吸到了！',
@@ -53,4 +53,8 @@ export const PHRASES: readonly string[] = [
   '就差一点！',
   '承让承让',
   '再来一场！',
+  '别吸我尾流！',
+  '哼，下个弯见',
+  '快点出牌呀',
+  '稳住，我们能赢',
 ];

@@ -11,5 +11,7 @@
   改了赛道的形状，跑 `node scripts/track.ts --png` 看弯道线还在不在弯的入口，`test/track.test.ts` 也会查。
 - 隐藏信息：视图只放这个座位能看到的；别人的手牌、任何人的牌堆顺序、密钥一律不下发；交计划时别人只看得到"选好了没有"。
 - 改了电脑、赛道的限速或热量，跑 `npm run sim 200`，结果写进 DESIGN.md 5.3。
+- 互动（DESIGN.md 6.2）：电脑说什么只看公开的事（`src/game/banter.ts`），规则和电脑开车不 import 交流的代码（`test/arch.test.ts`），不把真人的短语记进状态或存储。
+- `wrangler.jsonc` 是独立配置：不写平台绑定和 `GATE`（本站部署时由部署工具补），只用部署配置检查允许的字段（docs/new-game.md 第 4 节）。
 - 浏览器存储的键一律 `racing.` 前缀（DESIGN.md 第 9 节）。
 - 提交信息以 `racing:` 开头，分支 `racing/<说明>`；只暂存明确路径。

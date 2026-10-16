@@ -12,8 +12,9 @@
 - **单机**：对 1–5 台电脑，7 种性格分三档，新手场、普通场、老手场只派本档的电脑，也可以混着来；每个电脑每场的状态有浮动；跑到一半关了页面，回来接着跑（`racing.solo`）。
 - **出牌预览**：选好挡和牌，赛道上画一辆虚影车：停在哪、过哪几个弯、要付几张热量、会不会打滑（手抖按点数范围算）。
 - **预设**：冲刺、尾流、拼劲、弃牌可以出牌时定好，轮到时不用再点。
-- **好友房**：开房给六位房间码或邀请链接，空位电脑补；服务端说了算，不下发别人的手牌和牌堆；掉线托管、中途接管电脑、跑完"再来一场"；短语、表情包、道具，可以屏蔽。
-- **登录闸门**：首页要先在平台登录（`GATE=login`），平台有问题时回本游戏自己的 503 页。
+- **好友房**：开房给六位房间码或邀请链接，空位电脑补；服务端说了算，不下发别人的手牌和牌堆；掉线托管、中途接管电脑、跑完"再来一场"。
+- **互动**（单机和好友房都有）："聊"面板里说一句（可以点名）、表情包、扔道具；电脑按性格主动说话（打滑、吸尾流、超车、冲线），被点名、被扔东西会回，单机里你想太久它会催；设置里有总开关和按人屏蔽。电脑开车读不到任何互动。
+- **登录闸门**：本站首页要先在平台登录，平台有问题时回本游戏自己的 503 页；单独部署时没有平台，游客直接玩（见"部署"）。
 - **赛道镜头**：拖动平移、双指或滚轮缩放，一键"跟车"或看全图。
 
 ### 地址参数
@@ -33,7 +34,8 @@
 ```bash
 npm ci
 npm run dev           # 页面（vite，5177），单机直接能玩；平台接口转给 5181；设 RACING_WORKER=<本地 Worker 端口> 把开房、进房转给 Worker
-npm test              # 类型检查 + vitest（规则、赛道、电脑、架构约束、房间规则）+ workerd 里的 Worker 和好友房测试
+npm test              # 类型检查 + vitest（规则、赛道、电脑、互动、架构约束、房间规则）+ workerd 里的 Worker、好友房和独立模式测试
+npm run deploy        # 单独部署到自己的 Cloudflare 账户（独立模式，见"部署"）；本仓库的正式站不用它
 npm run test:worker   # 只跑 workerd 里的那部分（test/worker/，配置 test/wrangler.test.jsonc，平台的 /api/me 用假的服务绑定）
 npm run build:cf      # 页面打包到 dist-cf/games/racing/（Worker 的静态资源）
 npm run smoke         # 冒烟：起 vite、无头 Chromium 横屏竖屏各跑完一场单机，控制台零报错
@@ -43,32 +45,38 @@ node scripts/shots.ts         # PR 用的截图（电脑 1280×720、手机横�
 node scripts/tune.ts 40       # 调电脑参数（网格搜索，开发用）
 ```
 
-依赖仓库里的共用包 `packages/arcade-kit`（`file:` 依赖，只经它的包入口用）。脚本直接用 Node 跑 TypeScript（Node 22 的类型剥离）。
+依赖 npm 上的共用包 `@yyyu-star/arcade-kit`（别名 `arcade-kit`，只经它的包入口用；源码在仓库的 `packages/arcade-kit`）。脚本直接用 Node 跑 TypeScript（Node 22 的类型剥离）。
 截图和冒烟用的无头浏览器：先看环境变量 `CHROME`，没有就在 playwright 的缓存目录里找装了的 chrome-headless-shell（`scripts/browser.ts`）。
 
 ## 部署
 
-飞驰是一个 Cloudflare Worker（名字 `racing`），挂在平台同一个域名的 `/games/racing` 路径下，依赖平台和共用包 `packages/arcade-kit`（`file:` 依赖），所以没有一键部署按钮，
-按仓库根 README 的部署一节用 GitHub Actions 部署：**先部署平台**（Worker 名 `arcade`，服务绑定指向它），再跑本模块的流程。
+飞驰是一个 Cloudflare Worker（名字 `racing`），页面挂在 `/games/racing/` 下。`wrangler.jsonc` 是**独立配置**（docs/new-game.md 第 4、7 节）：不写平台绑定和 `GATE`，
+同一份代码两种部署，由 env 决定（共用包 0.10 的平台模式和独立模式）。
 
-本仓库的正式站由 `.github/workflows/game-racing.yml` 部署：改动经 PR 合并进 `main` 且涉及 `games/racing/**` 或 `packages/arcade-kit/**` 时，先跑模块独立性检查，再 `npm ci`、`npm test`、`build:cf`，
-然后 `wrangler deploy` 并注入路由 `<站点>/games/racing`、`<站点>/games/racing/*` 和变量 `SITE_ORIGIN=https://<站点>`（站点的主机名在 GitHub `production` 环境的 secret `SITE_HOST` 里，没设就失败）；
-PR 上只测试不部署。路由不写在 `wrangler.jsonc` 里；`workers_dev` 关着，没有路由时外面访问不到。在本仓库里不对正式环境手动部署。
+**单独部署（不要平台）**：依赖的是 npm 上的共用包（`"arcade-kit": "npm:@yyyu-star/arcade-kit@^0.10.1"`），所以这个目录可以单独拿走：
 
-本模块要的绑定、变量和 secret：
+- Deploy to Cloudflare 按钮：`https://deploy.workers.cloudflare.com/?url=https://github.com/yyyu-star/arcade/tree/main/games/racing`；
+- 或者在本目录 `npm ci && npx wrangler login && npm run deploy`。
+
+部署完得到 `https://racing.<你的子域>.workers.dev`，打开后转到 `/games/racing/`。独立模式下任何人打开就能玩（身份是游客 cookie），
+单机和好友房都有；没有登录和平台大厅，"大厅"变成回游戏首页，选桌页多一个昵称输入框（开房、进房时带上，服务端会清洗，不许冒充电脑）。
+
+**本站正式部署**：维护者的部署工具按 `tools/workers.json` 在这份配置上补平台绑定 `ARCADE`、`GATE=login`、路由 `<站点>/games/racing`、`<站点>/games/racing/*` 和 `SITE_ORIGIN`，
+并关掉 `workers_dev`；部署流程 `.github/workflows/game-racing.yml` 由维护者按仓库的模板加。在本仓库里不对正式环境手动部署。
+
+本模块要的绑定和变量：
 
 | 名字 | 类型 | 说明 |
 |---|---|---|
 | `ASSETS` | 静态资源 | `dist-cf/`，由 `npm run build:cf` 生成 |
 | `ROOM` | Durable Object `RacingRoom` | 好友房 |
 | `METER` | Durable Object `RoomMeter` | kit 的每日额度计量 |
-| `ARCADE` | 服务绑定 → `arcade` | 登录闸门和认人，问平台 `/api/me` |
-| `GATE` | 变量 | `login`（没登录跳平台登录页）或 `off`（不拦，本地试页面用） |
 | `KIT_QUOTA` | 变量 | 每天的写入预算和每人开房数（DESIGN.md 6.1） |
-| `SITE_ORIGIN` | 变量（可选，部署时注入） | 开房、进房只认这个 Origin；没设就认请求自己的 origin |
-| `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`SITE_HOST` | GitHub `production` 环境的 secret | 部署流程用，不进 Worker |
+| `ARCADE` | 服务绑定 → `arcade`（本站部署时补） | 登录闸门和认人，问平台 `/api/me`；没有就是独立模式 |
+| `GATE` | 变量（本站部署时补成 `login`） | 没登录跳平台登录页 |
+| `SITE_ORIGIN` | 变量（本站部署时注入） | 开房、进房只认这个 Origin；没设就认请求自己的 origin |
 
-需要拆成单独仓库时，在仓库根运行 `tools/split-module.sh games/racing`。
+只认人，不用钱包（娱乐模式，DESIGN.md 第 7 节）。需要拆成单独仓库时，在仓库根运行 `tools/split-module.sh games/racing`。
 
 ## 目录结构
 | 路径 | 内容 |
@@ -77,10 +85,10 @@ PR 上只测试不部署。路由不写在 `wrangler.jsonc` 里；`workers_dev` 
 | `src/track/` | 赛道：`fixed.ts` 规则用的数据、`index.ts` 按 id 找、`shape.ts` 画法（只给画面层） |
 | `src/ai/` | 电脑（只拿视图）：`index.ts` 决定、`personas.ts` 7 种性格（分三档） |
 | `src/room/` | 好友房的规则：把规则接到 kit 的 `RoomGame` 上（纯函数，房间和页面共用） |
-| `src/game/` | 交流编号（短语、表情、道具） |
+| `src/game/` | 交流编号（`emotes.ts`）、电脑的互动（`banter.ts`，单机和好友房共用） |
 | `src/solo.ts`、`src/online.ts`、`src/main.ts` | 单机控制器、好友房连接、页面入口 |
 | `src/view/` | 画面（DOM + SVG）：`board.ts` 赛道和车、`dash.ts` 驾驶台、`side.ts` 名次栏、`cards.ts` 卡面、`lobby.ts` 选桌页、`room.ts` 等人页、`comms.ts` 交流，其余见目录 |
-| `worker/` | racing Worker：`main.ts` 路由和登录闸门、`room.ts` 好友房 DO |
+| `worker/` | racing Worker：`main.ts` 路由、登录闸门和独立模式、`room.ts` 好友房 DO（电脑的互动在这里发） |
 | `test/` | vitest；`test/worker/` 跑在 workerd 里 |
 | `scripts/` | `sim.ts` 模拟器、`smoke.ts` 冒烟、`track.ts` 赛道自查、`shots.ts` 截图、`tune.ts` 调电脑、`browser.ts` 无头浏览器 |
 

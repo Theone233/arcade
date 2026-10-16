@@ -12,6 +12,8 @@ export interface LobbyHooks {
   canResume: boolean;
   /** 从平台大厅"好友房"进来：把开房、进房摆在最前面 */
   friends: boolean;
+  /** 独立部署（没有平台账号）时的昵称输入；平台模式是 null */
+  nickname: { value: string; onChange(name: string): void } | null;
   onSolo(o: Opts): void;
   onResume(): void;
   onRoom(o: Opts): void;
@@ -87,6 +89,16 @@ export function renderLobby(parent: HTMLElement, h: LobbyHooks): void {
   const acts = el('div', 'lobby-acts', wrap);
   if (h.canResume) button('act soft', acts, '接着上一场', h.onResume);
   button('act go', acts, '单机开跑', () => h.onSolo({ ...o }));
+  if (h.nickname) {
+    const nick = h.nickname;
+    const r = el('div', 'opt-row', opts);
+    el('span', 'lbl', r, '昵称');
+    const name = el('input', 'nick', r);
+    name.placeholder = '不填就叫"游客"';
+    name.maxLength = 12;
+    name.value = nick.value;
+    name.addEventListener('change', () => nick.onChange(name.value));
+  }
   const friends = el('div', `friends${h.friends ? ' hot' : ''}`, wrap);
   button('act go', friends, '开好友房', () => h.onRoom({ ...o }));
   const input = el('input', 'code', friends);

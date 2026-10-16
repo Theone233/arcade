@@ -1,7 +1,8 @@
 /**
  * 冒烟（AGENTS.md 第 4 节"每个游戏一个无头浏览器冒烟"）：起 vite 开发服务器（系统分配端口），单机跑完一整场（?turbo 动画和电脑不停顿），
  * 横屏、竖屏各一遍；检查控制台零报错、结算出来、比赛中点"大厅"先确认、"跟车"和"全图"能点。
- * 资源：开发时平台接口没起，只放过 /api/ 下的 502、504；别的请求失败或 4xx、5xx（比如资源 404）都算失败。
+ * 资源：开发时平台接口没起，只放过 /api/ 下的 502、504 和超时掐断；别的请求失败或 4xx、5xx（比如资源 404）都算失败。
+ * 横屏那一遍还点一遍"聊"：点名电脑说一句、冲它扔番茄、按人屏蔽、关掉再打开总开关。
  * 手机：竖屏那一遍按手机模拟（触屏、像素比 3、CPU 降速 4 倍当省内存设备）；横屏那一遍模拟一次双指放大（visualViewport.scale = 2 时舞台不能重排）。
  * 我这辆车：挂 2–3 挡、出最小的牌（稳着开）；问冲刺、拼劲、尾流一律"不了"，问弃牌"不弃"。
  * 用法：npm run smoke。截图在 shots/smoke-*.png。
@@ -64,7 +65,10 @@ for (const [name, viewport] of [
   page.on('response', (r) => {
     if (r.status() >= 400 && !isApi(r.url(), r.status())) errors.push(`${r.status()} ${new URL(r.url()).pathname}`);
   });
-  page.on('requestfailed', (r) => errors.push(`请求失败 ${new URL(r.url()).pathname}：${r.failure()?.errorText ?? ''}`));
+  // 平台的 /api/ 在本地没起：detectPlatform 等不到会自己掐断（ERR_ABORTED），和 502、504 一样放过；别的请求失败都算
+  page.on('requestfailed', (r) => {
+    if (!new URL(r.url()).pathname.startsWith('/api/')) errors.push(`请求失败 ${new URL(r.url()).pathname}：${r.failure()?.errorText ?? ''}`);
+  });
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     // 加载失败的资源由上面的 response 逐条核对（浏览器这条消息不带地址），这里不重复记
@@ -99,6 +103,26 @@ for (const [name, viewport] of [
     await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     await page.waitForTimeout(600);
+  }
+  if (name === 'land') {
+    // 单机的"聊"：点名一辆电脑说一句（气泡带 @名字）、冲它扔番茄、设置里屏蔽它、关掉再打开总开关
+    await page.click('.comms-btn');
+    await page.click('.comms-who .chip:nth-of-type(2)');
+    await page.click('.comms-body .phrase >> nth=0');
+    await page.waitForSelector('.standings .row .bubble:has-text("@")');
+    await page.click('.comms-btn');
+    await page.click('.comms-tabs .chip:has-text("道具")');
+    await page.click('.comms-body .pic >> nth=0');
+    await page.click('.comms-body .act >> nth=0');
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `${root}shots/smoke-${name}-comms.png` });
+    await page.click('.comms-btn');
+    await page.click('.comms-tabs .chip:has-text("设置")');
+    await page.click('.comms-set >> nth=2 >> .chip');
+    await page.click('.comms-set >> nth=0 >> .chip');
+    if (!(await page.$('.comms.off'))) errors.push('关了总开关，"聊"按钮没变灰');
+    await page.click('.comms-set >> nth=0 >> .chip');
+    await page.click('.comms-btn');
   }
   // 比赛中点"大厅"：先问一次，点"接着跑"留下
   await page.click('.topbar .home');

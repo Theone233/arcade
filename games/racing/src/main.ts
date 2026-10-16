@@ -4,9 +4,11 @@
  */
 import { PERSONAS } from './ai/personas.ts';
 import { DEFAULT_OPTS, checkOpts } from './core/rules.ts';
+import { Banter, factsOf, react, reply, snapOf, urge, type Snap, type Talk } from './game/banter.ts';
 import type { Action, Ev, Opts, Plan } from './core/types.ts';
 import type { View } from './core/view.ts';
-import { clockSkew, createError, createRoom, Online, type OnlineState } from './online.ts';
+import { detectPlatform } from 'arcade-kit/client';
+import { clockSkew, createError, createRoom, Online, setNickname, type OnlineState } from './online.ts';
 import { clearSolo, loadSolo, ME, newSolo, Solo } from './solo.ts';
 import { getTrack } from './track/index.ts';
 import { Board } from './view/board.ts';
@@ -104,13 +106,44 @@ watchViewport(app, stage, () => {});
 document.addEventListener('pointerdown', unlockAudio, { capture: true });
 
 let myName = '我';
+/**
+ * 独立部署（没有平台，kit 的 detectPlatform 说 platform: false）：没有登录和大厅，"大厅"改成回游戏首页；
+ * 昵称是自己在选桌页填的（存 racing.name，地址上的 ?name= 优先），开房、进房时带上。平台连不上（unknown）按有平台处理
+ */
+let standalone = false;
+const NAME_KEY = 'racing.name';
+let homeUrl = '/';
+
 async function loadMe(): Promise<void> {
+  const p = await detectPlatform();
+  if (p.platform === true) {
+    const u = p.user as { displayName?: string } | null;
+    if (u?.displayName) myName = u.displayName;
+    return;
+  }
+  if (p.platform !== false) return;
+  standalone = true;
+  homeUrl = './';
+  home.href = homeUrl;
+  home.querySelector('span')!.textContent = '首页';
+  let name = new URLSearchParams(location.search).get('name');
   try {
-    const r = await fetch('/api/me', { credentials: 'same-origin' });
-    const b = (await r.json()) as { user?: { displayName?: string } | null };
-    if (b.user?.displayName) myName = b.user.displayName;
+    name ??= localStorage.getItem(NAME_KEY);
   } catch {
-    // 没登录（开发时）就叫"我"
+    // 读不到就没有
+  }
+  setGuestName(name);
+}
+
+function setGuestName(name: string | null): void {
+  const n = name?.trim().slice(0, 12) || null;
+  myName = n ?? '我';
+  setNickname(n);
+  try {
+    if (n) localStorage.setItem(NAME_KEY, n);
+    else localStorage.removeItem(NAME_KEY);
+  } catch {
+    // 存不上就这一次有效
   }
 }
 
@@ -175,7 +208,6 @@ class RaceUi {
         else if (SFX[e.e]) play(SFX[e.e]!);
       }
       await this.board.play(v.events);
-      this.chatter(v, names);
     }
     this.board.setCars(
       v.cars.map((c) => ({ seat: c.seat, pos: c.pos, lane: c.lane, out: c.rank !== null })),
@@ -191,30 +223,58 @@ class RaceUi {
     }
     this.prompted = mine;
   }
-
-  /** 电脑的台词：只由公开的事触发 */
-  private chatter(v: View, names: SeatName[]): void {
-    for (const e of v.events) {
-      let pool: string[] | undefined;
-      const seat = 'seat' in e ? e.seat : -1;
-      const p = PERSONAS[v.cars[seat]?.persona ?? -1];
-      if (!p || !names[seat]?.bot) continue;
-      if (e.e === 'spin') pool = p.lines.spin;
-      else if (e.e === 'finish') pool = p.lines.finish;
-      else if (e.e === 'move' && e.why === 'slip') pool = p.lines.slip;
-      else if (e.e === 'move' && e.why === 'cards' && e.to - e.from >= 12) pool = p.lines.pass;
-      if (!pool || Math.random() > 0.5) continue;
-      const text = pool[Math.floor(Math.random() * pool.length)]!;
-      window.setTimeout(() => bubble(this.rowEl(seat), text), 200);
-    }
-  }
 }
 
-function bubble(row: HTMLElement | null, text: string): void {
-  if (!row) return;
-  row.querySelector('.bubble')?.remove();
-  const b = el('div', 'bubble', row, text);
-  window.setTimeout(() => b.remove(), 2_600);
+/**
+ * 单机里电脑的互动（game/banter.ts，DESIGN.md 6.2）：每一步放完动画，按公开快照的变化让电脑说一句；
+ * 我冲哪个电脑扔道具、点名说话，它按脾气回；我出牌想了 15 秒还没出，话最多的电脑催一下（每回合一次，只有画面和声音，单机本来不限时）。
+ * 好友房里这些由房间发（worker/room.ts），页面不自己算。
+ */
+const URGE_MS = 15_000;
+
+class SoloTalk {
+  private prev: Snap[] | null = null;
+  private readonly banter = new Banter();
+  private urgeTimer = 0;
+  private urgedRound = -1;
+  private readonly comms: Comms;
+
+  constructor(comms: Comms) {
+    this.comms = comms;
+  }
+
+  destroy(): void {
+    window.clearTimeout(this.urgeTimer);
+  }
+
+  private say(t: Talk, delay: number): void {
+    if (!this.banter.pass(t, Date.now())) return;
+    window.setTimeout(() => this.comms.receive(t.seat, t.id, t.to), TURBO ? 0 : delay);
+  }
+
+  step(v: View): void {
+    const cur = snapOf(v.cars);
+    react(factsOf(this.prev, cur), cur, (seat) => seat !== ME, v.n).forEach((t, i) => this.say(t, 300 + 700 * i));
+    this.prev = cur;
+    window.clearTimeout(this.urgeTimer);
+    const waiting = v.phase === 'plan' && !!v.me && !v.me.plan && v.cars[ME]!.rank === null;
+    if (waiting && this.urgedRound !== v.round) {
+      const round = v.round;
+      this.urgeTimer = window.setTimeout(() => {
+        const t = urge(cur, ME);
+        this.urgedRound = round;
+        if (t) this.say(t, 0);
+      }, URGE_MS);
+    }
+  }
+
+  /** 我发的：先自己显示，冲着电脑的等一会儿它回 */
+  heard(id: number, to?: number): void {
+    this.comms.receive(ME, id, to);
+    if (to === undefined || to === ME) return;
+    const t = reply(to, this.prev?.[to]?.persona ?? -1, ME, id, (this.prev?.length ?? 0) * 7919 + id * 31 + to + Date.now());
+    if (t) this.say(t, 900);
+  }
 }
 
 function speedOf(): number {
@@ -231,6 +291,8 @@ let race: RaceUi | null = null;
 function clearScreen(): void {
   race?.destroy();
   race = null;
+  soloTalk?.destroy();
+  soloTalk = null;
   comms?.destroy();
   comms = null;
   closeDialog();
@@ -255,6 +317,7 @@ function lobby(friends = false): void {
   screen.className = 'screen lobby';
   renderLobby(screen, {
     opts: prefs.opts,
+    nickname: standalone ? { value: myName === '我' ? '' : myName, onChange: setGuestName } : null,
     canResume: loadSolo() !== null,
     friends,
     onSolo: (o) => startSolo(o),
@@ -285,6 +348,7 @@ const soloUi = {
   async frame(v: View): Promise<void> {
     if (!race) return;
     await race.show(v, soloNames(), { fresh: false, thinking: [], until: null });
+    soloTalk?.step(v);
   },
   over(v: View): void {
     window.setTimeout(() => showResult(v, soloNames(), [
@@ -306,6 +370,19 @@ function playSolo(s: Solo): void {
     plan: (p) => void act({ t: 'plan', ...p }),
     answer: (a) => void act(a),
   });
+  const r = race;
+  comms = new Comms(
+    screen,
+    {
+      me: () => ME,
+      rowEl: (seat) => r.rowEl(seat),
+      name: (seat) => soloNames()[seat]?.name ?? `${seat + 1} 号`,
+      occupied: (seat) => seat < o.cars,
+      seats: () => o.cars,
+    },
+    (id, to) => soloTalk?.heard(id, to),
+  );
+  soloTalk = new SoloTalk(comms);
   applySpeed();
   void s.resume();
 }
@@ -352,6 +429,7 @@ let online: Online | null = null;
 let hosting = false;
 let shownN = -1;
 let comms: Comms | null = null;
+let soloTalk: SoloTalk | null = null;
 /** 本地时钟比服务端快多少（进房时量一次，online.ts 的 clockSkew） */
 let skew = 0;
 let arrive: { seat: number; sit: boolean } | null = null;
@@ -552,14 +630,14 @@ home.addEventListener('click', (e) => {
   if (online) {
     e.preventDefault();
     void leaveRoom().then(() => {
-      if (!online) location.href = '/';
+      if (!online) location.href = homeUrl;
     });
     return;
   }
   if (!solo || solo.save.state.phase === 'over') return;
   e.preventDefault();
   void confirmBox(stage, '这一场还没跑完，存着下次接着跑。回大厅吗？', '回大厅', '接着跑').then((ok) => {
-    if (ok) location.href = '/';
+    if (ok) location.href = homeUrl;
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * Worker 和好友房跑在本地 workerd 里（DESIGN.md 第 6 节）：真的房间 DO（kit）、kit 的计量、假的平台 /api/me。
- * 登录闸门、开房选项校验；两个真人加两台电脑跑完一整场：每一步写入 ≤ 2 行、视图里没有别人的手牌和密钥；跑完"再来一场"。
+ * 登录闸门、开房选项校验；两个真人加两台电脑跑完一整场：每一步写入 ≤ 2 行、视图里没有别人的手牌和密钥、电脑会发表情；跑完"再来一场"。
  */
 import { runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
@@ -160,6 +160,13 @@ describe('开房', () => {
     const { max, persist } = await inspect(code);
     expect(max).toBeLessThanOrEqual(2);
     expect(persist!.game.g.finished.length).toBe(4);
+    // 电脑会互动（房间的 onStep + botEmote）：只有电脑座位（1、3）发，带 bot 标记，不写存储（上面的 ≤ 2 行照样成立）
+    const bots = ca.msgs.filter((m) => (m as { t: string }).t === 'emote') as unknown as { seat: number; id: number; bot?: boolean }[];
+    expect(bots.length).toBeGreaterThan(0);
+    for (const b of bots) {
+      expect(b.bot).toBe(true);
+      expect([1, 3]).toContain(b.seat);
+    }
     // 跑完：房间停着等"再来一场"
     await ca.until((m) => m.t === 'state' && !!m.room.pause);
     const id = 'next';

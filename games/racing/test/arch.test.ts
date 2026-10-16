@@ -36,6 +36,14 @@ describe('分层', () => {
     }
   });
 
+  it('规则核心和电脑开车不碰交流：读不到任何短语、表情（DESIGN.md 6.2 的公平底线）', () => {
+    for (const f of [...files('src/core'), ...files('src/ai')]) {
+      const src = readFileSync(join(root, f), 'utf8');
+      expect(src, f).not.toMatch(/from '.*\/game\/(banter|emotes)(\.ts)?'/);
+      expect(src, f).not.toMatch(/from '.*comms(\.ts)?'/);
+    }
+  });
+
   it('电脑只看视图：不用状态类型', () => {
     for (const f of files('src/ai')) {
       const src = readFileSync(join(root, f), 'utf8');

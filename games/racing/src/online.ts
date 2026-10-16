@@ -4,13 +4,19 @@
  * 电脑接着出的几手是几帧，按顺序一帧一帧播（页面播完赛道上的动画再播下一帧）；落下太多（切回前台、重连）就不播了，直接摆最新的。
  * 房间码只在地址栏（?room=123456）：刷新原样回到房间，不另存。
  */
-import { closeText, createRoom as kitCreate, createText, RoomClient, type ClientStatus } from 'arcade-kit/client';
+import { closeText, createRoom as kitCreate, createText, RoomClient, withNickname, type ClientStatus } from 'arcade-kit/client';
 import type { DownMsg, RoomInfo, You } from 'arcade-kit/protocol';
 import type { Action } from './core/types.ts';
 import type { RoomAction, RoomOpts, RoomView } from './room/rules.ts';
 import { MOVE_ERROR } from './view/text.ts';
 
 export const CLIENT_VERSION = 1;
+
+/** 独立部署（没有平台）时开房、进房带的昵称（kit 的 withNickname，服务端会清洗）；平台模式是 null，名字用平台账号的 */
+let nickname: string | null = null;
+export function setNickname(name: string | null): void {
+  nickname = name;
+}
 const MAX_BACKLOG = 8;
 
 export interface OnlineState {
@@ -36,6 +42,8 @@ export class Online {
   private readonly queue: { view: RoomView | null; fresh: boolean }[] = [];
   private playing = false;
   private closed = false;
+  /** 电脑由房间发的表情（bot）：房间推帧时马上到，页面却还在放这一批的走车动画，等放完再显示，免得车还没过弯就先得意上了 */
+  private readonly held: [number, number, number | undefined][] = [];
 
   private readonly ui: OnlineUi;
 
@@ -47,7 +55,10 @@ export class Online {
       clientVersion: CLIENT_VERSION,
       onMessage: (m) => this.onMessage(m),
       onStatus: (st, c, reason) => this.onStatus(st, c, reason),
-      onEmote: (seat, id, to) => this.ui.emote(seat, id, to),
+      onEmote: (seat, id, to, bot) => {
+        if (bot && this.playing) this.held.push([seat, id, to]);
+        else this.ui.emote(seat, id, to);
+      },
     });
   }
 
@@ -111,6 +122,7 @@ export class Online {
       this.playing = false;
     }
     if (!this.closed) await this.ui.draw(this.s, false);
+    for (const [seat, id, to] of this.held.splice(0)) if (!this.closed) this.ui.emote(seat, id, to);
   }
 
   private onStatus(st: ClientStatus, code?: number, reason?: string): void {
@@ -126,11 +138,11 @@ function roomUrl(code: string): string {
   const u = new URL(`rooms/${code}/ws`, location.href);
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
   u.search = '';
-  return u.toString();
+  return withNickname(u.toString(), nickname);
 }
 
 export async function createRoom(opts: RoomOpts): Promise<{ code: string } | { error: string }> {
-  return kitCreate('rooms', opts);
+  return kitCreate(withNickname('rooms', nickname), opts);
 }
 
 export const createError = (e: string): string => createText(e);
