@@ -31,6 +31,9 @@ docs/       design.md 设计、rules.md 规则核实、core-api.md 接口、stak
   `tsconfig.core.json` 只给 ES 库，误用浏览器全局会编译失败。
 - 状态是纯 JSON（牌是 0..107 的整数），`dispatch` 不修改传入的状态。同一种子 + 同一串动作必须逐位相同（`tests/game.test.ts` 回放测试）。
 - 电脑只能读 `viewFor(state, seat)`，不能碰 `GameState`；`viewFor` 不得包含别人的手牌（防泄漏测试）。联机时下发的也是它。
+  给电脑的随机种子、"这一场"的种子一律按用途派生（单机 `session.ts` 的 `soloSeeds`，房间 `rules.ts` 的 `aiSeed`、`formSeed`），不给牌局种子或密钥本身——
+  拿着它就能重算发牌（0.8.1 AI 公平审计）。守着的测试：`tests/ai.test.ts` 的反事实测试（单机和房间两条路径 0 不一致，外加阳性对照）、
+  `tests/architecture.test.ts`（`src/ai` 不引用 `GameState`、不出现 `'deal'`/`'firstLead'`）。README"电脑不看牌"一节是给外人看的版本。
 - 联机用的核心接口（`timeoutAction`、`previewNext`、规则版本、`SeatAction`/`TableAction`）见 `docs/core-api.md` 5.1，测试在 `tests/online.test.ts`。
   改了会影响牌局结果的规则要加 `RULES_VERSION`，并让旧版本的牌局能按旧规则打完。
 - 规则有出入的点先查 `docs/rules.md`；改规则要同步改该文档、`docs/core-api.md` 和测试，地方差异做成 `options.ts` 开关。
@@ -62,7 +65,7 @@ docs/       design.md 设计、rules.md 规则核实、core-api.md 接口、stak
 - 两种部署（0.8.0，kit 0.10 的独立模式，由 env 决定）：`wrangler.jsonc` 是独立配置，不写 `ARCADE`、`WALLET`、`GATE`；本站部署时部署工具（`tools/deployer`）按 `tools/workers.json` 补上平台绑定和 `GATE=login`。
   没有 `ARCADE`、`GATE` 也不是 login 就是单独部署：`gate.ts` 先调 `standaloneRoot`（站点根转到 `/games/guandan/`），`loginGate`、`acceptCreate`、`acceptJoin` 传同一个 `GUEST`（昵称不许含三个电脑的名字，`tests/gate.test.ts` 和画面上的名字核对），
   没有 `WALLET` 时单机实盘接口和实盘房间回 409 `no_wallet`、房间的 `perform` 兜底拒绝。页面在 `src/view/platform.ts`：启动时 kit 的 `detectPlatform` 问一次 `/api/me`（`main.ts` 和 `BootScene` 等它），
-  404 是单独部署——不摆实盘和云存档、"开始"不选模式、"大厅"变"首页"回 `./`、`currentUserId` 回固定的游客（同一个浏览器就是同一个游客）、好友房面板填昵称（`guandan.nick`）并用 `withNickname` 带在开房、进房地址上；
+  回 `{ standalone: true }`（单独部署时 kit 0.10.2 的 `standaloneRoot` 接住 `/api/me`，所以 `run_worker_first` 里有它）或 404 是单独部署——不摆实盘和云存档、"开始"不选模式、"大厅"变"首页"回 `./`、`currentUserId` 回固定的游客（同一个浏览器就是同一个游客）、好友房面板填昵称（`guandan.nick`）并用 `withNickname` 带在开房、进房地址上；
   5xx、超时按有平台处理。本地：`npm run online-dev`（和 online/stake/quota 冒烟）写一份补了平台绑定的派生配置连假平台；`npm run standalone-smoke` 原样用 `wrangler.jsonc`。
 - 登录闸门（`worker/gate.ts`，0.1.4 起；0.6.5 起用 arcade-kit 的 `loginGate`）：线上只有三个首页路径（`wrangler.jsonc` 的 `assets.run_worker_first`）先进 Worker，js、图片照旧直接走静态资源。
   变量 `GATE`：`"off"` 原样放行；其他值（包括没配）都要登录：没带平台会话 cookie 的直接 302，带了的经服务绑定 `ARCADE` 问平台 `/api/me`（地址按请求的 origin 拼）。
