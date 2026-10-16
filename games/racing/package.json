@@ -1,0 +1,32 @@
+{
+  "name": "racing",
+  "private": true,
+  "license": "MIT",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "飞驰：回合制卡牌赛车，换挡出牌、热量、过弯限速、尾流；单机对电脑和好友房",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:cf": "tsc --noEmit && vite build --outDir dist-cf/games/racing --emptyOutDir",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/worker",
+    "test:worker": "vitest run -c vitest.worker.config.ts",
+    "test": "npm run typecheck && vitest run && vitest run -c vitest.worker.config.ts",
+    "sim": "node scripts/sim.ts",
+    "smoke": "node scripts/smoke.ts"
+  },
+  "dependencies": {
+    "arcade-kit": "file:../../packages/arcade-kit"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.2",
+    "@cloudflare/workers-types": "^5.20261015.1",
+    "@types/node": "^22.0.0",
+    "playwright-core": "1.58.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4",
+    "wrangler": "^4.151.0"
+  }
+}

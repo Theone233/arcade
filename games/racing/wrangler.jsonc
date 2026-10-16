@@ -1,0 +1,33 @@
+// racing Worker 正式配置（DESIGN.md 第 6 节）：页面 + 登录闸门 + 好友房。
+// 部署只走 .github/workflows/game-racing.yml（main 上经 PR 合并的提交）：先 npm run build:cf 把页面打到 dist-cf/games/racing/，再 wrangler deploy。
+// 路由（<站点>/games/racing 和 <站点>/games/racing/*）和 SITE_ORIGIN 不写在这里，由部署时注入，见 README 的部署一节；workers_dev 关着，没有路由时外面访问不到。
+{
+  "name": "racing",
+  "main": "worker/main.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist-cf",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    // 只有这些先过 Worker：首页（登录闸门）、开房进房；其余静态资源直接回
+    "run_worker_first": ["/games/racing", "/games/racing/", "/games/racing/index.html", "/games/racing/rooms", "/games/racing/rooms/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "RacingRoom" },
+      { "name": "METER", "class_name": "RoomMeter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RacingRoom", "RoomMeter"] }],
+  "services": [
+    // 认人（/api/me）
+    { "binding": "ARCADE", "service": "arcade" }
+  ],
+  "vars": {
+    "GATE": "login",
+    // 每天的 DO 写入预算（DESIGN.md 6.1，一房一场约 300 行）：到 busy 不开新房，到 stop 收场。数要维护者同意
+    "KIT_QUOTA": { "busyWrites": 3000, "stopWrites": 4000, "roomsPerUser": 5, "dailyRoomsPerUser": 100 }
+  }
+}

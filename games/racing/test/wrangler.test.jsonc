@@ -1,0 +1,18 @@
+// 只给 Worker 和好友房的测试用（vitest.worker.config.ts）。正式配置见 wrangler.jsonc，这份是测试专用，不部署。
+{
+  "name": "racing-test",
+  "main": "./worker/entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./assets", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "RacingRoom" },
+      { "name": "METER", "class_name": "RoomMeter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RacingRoom", "RoomMeter"] }],
+  "vars": {
+    "GATE": "login",
+    "KIT_QUOTA": { "busyWrites": 3000, "stopWrites": 4000 }
+  }
+}
