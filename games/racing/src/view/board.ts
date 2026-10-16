@@ -6,7 +6,8 @@
 import { cellOf, geometry, type Geometry, type Pt } from '../track/shape.ts';
 import type { Track } from '../track/types.ts';
 import type { Ev } from '../core/types.ts';
-import { CAR_COLORS } from './text.ts';
+import { flameSvg } from './cards.ts';
+import { carMarkup, drawDefs, drawWorld } from './scenery.ts';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -35,6 +36,29 @@ interface CarGlyph {
   angle: number;
 }
 
+/** 纹理文件 → data URL（烘焙位图时内联进 SVG；同一个页面只读一次） */
+const textureCache = new Map<string, Promise<string>>();
+async function textures(src: string): Promise<[string, string][]> {
+  const hrefs = [...new Set([...src.matchAll(/href="(art\/[a-z]+\.webp)"/g)].map((m) => m[1]!))];
+  return Promise.all(
+    hrefs.map(async (href): Promise<[string, string]> => {
+      let p = textureCache.get(href);
+      if (!p) {
+        p = fetch(href)
+          .then((r) => r.blob())
+          .then((b) => new Promise<string>((ok, bad) => {
+            const fr = new FileReader();
+            fr.onload = () => ok(String(fr.result));
+            fr.onerror = bad;
+            fr.readAsDataURL(b);
+          }));
+        textureCache.set(href, p);
+      }
+      return [href, await p];
+    }),
+  );
+}
+
 const reduceMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 function wait(ms: number): Promise<void> {
@@ -45,6 +69,7 @@ export class Board {
   readonly root: HTMLElement;
   private readonly svg: SVGSVGElement;
   private readonly world: SVGGElement;
+  private readonly scenery: SVGGElement;
   private readonly carLayer: SVGGElement;
   private readonly fxLayer: SVGGElement;
   private readonly ghost: SVGGElement;
@@ -67,19 +92,23 @@ export class Board {
     this.root.className = 'board';
     parent.appendChild(this.root);
     this.svg = svgEl('svg', { class: 'board-svg', preserveAspectRatio: 'xMidYMid meet' }, this.root);
+    drawDefs(this.svg);
     this.world = svgEl('g', {}, this.svg);
-    this.drawScene();
-    this.drawTrack();
+    // 静止的地面、场景、赛道单独一组（开局后烘焙成位图），车、虚影、飘字在它上面
+    this.scenery = svgEl('g', { class: 'scenery' }, this.world);
+    drawWorld(this.scenery, track, this.geo);
     this.ghost = svgEl('g', { class: 'ghost' }, this.world);
     this.carLayer = svgEl('g', { class: 'cars' }, this.world);
     this.fxLayer = svgEl('g', { class: 'fx' }, this.world);
     const xs = this.geo.cells.flatMap((c) => [c.c.x]);
     const ys = this.geo.cells.flatMap((c) => [c.c.y]);
-    const pad = this.geo.width + 30;
+    // 留出弯外的砂石区、轮胎墙和看台
+    const pad = this.geo.width + 70;
     const minX = Math.min(...xs) - pad;
     const minY = Math.min(...ys) - pad;
     this.box = { x: minX, y: minY, w: Math.max(...xs) + pad - minX, h: Math.max(...ys) + pad - minY };
     this.cam = { ...this.box };
+    void this.bake();
     this.applyCam();
     const tools = document.createElement('div');
     tools.className = 'board-tools';
@@ -111,92 +140,6 @@ export class Board {
     this.followBtn.hidden = this.me === null;
   }
 
-  // ---------- 画赛道 ----------
-
-  private drawScene(): void {
-    const g = svgEl('g', { class: `scene ${this.geo.scene}` }, this.world);
-    svgEl('rect', { x: -400, y: -400, width: 1800, height: 1420, class: 'grass' }, g);
-    const cx = this.geo.cells.reduce((a, c) => a + c.c.x, 0) / this.geo.cells.length;
-    const cy = this.geo.cells.reduce((a, c) => a + c.c.y, 0) / this.geo.cells.length;
-    if (this.geo.scene === 'lake') {
-      svgEl('ellipse', { cx: cx - 30, cy: cy + 40, rx: 210, ry: 120, class: 'water' }, g);
-      svgEl('ellipse', { cx: cx - 60, cy: cy + 20, rx: 60, ry: 18, class: 'water-hi' }, g);
-      for (const [x, y] of [
-        [cx + 200, cy - 40],
-        [cx - 260, cy - 60],
-        [cx + 120, cy + 140],
-      ] as [number, number][])
-        this.tree(g, x, y);
-    } else if (this.geo.scene === 'city') {
-      const blocks: [number, number, number, number][] = [
-        [cx - 300, cy - 20, 70, 50],
-        [cx - 210, cy + 60, 50, 70],
-        [cx + 230, cy + 90, 80, 46],
-        [cx + 40, cy - 190, 60, 40],
-        [cx - 40, cy + 170, 90, 40],
-      ];
-      for (const [x, y, w, h] of blocks) {
-        svgEl('rect', { x, y, width: w, height: h, rx: 4, class: 'house' }, g);
-        svgEl('rect', { x: x + 6, y: y + 6, width: w - 12, height: 8, rx: 2, class: 'house-hi' }, g);
-      }
-    } else {
-      svgEl('path', { d: 'M-400 -400H1400V30C1100 0 900 40 600 20S100 30 -400 10Z', class: 'water' }, g);
-      for (let i = 0; i < 5; i++) svgEl('rect', { x: 200 + i * 130, y: -40, width: 14, height: 46, class: 'dock' }, g);
-      svgEl('rect', { x: cx - 300, y: cy + 10, width: 90, height: 34, rx: 3, class: 'box-a' }, g);
-      svgEl('rect', { x: cx - 300, y: cy + 50, width: 90, height: 34, rx: 3, class: 'box-b' }, g);
-      svgEl('rect', { x: cx - 200, y: cy + 50, width: 90, height: 34, rx: 3, class: 'box-c' }, g);
-    }
-  }
-
-  private tree(g: SVGGElement, x: number, y: number): void {
-    svgEl('circle', { cx: x, cy: y, r: 22, class: 'tree' }, g);
-    svgEl('circle', { cx: x - 6, cy: y - 6, r: 9, class: 'tree-hi' }, g);
-  }
-
-  private drawTrack(): void {
-    const geo = this.geo;
-    const t = this.track;
-    const g = svgEl('g', { class: 'track' }, this.world);
-    svgEl('path', { d: geo.path, class: 'kerb', 'stroke-width': geo.width + 12 }, g);
-    svgEl('path', { d: geo.path, class: 'kerb-dash', 'stroke-width': geo.width + 12 }, g);
-    svgEl('path', { d: geo.path, class: 'asphalt', 'stroke-width': geo.width }, g);
-    svgEl('path', { d: geo.path, class: 'midline' }, g);
-    geo.edges.forEach((e, i) => {
-      const nx = Math.sin(e.angle) * (geo.width / 2);
-      const ny = -Math.cos(e.angle) * (geo.width / 2);
-      if (i === 0) {
-        // 起终点：两排黑白格
-        const sq = geo.width / 6;
-        const tx = Math.cos(e.angle);
-        const ty = Math.sin(e.angle);
-        for (let row = 0; row < 2; row++)
-          for (let k = 0; k < 6; k++) {
-            const ox = e.c.x + nx - (nx / (geo.width / 2)) * sq * (k + 0.5) + tx * sq * (row - 0.5);
-            const oy = e.c.y + ny - (ny / (geo.width / 2)) * sq * (k + 0.5) + ty * sq * (row - 0.5);
-            svgEl('rect', { x: ox - sq / 2, y: oy - sq / 2, width: sq, height: sq, class: (k + row) % 2 ? 'chk-b' : 'chk-w', transform: `rotate(${(e.angle * 180) / Math.PI} ${ox} ${oy})` }, g);
-          }
-        return;
-      }
-      svgEl('line', { x1: e.c.x + nx, y1: e.c.y + ny, x2: e.c.x - nx, y2: e.c.y - ny, class: 'cell-line' }, g);
-    });
-    for (const c of t.corners) {
-      const e = geo.edges[c.at]!;
-      const nx = Math.sin(e.angle);
-      const ny = -Math.cos(e.angle);
-      const half = geo.width / 2;
-      svgEl('line', { x1: e.c.x + nx * half, y1: e.c.y + ny * half, x2: e.c.x - nx * half, y2: e.c.y - ny * half, class: 'corner-line' }, g);
-      // 限速牌放在弯的外侧：往后几格转向的反方向
-      let turn = 0;
-      for (let k = 0; k < 5; k++) turn += geo.turn[(c.at + k) % t.spaces]!;
-      const side = turn > 0 ? 1 : -1;
-      const sx = e.c.x + nx * side * (half + 22);
-      const sy = e.c.y + ny * side * (half + 22);
-      svgEl('circle', { cx: sx, cy: sy, r: 15, class: 'limit-sign' }, g);
-      const tx = svgEl('text', { x: sx, y: sy + 6, class: 'limit-text' }, g);
-      tx.textContent = String(c.limit);
-    }
-  }
-
   // ---------- 车 ----------
 
   private spot(pos: number, lane: number): { p: Pt; angle: number } {
@@ -207,15 +150,10 @@ export class Board {
   private glyph(seat: number): CarGlyph {
     let c = this.cars.get(seat);
     if (c) return c;
-    const color = CAR_COLORS[seat % CAR_COLORS.length]!;
     const g = svgEl('g', { class: 'car' }, this.carLayer);
+    svgEl('ellipse', { class: 'halo', cx: 0, cy: 0, rx: 21, ry: 13 }, g);
     const body = svgEl('g', {}, g);
-    svgEl('rect', { x: -12, y: -7, width: 24, height: 14, rx: 4, fill: color.body, stroke: color.dark, 'stroke-width': 1.6 }, body);
-    svgEl('rect', { x: 1, y: -5, width: 6, height: 10, rx: 2, fill: '#cfe8ff', stroke: color.dark, 'stroke-width': 0.8 }, body);
-    svgEl('rect', { x: -11, y: -9, width: 6, height: 3, rx: 1, class: 'tyre' }, body);
-    svgEl('rect', { x: -11, y: 6, width: 6, height: 3, rx: 1, class: 'tyre' }, body);
-    svgEl('rect', { x: 5, y: -9, width: 6, height: 3, rx: 1, class: 'tyre' }, body);
-    svgEl('rect', { x: 5, y: 6, width: 6, height: 3, rx: 1, class: 'tyre' }, body);
+    body.innerHTML = carMarkup(seat);
     c = { g, body, pos: 0, lane: 0, x: 0, y: 0, angle: 0 };
     this.cars.set(seat, c);
     return c;
@@ -250,7 +188,7 @@ export class Board {
     if (pos === null || this.me === null) return;
     const s = this.spot(pos, lane);
     const g = svgEl('g', { class: `ghost-car ${kind}`, transform: `translate(${s.p.x} ${s.p.y}) rotate(${(s.angle * 180) / Math.PI})` }, this.ghost);
-    svgEl('rect', { x: -12, y: -7, width: 24, height: 14, rx: 4 }, g);
+    svgEl('rect', { x: -16, y: -8, width: 32, height: 16, rx: 6 }, g);
   }
 
   // ---------- 动画 ----------
@@ -279,7 +217,7 @@ export class Board {
           break;
         case 'corner':
           if (e.paid > 0) {
-            this.float(e.seat, `热量 −${e.paid}`, 'heat');
+            this.float(e.seat, `−${e.paid}`, 'heat', true);
             if (!fast) await wait(300 * this.speed);
           }
           break;
@@ -348,20 +286,23 @@ export class Board {
   private trail(c: CarGlyph, kind: 'flame' | 'wind', ms: number): void {
     const g = svgEl('g', { class: `trail ${kind}` }, c.g);
     if (kind === 'flame') {
-      svgEl('path', { d: 'M-12 -4L-26 0L-12 4Z' }, g);
-      svgEl('path', { d: 'M-12 -2L-20 0L-12 2Z', class: 'core' }, g);
+      svgEl('path', { d: 'M-16 -4L-32 0L-16 4Z' }, g);
+      svgEl('path', { d: 'M-16 -2L-25 0L-16 2Z', class: 'core' }, g);
     } else {
-      for (const y of [-9, 0, 9]) svgEl('line', { x1: -16, y1: y, x2: -34, y2: y }, g);
+      for (const y of [-9, 0, 9]) svgEl('line', { x1: -20, y1: y, x2: -40, y2: y }, g);
     }
     window.setTimeout(() => g.remove(), ms + 250);
   }
 
   /** 车上方冒一行字往上飘 */
-  private float(seat: number, text: string, kind: string): void {
+  private float(seat: number, text: string, kind: string, flame = false): void {
     const c = this.cars.get(seat);
     if (!c) return;
-    const t = svgEl('text', { x: c.x, y: c.y - 14, class: `float ${kind}` }, this.fxLayer);
-    t.textContent = text;
+    const t = svgEl('g', { class: `float ${kind}` }, this.fxLayer);
+    const label = svgEl('text', { x: flame ? c.x + 6 : c.x, y: c.y - 14 }, t);
+    label.textContent = text;
+    // 付热量：字前面一簇火苗
+    if (flame) t.insertAdjacentHTML('afterbegin', flameSvg().replace('<svg ', `<svg x="${c.x - 13}" y="${c.y - 29}" width="12" height="16" `));
     if (reduceMotion() || !t.animate) {
       window.setTimeout(() => t.remove(), 900);
       return;
@@ -481,7 +422,50 @@ export class Board {
     );
   }
 
+  // ---------- 静止的赛道和场景烘焙成一张位图 ----------
+
+  /**
+   * 赛道、场景是静止的，元素却有一两千个：镜头跟车时每帧整张重画，手机上 4 倍降速时一帧 50 毫秒。
+   * 所以开局把它们画成一张位图（纹理先内联成 data URL，不然当图片画时不会去加载），之后平移缩放只挪这一张图，
+   * 车、虚影、飘字照旧是矢量。手机按 2 倍画（AGENTS.md 的"渲染倍数封顶 2"），电脑 3 倍；画好前、画失败时一直用矢量的
+   */
+  private baked: string | null = null;
+
+  private async bake(): Promise<void> {
+    try {
+      const b = this.box;
+      // 比赛道框再大一圈，并且至少按 2.2 : 1 的横屏比例取：手机横屏时镜头比赛道框宽，位图边上不露出断开的海面、场景
+      const rw = Math.max(b.w * 1.3, b.h * 1.3 * 2.2);
+      const rh = b.h * 1.3;
+      const r = { x: b.x + b.w / 2 - rw / 2, y: b.y + b.h / 2 - rh / 2, w: rw, h: rh };
+      const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+      const scale = Math.min(coarse ? 2 : 3, Math.sqrt((coarse ? 5e6 : 1.2e7) / (r.w * r.h)));
+      const w = Math.round(r.w * scale);
+      const h = Math.round(r.h * scale);
+      const defs = this.svg.querySelector('defs')!.outerHTML;
+      let src = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${r.x} ${r.y} ${r.w} ${r.h}" width="${w}" height="${h}">${defs}${this.scenery.outerHTML}</svg>`;
+      for (const [href, data] of await textures(src)) src = src.split(`href="${href}"`).join(`href="${data}"`);
+      const img = new Image();
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/webp', 0.9));
+      if (!blob || !this.root.isConnected) return;
+      this.baked = URL.createObjectURL(blob);
+      // 位图外面（镜头比位图宽的时候）照旧铺地面纹理，接缝看不出来
+      const ground = this.scenery.querySelector('.ground')!.cloneNode(true);
+      const pic = svgEl('image', { href: this.baked, x: r.x, y: r.y, width: r.w, height: r.h, preserveAspectRatio: 'none' });
+      this.scenery.replaceChildren(ground, pic);
+    } catch {
+      // 画不出来（老浏览器、内存不够）就一直用矢量的，只是慢一点
+    }
+  }
+
   destroy(): void {
+    if (this.baked) URL.revokeObjectURL(this.baked);
     this.root.remove();
   }
 }

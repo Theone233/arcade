@@ -1,6 +1,7 @@
 /**
  * 给玩家看的文字和配色（中文大白话，DESIGN.md 第 1 节的术语）。换游戏名只改 GAME_NAME 和平台登记。
  */
+import { HEAT, STRESS } from '../core/cards.ts';
 import type { Level } from '../core/types.ts';
 
 export const GAME_NAME = '飞驰';
@@ -14,6 +15,14 @@ export const CAR_COLORS: readonly { body: string; dark: string; name: string }[]
   { body: '#a46ae8', dark: '#4d2380', name: '紫' },
   { body: '#ff8a3d', dark: '#8a3a05', name: '橙' },
 ];
+
+/** 一种牌叫什么（弃牌区、牌堆的统计用） */
+export function kindLabel(kind: number): string {
+  if (kind === HEAT) return '热量';
+  if (kind === STRESS) return '手抖';
+  if (kind === 0 || kind === 5) return `改装 ${kind}`;
+  return `速度 ${kind}`;
+}
 
 export const LEVEL_NAME: Record<Level, string> = { easy: '新手', normal: '普通', hard: '老手', mix: '混着来' };
 

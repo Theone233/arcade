@@ -4,6 +4,7 @@
 import { LEVELS, type Level, type Opts } from '../core/types.ts';
 import { FIXED } from '../track/fixed.ts';
 import { geometry } from '../track/shape.ts';
+import { drawDefs, drawWorld } from './scenery.ts';
 import { button, el } from './dom.ts';
 import { GAME_NAME, LEVEL_NAME } from './text.ts';
 
@@ -21,11 +22,24 @@ export interface LobbyHooks {
   onRules(): void;
 }
 
-function miniMap(id: string): string {
+/** 赛道小图：和比赛里同一套写实画法（地面、路面、路肩、砂石区、场景），框住整条赛道 */
+function miniMap(parent: HTMLElement, id: string): void {
   const t = FIXED.find((x) => x.id === id)!;
   const g = geometry(t);
-  const e = g.edges[0]!;
-  return `<svg viewBox="40 20 920 580" aria-hidden="true"><path d="${g.path}" fill="none" stroke="#3a3f47" stroke-width="${g.width + 14}" stroke-linejoin="round"/><path d="${g.path}" fill="none" stroke="#8a9099" stroke-width="${g.width - 8}" stroke-linejoin="round"/><circle cx="${e.c.x}" cy="${e.c.y}" r="16" fill="#fff"/></svg>`;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const xs = g.cells.map((c) => c.c.x);
+  const ys = g.cells.map((c) => c.c.y);
+  const pad = g.width + 50;
+  const x0 = Math.min(...xs) - pad;
+  const y0 = Math.min(...ys) - pad;
+  svg.setAttribute('viewBox', `${x0} ${y0} ${Math.max(...xs) + pad - x0} ${Math.max(...ys) + pad - y0}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  svg.setAttribute('aria-hidden', 'true');
+  drawDefs(svg);
+  const world = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.appendChild(world);
+  drawWorld(world, t, g);
+  parent.appendChild(svg);
 }
 
 export function renderLobby(parent: HTMLElement, h: LobbyHooks): void {
@@ -51,8 +65,7 @@ export function renderLobby(parent: HTMLElement, h: LobbyHooks): void {
       paint();
     });
     b.dataset.id = t.id;
-    const map = el('div', 'map', b);
-    map.innerHTML = miniMap(t.id);
+    miniMap(el('div', 'map', b), t.id);
     el('b', '', b, t.name);
     el('span', 'blurb', b, t.blurb);
     el('span', 'facts', b, `一圈 ${t.spaces} 格 · ${t.corners.length} 个弯 · 热量 ${t.heat}`);

@@ -1,11 +1,12 @@
 /**
- * PR 用的截图（CONTRIBUTING.md 的模板：电脑 1280×720、手机横屏）：选桌页、出牌预览、亮牌后的问题、结算，存到 shots/pr-*.png。
+ * PR 用的截图（CONTRIBUTING.md 的模板：电脑 1280×720、手机横屏）：选桌页、挂挡、出牌预览、亮牌后的问题、结算，存到 shots/pr-*.png。
  * 我这辆车挂得越高越好、能冲就冲，好让画面里出现热量、打滑这些。用法：node scripts/shots.ts
  */
 import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright-core';
 import { createServer } from 'vite';
 import { launch } from './browser.ts';
+import { drive } from './drive.ts';
 
 const root = new URL('..', import.meta.url).pathname;
 mkdirSync(`${root}shots`, { recursive: true });
@@ -21,37 +22,29 @@ async function run(page: Page, name: string): Promise<void> {
   await page.click('.track-card[data-id="hillcity"]');
   await page.click('.seg[data-laps="1"]');
   await page.click('text=单机开跑');
-  await page.waitForSelector('.lever');
-  let plan = false;
+  await page.waitForSelector('.gearbox');
+  await page.screenshot({ path: `${root}shots/pr-${name}-gear.png` });
+  // 第一回合手动走：挂 2 挡 → 挂好了 → 放两张牌进出牌区，截出牌这一步（预览、虚影车、预设）
+  await page.click('.gate-btn[aria-label="2 挡"]');
+  await page.click('.dash-action .act.go:has-text("挂好了")');
+  for (let k = 0; k < 2; k++) await page.click('.hand.live .card:not(:disabled) >> nth=-1');
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${root}shots/pr-${name}-plan.png` });
+  let plan = true;
   let ask = false;
   for (let i = 0; i < 3_000; i++) {
     if (await page.$('.mask.end')) break;
-    if (await page.$('.ask')) {
-      if (!ask) {
-        ask = true;
-        await page.screenshot({ path: `${root}shots/pr-${name}-ask.png` });
-      }
-      const b = (await page.$('.ask button:has-text("冲刺")')) ?? (await page.$('.ask button:has-text("不弃")')) ?? (await page.$('.ask button:has-text("不了")'));
-      await b?.click().catch(() => {});
-      continue;
+    if (!ask && (await page.$('.ask'))) {
+      ask = true;
+      await page.screenshot({ path: `${root}shots/pr-${name}-ask.png` });
     }
-    if (await page.$('.dash-side .act.go')) {
-      const g = (await page.$('.lever .gear:not([disabled]):has-text("4")')) ?? (await page.$('.lever .gear:not([disabled]):has-text("3")')) ?? (await page.$('.lever .gear:not([disabled]):has-text("2")'));
-      await g?.click().catch(() => {});
-      for (let k = 0; k < 8 && (await page.$('.dash-side .act.go:disabled')); k++) {
-        const c = await page.$('.hand .card:not(.heat):not(.sel)');
-        if (!c) break;
-        await c.click().catch(() => {});
-      }
-      if (!plan && i > 8) {
-        plan = true;
-        await page.waitForTimeout(200);
-        await page.screenshot({ path: `${root}shots/pr-${name}-plan.png` });
-      }
-      await (await page.$('.dash-side .act.go:not(:disabled)'))?.click().catch(() => {});
-      continue;
+    if (!plan && i > 8 && (await page.$('.dash-action .preview .speed'))) {
+      plan = true;
+      await page.waitForTimeout(200);
+      await page.screenshot({ path: `${root}shots/pr-${name}-plan.png` });
     }
-    await page.waitForTimeout(25);
+    // 我这辆车挂得越高越好、能冲就冲
+    if (!(await drive(page, [4, 3, 2, 1], true))) await page.waitForTimeout(25);
   }
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${root}shots/pr-${name}-end.png` });

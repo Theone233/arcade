@@ -1,11 +1,13 @@
 /**
  * 右边的名次栏：按名次（冲线的在前，其余按位置）列出每辆车：颜色、名字、第几圈、挡位、引擎热量、这回合的速度和状态。
+ * 大家同时出牌时，出完了的那一行边框变绿。
  * 只用公开信息。
  */
 import type { View } from '../core/view.ts';
 import { getTrack } from '../track/index.ts';
 import { el } from './dom.ts';
-import { CAR_COLORS } from './text.ts';
+import { flameSvg } from './cards.ts';
+import { carMarkup } from './scenery.ts';
 
 export interface SeatName {
   name: string;
@@ -38,11 +40,15 @@ export function renderSide(parent: HTMLElement, v: View, names: SeatName[], thin
   standing(v).forEach((seat, i) => {
     const c = v.cars[seat]!;
     const n = names[seat] ?? { name: `车${seat + 1}`, bot: true };
-    const li = el('li', `row${v.me?.seat === seat ? ' me' : ''}${c.rank !== null ? ' done' : ''}`, list);
+    // 交计划是大家同时出牌：出完了的那一行边框变绿，一眼看出还在等谁
+    const ready = v.phase === 'plan' && c.ready && c.rank === null;
+    const li = el('li', `row${v.me?.seat === seat ? ' me' : ''}${c.rank !== null ? ' done' : ''}${ready ? ' ready' : ''}`, list);
+    if (ready) li.title = '这回合出好了';
     li.dataset.seat = String(seat);
     el('span', 'place', li, String(i + 1));
-    const dot = el('span', 'dot', li);
-    dot.style.background = CAR_COLORS[seat % CAR_COLORS.length]!.body;
+    // 车的颜色：一辆小赛车（渐变定义在赛道的 SVG 里，同一个页面能引用到）
+    const dot = el('span', 'dot car-icon', li);
+    dot.innerHTML = `<svg viewBox="-18 -10 36 20" aria-hidden="true">${carMarkup(seat)}</svg>`;
     const who = el('span', 'who', li);
     el('span', 'nm', who, n.name);
     const meta: string[] = [];
@@ -51,7 +57,8 @@ export function renderSide(parent: HTMLElement, v: View, names: SeatName[], thin
     if (n.away) meta.push('托管');
     el('span', 'meta', who, meta.join(' · '));
     el('span', 'gear', li, String(c.gear)).title = '挡位';
-    const heat = el('span', 'heat', li, String(c.engine));
+    const heat = el('span', 'heat', li);
+    heat.innerHTML = `${flameSvg(c.engine > 0)}${c.engine}`;
     heat.title = '引擎里的热量';
     let st = '';
     if (c.rank !== null) st = `第${c.rank + 1}`;

@@ -118,6 +118,8 @@ export class Solo {
   private async pump(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    /** 电脑交了计划还没画：轮到我之前画一次，名次栏才看得到谁出好了 */
+    let unshown = false;
     try {
       while (!this.stopped) {
         const s = this.save.state;
@@ -127,7 +129,10 @@ export class Solo {
         }
         const who = s.phase === 'plan' ? pending(s) : [current(s)].filter((x): x is number => x !== null);
         const bot = who.find((i) => s.kinds[i] === 'ai');
-        if (bot === undefined) return;
+        if (bot === undefined) {
+          if (unshown) await this.ui.frame({ ...view(s, ME), events: [] });
+          return;
+        }
         let a = decide(view(s, bot), bot);
         let r = apply(s, bot, a);
         if ('error' in r && s.ask) {
@@ -140,8 +145,10 @@ export class Solo {
           // 电脑交计划：不放动画，只更新"选好了"
           this.save.state = r;
           persist(this.save);
+          unshown = true;
           continue;
         }
+        unshown = false;
         await this.commit(r);
         if (r.events.some((e) => e.e === 'move')) await sleep(260 * this.speed);
       }
