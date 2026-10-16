@@ -9,7 +9,7 @@ import { signed } from '../format.ts';
 import { GAMES, type GameEntry, WALLET_GAMES } from '../games.ts';
 import { Link } from '../router.tsx';
 import { useSession } from '../session.tsx';
-import { Panel } from '../ui.tsx';
+import { Empty, Panel } from '../ui.tsx';
 
 type Scope = 'all' | 'friends';
 /** 'week'、'titles'，或者有每日榜的游戏 id */
@@ -30,7 +30,7 @@ interface Row {
 }
 
 function RankList({ rows, me, empty }: { rows: Row[]; me: Row | null; empty: string }) {
-  if (!rows.length) return <p className="note" data-testid="board-empty">{empty}</p>;
+  if (!rows.length) return <Empty testId="board-empty">{empty}</Empty>;
   return (
     <>
       <ol className="ranks" data-testid="ranks">
@@ -71,7 +71,7 @@ function DailyBoard({ game, board, scope }: { game: GameEntry; board: string | n
     };
   }, [game.id, board, scope]);
   const empty = `今天还没人打${game.name}的每日挑战，去当第一个！`;
-  if (!board) return <p className="note" data-testid="board-empty">{empty}</p>;
+  if (!board) return <Empty testId="board-empty">{empty}</Empty>;
   if (error) return <p className="note">{errorText(error)}</p>;
   if (!data) return <p className="note">正在读取…</p>;
   const { board: b, format } = data;
@@ -105,10 +105,10 @@ export function BoardsPage() {
     };
   }, [user, scope]);
 
-  if (loading) return <Panel title="排行榜"><p className="note">正在读取…</p></Panel>;
+  if (loading) return <Panel icon="trophy" title="排行榜"><p className="note">正在读取…</p></Panel>;
   if (!user) {
     return (
-      <Panel title="排行榜">
+      <Panel icon="trophy" title="排行榜">
         <p>登录以后才能看排行榜。</p>
         <Link className="btn btn--primary" href="/login?next=%2Fboards">
           去登录
@@ -177,7 +177,7 @@ export function BoardsPage() {
     );
   }
   return (
-    <Panel title="排行榜">
+    <Panel icon="trophy" title="排行榜">
       {toggle}
       {tabs}
       {body}

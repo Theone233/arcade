@@ -13,7 +13,7 @@ import { Panel } from '../ui.tsx';
 
 export function PrivacyPage() {
   return (
-    <Panel title="我们存了你什么">
+    <Panel icon="lock" title="我们存了你什么">
       <div className="prose">
         <p className="promise">我们不放广告，也不卖你的数据；除了下面"访问统计"里交给 Cloudflare 的匿名统计，不给别人。</p>
         {/* 注册开关开着、关着这句话都要成立（管理员随时开关，这页不跟着变） */}
@@ -40,6 +40,10 @@ export function PrivacyPage() {
             筹码和战绩：钱包（余额、桌上的筹码、最近的操作）只有你自己和管理员看得到。各游戏的战绩（上桌次数、局数、胜率、最大一把、本周和累计输赢、称号）登录的人都看得到，用来做战绩页和排行榜。
           </li>
           <li>最近一次来的时间（精确到小时左右），用来显示"几天前来过"和清理一年没来的账号。</li>
+        </ul>
+        <h3>只存在你这台设备上的</h3>
+        <ul>
+          <li>声音开关：页脚把"声音"关掉以后，记在这台设备的浏览器里，不传到本站。</li>
         </ul>
         <h3>本站自己不存的</h3>
         <ul>
