@@ -1,6 +1,6 @@
 /**
  * Worker 和好友房跑在本地 workerd 里（DESIGN.md 第 6 节）：真的房间 DO（kit）、kit 的计量、假的平台 /api/me。
- * 登录闸门、开房选项校验；两个真人加两台电脑跑完一整场：每一步写入 ≤ 2 行、视图里没有别人的手牌和密钥、电脑会发表情；跑完"再来一场"。
+ * 登录闸门、开房选项校验；两个真人加三台电脑跑完一整场：每一步写入 ≤ 2 行、视图里没有别人的手牌和密钥、电脑会发表情；跑完"再来一场"。
  */
 import { runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
@@ -111,10 +111,10 @@ describe('开房', () => {
     expect((await createRoom(user())).status).toBe(400);
   });
 
-  it('两个真人、两台电脑跑完一场：每步写入 ≤ 2、看不到别人的手牌，跑完能"再来一场"', async () => {
+  it('两个真人、三台电脑跑完一场：每步写入 ≤ 2、看不到别人的手牌、电脑会发表情，跑完能"再来一场"', async () => {
     const a = user();
     const b = user();
-    const res = await createRoom(a, JSON.stringify({ opts: { track: 'harbor', laps: 1, cars: 4, level: 'mix' } }));
+    const res = await createRoom(a, JSON.stringify({ opts: { track: 'harbor', laps: 2, cars: 5, level: 'mix' } }));
     expect(res.status).toBe(201);
     const { code } = (await res.json()) as { code: string };
     const ca = await join(code, a);
@@ -159,13 +159,15 @@ describe('开房', () => {
     }
     const { max, persist } = await inspect(code);
     expect(max).toBeLessThanOrEqual(2);
-    expect(persist!.game.g.finished.length).toBe(4);
-    // 电脑会互动（房间的 onStep + botEmote）：只有电脑座位（1、3）发，带 bot 标记，不写存储（上面的 ≤ 2 行照样成立）
+    expect(persist!.game.g.finished.length).toBe(5);
+    // 电脑会互动（房间的 onStep + botEmote）：只有电脑座位（1、3、4）发，带 bot 标记，不写存储（上面的 ≤ 2 行照样成立）。
+    // 房间的熵是真随机的，电脑的性格、说不说都跟着变：1 圈 2 台电脑时约 5% 的场次一句不说（测试偶发失败），
+    // 所以跑 2 圈、3 台电脑，能说话的事多出好几倍；说什么、按什么规矩说由 test/banter.test.ts 用固定种子测
     const bots = ca.msgs.filter((m) => (m as { t: string }).t === 'emote') as unknown as { seat: number; id: number; bot?: boolean }[];
     expect(bots.length).toBeGreaterThan(0);
     for (const b of bots) {
       expect(b.bot).toBe(true);
-      expect([1, 3]).toContain(b.seat);
+      expect([1, 3, 4]).toContain(b.seat);
     }
     // 跑完：房间停着等"再来一场"
     await ca.until((m) => m.t === 'state' && !!m.room.pause);
