@@ -5,8 +5,6 @@
 import { rankOf, suitOf, type Card } from '../core/cards.ts';
 import { rankText } from './text.ts';
 
-const NS = 'http://www.w3.org/2000/svg';
-
 /** 花色（100 × 100）：c 梅花 d 方块 h 红心 s 黑桃，和 cards.ts 的 0–3 对应 */
 const SUIT_SVG = [
   // 梅花：三个圆加一根梗
@@ -152,10 +150,4 @@ export function chipPile(amount: number): string {
   return chipCols(amount)
     .map(([c, n]) => `<span class="col" style="--n:${n}">${Array.from({ length: n }, (_, i) => `<i class="chip c-${c}" style="--i:${i}"></i>`).join('')}</span>`)
     .join('');
-}
-
-export function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
-  const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  return e;
 }
