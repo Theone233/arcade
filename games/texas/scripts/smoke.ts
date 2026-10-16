@@ -204,7 +204,10 @@ async function playUntil(page: Page, hands: number, shotAt: Set<number>, checks 
   // 电脑按"像人"的节奏想，动画正常速度：6 人桌一手常要二三十秒
   const deadline = Date.now() + hands * 40_000;
   for (;;) {
-    if (Date.now() > deadline) throw new Error('playing took too long');
+    if (Date.now() > deadline) {
+      await shot(page, 'too-long');
+      throw new Error(`playing took too long (hand ${await handText(page)})`);
+    }
     const no = await handText(page);
     if (no > hands) return;
     if (await page.locator('.next-hand').isVisible()) {
@@ -430,10 +433,19 @@ async function mobile(browser: Browser, base: string): Promise<void> {
   await page.evaluate(() => window.dispatchEvent(new Event('resize')));
   await page.waitForTimeout(600);
   log('pinch scale', zoomed, 'stage kept');
-  // 竖屏：盖一层"横过来"
+  // 竖屏（0.10.0）：换竖的牌桌，座位、操作区都在舞台里、互不压
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(400);
-  if (!(await page.locator('.rotate').isVisible())) throw new Error('portrait hint not shown');
+  await page.waitForTimeout(600);
+  if (!(await page.locator('.stage.tall').count())) throw new Error('portrait layout not used');
+  const out = await page.evaluate(() => {
+    const st = document.querySelector('.stage')!.getBoundingClientRect();
+    return [...document.querySelectorAll('.seat:not(.empty) .plate, .act, .qbet')].filter((e) => {
+      const r = e.getBoundingClientRect();
+      return r.width > 0 && (r.left < st.left - 1 || r.right > st.right + 1 || r.top < st.top - 1 || r.bottom > st.bottom + 1);
+    }).length;
+  });
+  if (out) throw new Error(`portrait: ${out} element(s) outside the stage`);
+  if (await seatOverlaps(page)) throw new Error('portrait: seats overlap');
   await shot(page, 'phone-portrait');
   await page.setViewportSize({ width: 844, height: 390 });
   await page.waitForTimeout(500);
