@@ -1,0 +1,29 @@
+// racing Worker 的独立配置（docs/new-game.md 第 4、7 节；DESIGN.md 第 6 节）：页面 + 登录闸门 + 好友房。
+// 别人拿到这个目录不要平台也能部署（kit 的独立模式：游客 cookie，任何人打开就能玩），npm run deploy 或 Deploy to Cloudflare 按钮。
+// 本站正式部署时，维护者的部署工具按 tools/workers.json 在上面补平台绑定 ARCADE、GATE=login、路由和 SITE_ORIGIN，并关掉 workers_dev；
+// 所以这里不写 services 和 GATE。
+{
+  "name": "racing",
+  "main": "worker/main.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist-cf",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    // 只有这些先过 Worker：站点根（独立部署时转到 /games/racing/）、首页（登录闸门）、开房进房；其余静态资源直接回
+    "run_worker_first": ["/", "/games/racing", "/games/racing/", "/games/racing/index.html", "/games/racing/rooms", "/games/racing/rooms/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "RacingRoom" },
+      { "name": "METER", "class_name": "RoomMeter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RacingRoom", "RoomMeter"] }],
+  "vars": {
+    // 每天的 DO 写入预算（DESIGN.md 6.1，一房一场约 300 行）：到 busy 不开新房，到 stop 收场。数要维护者同意
+    "KIT_QUOTA": { "busyWrites": 3000, "stopWrites": 4000, "roomsPerUser": 5, "dailyRoomsPerUser": 100 }
+  }
+}

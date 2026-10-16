@@ -1,0 +1,53 @@
+/**
+ * 看得见的区域（AGENTS.md 第 4 节 iOS 那几条，DESIGN.md 第 8 节）：
+ * - 高度不用 100vh：CSS 先写 100vh → 100dvh，再由这里按 visualViewport（没有就 innerHeight）写 --app-h；
+ *   转屏、收放地址栏后重算，转屏后过一会儿再补算一次（iOS 转屏时第一次拿到的尺寸常常是旧的）；
+ * - 双指放大时（visualViewport.scale 明显不是 1）不改尺寸、不重排，缩回 1 倍再说；
+ * - 舞台是设计尺寸（横屏 1000×560、竖屏 560×1000），按看得见的区域等比缩放，safe-area 由 CSS 让出来；
+ *   竖屏的高度跟着屏幕比例在 860–1000 之间变。
+ * 赛道是 DOM + SVG，没有画布和 WebGL，"渲染倍数封顶 2""WebGL 上下文丢失"那两条不适用。
+ */
+export type Orient = 'land' | 'port';
+
+const STAGE: Record<Orient, { w: number; h: number }> = { land: { w: 1000, h: 560 }, port: { w: 560, h: 1000 } };
+const PORT_MIN_H = 860;
+
+export function watchViewport(app: HTMLElement, stage: HTMLElement, onChange: (o: Orient) => void): void {
+  let orient: Orient | null = null;
+  let scale = 0;
+  let height = 0;
+  let timer = 0;
+  const measure = (): void => {
+    const vv = window.visualViewport;
+    if (vv && Math.abs(vv.scale - 1) > 0.05) return;
+    const vh = vv?.height ?? window.innerHeight;
+    document.documentElement.style.setProperty('--app-h', `${Math.round(vh)}px`);
+    const r = app.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
+    const o: Orient = r.height > r.width * 1.15 ? 'port' : 'land';
+    const st = STAGE[o];
+    const h = o === 'port' ? Math.round(Math.min(st.h, Math.max(PORT_MIN_H, (st.w * r.height) / r.width))) : st.h;
+    const s = Math.min(r.width / st.w, r.height / h);
+    if (o === orient && h === height && Math.abs(s - scale) < 0.001) return;
+    scale = s;
+    height = h;
+    stage.style.width = `${st.w}px`;
+    stage.style.height = `${h}px`;
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+    stage.style.setProperty('--scale', String(s));
+    if (o !== orient) {
+      orient = o;
+      stage.dataset.orient = o;
+      onChange(o);
+    }
+  };
+  const later = (): void => {
+    measure();
+    window.clearTimeout(timer);
+    timer = window.setTimeout(measure, 350);
+  };
+  window.addEventListener('resize', later);
+  window.addEventListener('orientationchange', later);
+  window.visualViewport?.addEventListener('resize', later);
+  measure();
+}
