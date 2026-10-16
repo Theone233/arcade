@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.vite/
+.wrangler/
+# 本地开发用的 Secret，不进 Git（照 .dev.vars.example 抄一份）
+.dev.vars
+# 冒烟截图（npm run smoke）
+shots/

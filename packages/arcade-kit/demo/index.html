@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>arcade-kit/fun 演示</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #1f5a3a; font: 14px system-ui, sans-serif; color: #fff; overflow: hidden; }
+      .seat { position: absolute; width: 80px; height: 80px; border-radius: 50%; background: #f3d9a4; border: 4px solid #6b3f20; box-sizing: border-box; }
+      .seat span { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+      #me { left: 40px; bottom: 120px; }
+      #right { right: 60px; top: 45%; }
+      #top { left: 50%; top: 40px; margin-left: -40px; }
+      #left { left: 40px; top: 30%; }
+      .bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; background: rgba(0, 0, 0, .35); }
+      button { font: inherit; padding: 6px 10px; }
+      .hit { animation: hit .35s; }
+      @keyframes hit { 25% { transform: translateX(-6px) scale(.94); } 50% { transform: translateX(6px) scale(.97); } 75% { transform: translateX(-3px); } }
+    </style>
+  </head>
+  <body>
+    <!-- 演示页：每种道具扔一次、每个表情冒一次。npx vite demo（在 packages/arcade-kit 里）打开 -->
+    <div class="seat" id="me"><span>我</span></div>
+    <div class="seat" id="right"><span>右家</span></div>
+    <div class="seat" id="top"><span>对家</span></div>
+    <div class="seat" id="left"><span>左家</span></div>
+    <div class="bar" id="bar"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

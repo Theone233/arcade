@@ -1,0 +1,9 @@
+// 本地联调用的假平台（tools/online-dev.ts 和游戏的 wrangler.jsonc 一起交给 wrangler dev）。只在本机跑，不部署。
+// BANK：假钱包的账（worker.ts 的 FakeWalletBank），每次起本地栈都是新的临时目录，不留旧账。
+{
+  "name": "arcade",
+  "main": "./worker.ts",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": { "bindings": [{ "name": "BANK", "class_name": "FakeWalletBank" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FakeWalletBank"] }]
+}

@@ -1,0 +1,223 @@
+/**
+ * 好友房的一场（DESIGN.md 第 6 节）：连房间（kit 的 RoomClient）、按顺序播房间发来的帧、发操作。画面由 main.ts 接 OnlineUi。
+ *
+ * 房间说了算：页面只发意图（坐下、开打、出牌、离座），收到的状态整个替换本地的；断线重连拿全量快照整桌重画。
+ * 电脑接着出的几手是几帧，按顺序一帧一帧播（每帧带房间给的停顿）；落下太多（切回前台、重连）就不播了，直接摆最新的。
+ * 房间码只在地址栏（?room=123456）：刷新原样回到房间，不另存（平台 0.10.1：登录跳转靠 next 带回来）。
+ */
+import { RoomClient, type ClientStatus } from 'arcade-kit/client';
+import { CLOSE, CLOSE_REASON, type DownMsg, type RoomInfo, type You } from 'arcade-kit/protocol';
+import type { RoomAction, RoomOpts, RoomView } from './room/rules.ts';
+import { ROOM_ERROR } from './view/text.ts';
+
+/** 页面的协议版本（房间的 minClientVersion 高于它就让刷新） */
+export const CLIENT_VERSION = 1;
+/** 积压超过这么多帧就不播了，直接摆最新的 */
+const MAX_BACKLOG = 8;
+
+export interface OnlineState {
+  code: string;
+  /** 开房时定下的玩法、档位、规则（房间发来的 room.opts）；进房前不知道 */
+  opts: RoomOpts | null;
+  status: ClientStatus;
+  room: RoomInfo | null;
+  you: You | null;
+  view: RoomView | null;
+}
+
+export interface OnlineUi {
+  /** 状态变了（进房、换座、开打、连接断开……）：重画等人页或牌桌 */
+  draw(s: OnlineState, fresh: boolean): void;
+  /** 一句提示（被拒的操作） */
+  toast(text: string): void;
+  /** 有人发了短语、表情包、道具（seat 是房间的座位号） */
+  emote(seat: number, id: number, to?: number): void;
+  /** 房间停了（关了、被顶掉、连不上），不会再连 */
+  ended(text: string, code: number): void;
+}
+
+export class Online {
+  private readonly client: RoomClient<RoomAction, RoomView>;
+  private readonly ui: OnlineUi;
+  private s: OnlineState;
+  private readonly queue: { view: RoomView | null; delay: number; fresh: boolean }[] = [];
+  private playing = false;
+  /** 主动离开了：还在路上的帧、状态变化一律不再画（不然离开后回到选桌页，排队的帧又画出一张牌桌盖上去） */
+  private closed = false;
+
+  constructor(code: string, ui: OnlineUi, opts: { url?: string } = {}) {
+    this.ui = ui;
+    this.s = { code, opts: null, status: 'connecting', room: null, you: null, view: null };
+    this.client = new RoomClient<RoomAction, RoomView>({
+      url: opts.url ?? roomUrl(code),
+      clientVersion: CLIENT_VERSION,
+      onMessage: (m) => this.onMessage(m),
+      onStatus: (st, c, reason) => this.onStatus(st, c, reason),
+      onEmote: (seat, id, to) => this.ui.emote(seat, id, to),
+    });
+  }
+
+  get state(): OnlineState {
+    return this.s;
+  }
+
+  sit(seat: number): void {
+    this.client.sit(seat);
+  }
+  start(): void {
+    this.client.start();
+  }
+  /** 玩法的动作（房间的 parse 认出是哪个玩法） */
+  play(a: unknown): void {
+    this.client.act({ t: 'play', a } as RoomAction);
+  }
+  /** 再来一场：我开好的新房间号告诉这一桌 */
+  next(code: string): void {
+    this.client.act({ t: 'next', code });
+  }
+
+  rebuy(): void {
+    this.client.act({ t: 'rebuy' });
+  }
+  emote(id: number, to?: number): void {
+    this.client.emote(id, to);
+  }
+  /** 离座：手上的筹码马上结回钱包，电脑接着替这个座位打 */
+  leaveSeat(): void {
+    this.client.leave();
+  }
+  retry(): void {
+    this.client.retry();
+  }
+  close(): void {
+    this.closed = true;
+    this.queue.length = 0;
+    this.client.close();
+  }
+
+  private onMessage(m: DownMsg<RoomView>): void {
+    if (this.closed) return;
+    if (m.t === 'error') {
+      const text = errorText(m.code);
+      if (text) this.ui.toast(text);
+      return;
+    }
+    this.s = { ...this.s, room: m.room, you: m.you, opts: (m.room.opts as RoomOpts | undefined) ?? null };
+    if (m.t === 'welcome') {
+      // 快照：不管还有什么没播，整桌重画
+      this.queue.length = 0;
+      this.queue.push({ view: m.view, delay: 0, fresh: true });
+    } else {
+      for (const f of m.frames) this.queue.push({ view: (f.view as RoomView | null) ?? null, delay: f.delay, fresh: false });
+    }
+    void this.pump();
+  }
+
+  private async pump(): Promise<void> {
+    if (this.playing) return;
+    this.playing = true;
+    try {
+      while (this.queue.length) {
+        if (this.queue.length > MAX_BACKLOG) this.queue.splice(0, this.queue.length - 1, { ...this.queue.at(-1)!, fresh: true });
+        const f = this.queue.shift()!;
+        // 电脑连着出手时房间给的停顿：房间按每帧 delay 给下一个真人起算计时，这里一帧一帧等够，计时圈才和房间一致
+        if (!f.fresh && f.delay > 0) await sleep(f.delay);
+        if (this.closed) return;
+        this.s = { ...this.s, view: f.view };
+        this.ui.draw(this.s, f.fresh);
+      }
+    } finally {
+      this.playing = false;
+    }
+    // 播的时候来了只改房间信息的消息（有人坐下、掉线）：最后再画一次
+    if (!this.closed) this.ui.draw(this.s, false);
+  }
+
+  private onStatus(st: ClientStatus, code?: number, reason?: string): void {
+    if (this.closed) return;
+    this.s = { ...this.s, status: st };
+    this.ui.draw(this.s, false);
+    if ((st === 'closed' || st === 'failed') && code !== undefined && code !== 1000) this.ui.ended(closeText(code, reason), code);
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
+
+/** 房间的 WebSocket 地址：页面在 /games/mahjong/ 下，相对路径就对 */
+export function roomUrl(code: string): string {
+  const u = new URL(`rooms/${code}/ws`, location.href);
+  u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+  u.search = '';
+  return u.toString();
+}
+
+export type CreateResult = { code: string } | { error: string };
+
+/** 开房（玩法、档位、规则这时就定下，进房的人都看得到）。每次都开一个新房间 */
+export async function createRoom(opts: RoomOpts): Promise<CreateResult> {
+  try {
+    const res = await fetch('rooms', { method: 'POST', headers: { 'x-arcade': '1', 'content-type': 'application/json' }, body: JSON.stringify({ opts }) });
+    const body = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+    if (res.ok && body.code) return { code: body.code };
+    return { error: res.status === 401 ? 'login' : (body.error ?? 'unavailable') };
+  } catch {
+    return { error: 'offline' };
+  }
+}
+
+export const createError = (e: string): string => (e === 'offline' ? '网络断了，连上再试' : (ROOM_ERROR[e] ?? ROOM_ERROR.unavailable!));
+
+export function closeText(code: number, reason?: string): string {
+  switch (code) {
+    case CLOSE.roomClosed:
+      return reason === CLOSE_REASON.quota ? '今天联机的人太多了，这一局打完先散了，桌上的筹码结回钱包，单机照常玩' : '房间关了，桌上的筹码已经结回钱包';
+    case CLOSE.replaced:
+      return '你在别的页面打开了这个房间，这里先断开';
+    case CLOSE.noRoom:
+      return '没有这个房间：码不对，或者房间已经散了';
+    case CLOSE.tooOld:
+      return '页面有新版本了，刷新一下';
+    case CLOSE.full:
+      return '这个房间看的人太多了，进不去';
+    case CLOSE.tooManyJoins:
+    case CLOSE.userQuota:
+      return '你在这个房间进出、操作太多次了，先歇一会儿';
+    case CLOSE.busy:
+      return ROOM_ERROR.busy!;
+    case CLOSE.unauthorized:
+      return '登录过期了，刷新一下页面';
+    case CLOSE.forbidden:
+      return ROOM_ERROR.forbidden!;
+    default:
+      return '和房间断开了';
+  }
+}
+
+/** 房间拒了一个操作：大多是"牌局已经变了"这类，按最新状态重来就行（空串不提示） */
+export function errorText(code: string): string {
+  switch (code) {
+    case 'seat_taken':
+    case 'seat_reserved':
+    case 'not_your_seat':
+      return '这个座位有人了';
+    case 'not_host':
+      return '只有房主能开打';
+    case 'cannot_rebuy':
+      return '现在不用再带';
+    case 'room_over':
+    case 'closed':
+      return '这一场已经打完了';
+    case 'opening':
+      return '等大家的筹码到账';
+    case 'not_seated':
+      return '你的筹码还没到账，这个座位先由电脑打';
+    case 'stale':
+    case 'stale_claim':
+    case 'not_your_turn':
+    case 'not_now':
+    case 'emote_too_fast':
+      return '';
+    default:
+      return '这一步没做成，看最新的牌局再来';
+  }
+}

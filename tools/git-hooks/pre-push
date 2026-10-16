@@ -1,0 +1,29 @@
+#!/bin/sh
+# 本机兜底：仓库是免费私有仓库，GitHub 上开不了分支保护，所以在本机拦住两类推送——
+#   1. 直接推 main（包括删除 main）：改动一律推功能分支、提 PR（见 CONTRIBUTING.md）；
+#   2. 改写已推送的历史（force push）：远程分支当前的提交必须是这次推送的祖先。
+# 只管推往 yyyu-star/arcade 的推送；拆分模块时推到新仓库的 main（split-module.sh）不受影响。
+# 启用（每个克隆做一次）：git config core.hooksPath tools/git-hooks
+case "$(printf %s "$2" | tr "A-Z" "a-z")" in
+  *yyyu-star/arcade|*yyyu-star/arcade.git|*yyyu-star/arcade/) ;;
+  *) exit 0 ;;
+esac
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "pre-push: 不能直接推 main。请推功能分支并提 PR（见 CONTRIBUTING.md）。" >&2
+      status=1
+      continue
+      ;;
+  esac
+  # 删除远程功能分支、推新分支都放行
+  [ "$local_sha" = "$zero" ] && continue
+  [ "$remote_sha" = "$zero" ] && continue
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    echo "pre-push: 拒绝改写 $remote_ref 的历史（force push）。先 git fetch，再在远程分支的基础上追加提交。" >&2
+    status=1
+  fi
+done
+exit $status

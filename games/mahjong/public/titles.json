@@ -1,0 +1,66 @@
+{
+  "xz_winner": {
+    "name": "大赢家",
+    "desc": "一场里净赢最多"
+  },
+  "xz_pao_king": {
+    "name": "点炮王",
+    "desc": "一场点炮最多（至少 3 次）"
+  },
+  "xz_gang_king": {
+    "name": "杠王",
+    "desc": "一场杠最多（至少 3 个）"
+  },
+  "xz_zimo_king": {
+    "name": "自摸王",
+    "desc": "一场自摸 3 次以上"
+  },
+  "xz_iron_wall": {
+    "name": "铁壁",
+    "desc": "打满 8 局一次炮都没点"
+  },
+  "xz_qing": {
+    "name": "清一色大师",
+    "desc": "胡过清一色"
+  },
+  "xz_dragon": {
+    "name": "龙七对",
+    "desc": "胡过龙七对"
+  },
+  "xz_seven": {
+    "name": "七对达人",
+    "desc": "胡过七对"
+  },
+  "xz_golden_hook": {
+    "name": "金钩钓",
+    "desc": "碰杠四组、单钓胡了"
+  },
+  "xz_gang_flower": {
+    "name": "杠上开花",
+    "desc": "杠完补的牌正好自摸"
+  },
+  "xz_rob_gang": {
+    "name": "抢杠",
+    "desc": "抢了别人的补杠胡了"
+  },
+  "xz_sea_moon": {
+    "name": "海底捞月",
+    "desc": "摸最后一张自摸"
+  },
+  "xz_capped": {
+    "name": "封顶",
+    "desc": "胡过封顶的一把"
+  },
+  "xz_heaven": {
+    "name": "天胡",
+    "desc": "庄家起手就胡"
+  },
+  "xz_earth": {
+    "name": "地胡",
+    "desc": "第一次摸牌就自摸"
+  },
+  "xz_last_stand": {
+    "name": "血战到底",
+    "desc": "一局里第三个胡"
+  }
+}

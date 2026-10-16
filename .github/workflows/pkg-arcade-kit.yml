@@ -1,0 +1,37 @@
+# 共用包 arcade-kit（packages/arcade-kit/）：只跑测试，不部署（它没有自己的 Worker，随用它的游戏一起打包部署）。
+# 测试在本地 workerd 里跑真的 Durable Object、WebSocket 休眠接口和闹钟（@cloudflare/vitest-plugin），不碰线上、不用凭证。
+# 拆成独立仓库时：去掉 paths 和 working-directory，把 packages/arcade-kit/ 前缀去掉即可。
+name: Test arcade-kit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/arcade-kit/**'
+      - '.github/workflows/pkg-arcade-kit.yml'
+  pull_request:
+    paths:
+      - 'packages/arcade-kit/**'
+      - '.github/workflows/pkg-arcade-kit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: packages/arcade-kit
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pkg-arcade-kit-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: packages/arcade-kit/.nvmrc
+          cache: npm
+          cache-dependency-path: packages/arcade-kit/package-lock.json
+      - run: node ../../tools/check-isolation.mjs
+      - run: npm ci
+      - run: npm test

@@ -1,0 +1,8 @@
+// 本机试 Worker 用的假平台（冒烟 scripts/smoke-room.ts），不部署
+{
+  "name": "arcade",
+  "main": "./arcade.dev.ts",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": { "bindings": [{ "name": "FAKE_BANK", "class_name": "FakeBank" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FakeBank"] }]
+}

@@ -1,0 +1,231 @@
+{
+ "v": 2,
+ "updated": "2026-10-11",
+ "years": [
+  {
+   "year": 1999,
+   "file": "1999.json",
+   "stocks": 200,
+   "days": 252,
+   "warmDays": 60,
+   "bytes": 1911269,
+   "gzipBytes": 612063,
+   "cleaning": {
+    "rows": 615109,
+    "tickers": 1798,
+    "offCalendar": 0,
+    "duplicate": 0,
+    "badPrice": 0,
+    "highLow": 0,
+    "outOfRange": 0,
+    "noVolume": 0,
+    "zeroVolume": 20724,
+    "badSplit": 0,
+    "manualFix": 0,
+    "volumeScaled": 358,
+    "duplicateSeries": 5,
+    "bigDividendKept": 10,
+    "bigDividendToSplit": 1,
+    "badDividend": 6,
+    "spike": 8,
+    "jump": 54,
+    "jumpTickers": 39,
+    "splitEvents": 265,
+    "splitMismatch": 7,
+    "dividendEvents": 4833,
+    "gapDays": 29,
+    "gapTickers": 9
+   },
+   "index": {
+    "id": "x_dow",
+    "priceReturn": 0.2868,
+    "maxDrawdown": -0.1056,
+    "membersUsed": "24–26/30",
+    "missingMembers": [
+     "AT&T（旧）",
+     "Eastman Kodak",
+     "General Motors（旧）",
+     "J.P. Morgan & Co.",
+     "Sears",
+     "Union Carbide"
+    ],
+    "missingHandling": "数据里没有的成分股直接剔除，相当于剔除后重算除数，其余成分仍按价格加权"
+   },
+   "ref": {
+    "id": "x_nasdaq",
+    "priceReturn": 1.2993,
+    "maxDrawdown": -0.2082,
+    "members": 796
+   },
+   "real": {
+    "dow": 0.252,
+    "sp500": 0.195,
+    "nasdaq": 0.856,
+    "source": "timeline-1999.md 年度概览（CNN Money 1999-12-31）",
+    "caveat": null
+   },
+   "gapToReal": "老三十全年 +28.7%，真实道指 +25.2%，差 +3.5 个百分点；科综全年 +129.9%，真实纳指 +85.6%，差 +44.3 个百分点。",
+   "survivorship": "幸存者偏差对照（不进年包）：WIKI 全数据集成交额加权 +64.2%、等权 +23.5%（1759 只），真实标普 500 +19.5%。"
+  },
+  {
+   "year": 2000,
+   "file": "2000.json",
+   "stocks": 200,
+   "days": 252,
+   "warmDays": 60,
+   "bytes": 1929602,
+   "gzipBytes": 653626,
+   "cleaning": {
+    "rows": 656742,
+    "tickers": 1886,
+    "offCalendar": 7,
+    "duplicate": 0,
+    "badPrice": 0,
+    "highLow": 0,
+    "outOfRange": 0,
+    "noVolume": 0,
+    "zeroVolume": 24216,
+    "badSplit": 0,
+    "manualFix": 1,
+    "volumeScaled": 359,
+    "duplicateSeries": 6,
+    "bigDividendKept": 11,
+    "bigDividendToSplit": 0,
+    "badDividend": 3,
+    "spike": 11,
+    "jump": 74,
+    "jumpTickers": 41,
+    "splitEvents": 288,
+    "splitMismatch": 5,
+    "dividendEvents": 4980,
+    "gapDays": 34,
+    "gapTickers": 14
+   },
+   "index": {
+    "id": "x_dow",
+    "priceReturn": -0.0609,
+    "maxDrawdown": -0.1729,
+    "membersUsed": "26/30",
+    "missingMembers": [
+     "AT&T（旧）",
+     "Eastman Kodak",
+     "General Motors（旧）",
+     "J.P. Morgan & Co."
+    ],
+    "missingHandling": "数据里没有的成分股直接剔除，相当于剔除后重算除数，其余成分仍按价格加权"
+   },
+   "ref": {
+    "id": "x_nasdaq",
+    "priceReturn": -0.3818,
+    "maxDrawdown": -0.5526,
+    "members": 860
+   },
+   "real": {
+    "dow": -0.062,
+    "sp500": -0.101,
+    "nasdaq": -0.393,
+    "source": "timeline-2000.md 年度概览（Nasdaq 年终公告、Deseret News 2000-12-29）",
+    "caveat": "标普 500 −10.1% 时间线标\"待核对\""
+   },
+   "gapToReal": "老三十全年 -6.1%，真实道指 -6.2%，差 +0.1 个百分点；科综全年 -38.2%，真实纳指 -39.3%，差 +1.1 个百分点。",
+   "survivorship": "幸存者偏差对照（不进年包）：WIKI 全数据集成交额加权 -23.9%、等权 +20.1%（1845 只），真实标普 500 -10.1%（待核对）。"
+  },
+  {
+   "year": 2008,
+   "file": "2008.json",
+   "stocks": 203,
+   "days": 253,
+   "warmDays": 60,
+   "bytes": 2043253,
+   "gzipBytes": 761745,
+   "cleaning": {
+    "rows": 898808,
+    "tickers": 2535,
+    "offCalendar": 13,
+    "duplicate": 0,
+    "badPrice": 0,
+    "highLow": 0,
+    "outOfRange": 23,
+    "noVolume": 0,
+    "zeroVolume": 10617,
+    "badSplit": 0,
+    "manualFix": 6,
+    "volumeScaled": 359,
+    "duplicateSeries": 9,
+    "bigDividendKept": 26,
+    "bigDividendToSplit": 0,
+    "badDividend": 6,
+    "spike": 3,
+    "jump": 63,
+    "jumpTickers": 48,
+    "splitEvents": 104,
+    "splitMismatch": 4,
+    "dividendEvents": 6984,
+    "gapDays": 82,
+    "gapTickers": 6
+   },
+   "index": {
+    "id": "x_dow",
+    "priceReturn": -0.3303,
+    "maxDrawdown": -0.4238,
+    "membersUsed": "29/30",
+    "missingMembers": [
+     "General Motors（旧）"
+    ],
+    "missingHandling": "数据里没有的成分股直接剔除，相当于剔除后重算除数，其余成分仍按价格加权"
+   },
+   "ref": {
+    "id": "x_nasdaq",
+    "priceReturn": -0.4515,
+    "maxDrawdown": -0.5449,
+    "members": 1229
+   },
+   "real": {
+    "dow": -0.338,
+    "sp500": -0.385,
+    "nasdaq": -0.405,
+    "source": "timeline-2008.md 年度概览（CNN 2008-12-31）",
+    "caveat": null
+   },
+   "gapToReal": "老三十全年 -33.0%，真实道指 -33.8%，差 +0.8 个百分点；科综全年 -45.2%，真实纳指 -40.5%，差 -4.7 个百分点。",
+   "survivorship": "幸存者偏差对照（不进年包）：WIKI 全数据集成交额加权 -44.4%、等权 -32.5%（2488 只），真实标普 500 -38.5%。"
+  }
+ ],
+ "index": {
+  "id": "x_dow",
+  "name": "老三十",
+  "method": "价格加权（价格之和 ÷ 除数），成分 = 当年道琼斯工业平均指数的真实成分名单（按调整生效日换股）里 WIKI 有价格的公司；拆股、换股、缺数据、分拆时调整除数，普通分红不调。只用 WIKI 的价格，不用道琼斯的任何指数数据",
+  "disclaimer": "不是道琼斯官方指数。这是游戏用当年道指的真实成分名单、取 WIKI Prices 里的价格自己合成的价格加权指数，不使用道琼斯的任何指数数据。成分股缺失和与真实道指的差距逐年列在 years[].index 与 years[].gapToReal。",
+  "missingHandling": "数据里没有的成分股（已破产、被收购或被别的公司占用代码的，如旧 AT&T、柯达、旧通用、J.P. Morgan & Co.、西尔斯、联合碳化物）直接剔除，相当于剔除后重算除数；1999 年用到 24–26 只、2000 年 26 只、2008 年 29 只。",
+  "sources": [
+   "https://en.wikipedia.org/wiki/Historical_components_of_the_Dow_Jones_Industrial_Average",
+   "https://money.cnn.com/1999/10/26/markets/dow_history/",
+   "https://www.cnbc.com/2008/02/11/dow-adds-chevron-bofa-drops-honeywell-altria.html",
+   "https://www.upi.com/Business_News/2008/09/19/Kraft-replaces-AIG-on-Dow-Jones-index/62361221833414/"
+  ],
+  "base": "开局前最后一个交易日收盘 = 1000"
+ },
+ "ref": {
+  "id": "x_nasdaq",
+  "name": "科综",
+  "role": "只做参考，不参与归因",
+  "method": "成交额加权（前 20 个交易日日均成交额，每月第一个交易日调权），成分 = WIKI 数据集里当年在 Nasdaq 上市的股票（上市地按代码惯例近似判断）",
+  "disclaimer": "不是纳斯达克官方指数。方向和真实纳指一致，幅度约为真实纳指的 1.1–1.4 倍（成交额加权让高换手的龙头股权重偏高；上市地按代码惯例近似判断）。",
+  "base": "开局前最后一个交易日收盘 = 1000"
+ },
+ "source": {
+  "name": "WIKI Prices",
+  "publisher": "Quandl 社区整理，Nasdaq Data Link 托管",
+  "license": "Public domain",
+  "statement": "\"curated by the Quandl community and released into the public domain\"",
+  "url": "https://data.nasdaq.com/databases/WIKIP",
+  "snapshot": "2026-10-11 导出（数据快照 2026-02-03，内容截至 2018-03-27）",
+  "notes": "社区维护的数据，可能有错误；本游戏做了清洗（见 cleaning）。公司名称、代码在游戏里换成化名；价格是当年的真实未复权价格。"
+ },
+ "method": {
+  "prices": "未复权开高低收（当年真实价格）。拆股、分红在除权除息日开盘前生效：先按拆股比例调整持股，再按调整后的股数发每股现金分红（WIKI 的口径）。",
+  "returns": "单日总收益 = 拆股比例 × (收盘 + 每股分红) / 前收 − 1。",
+  "cleaning": "剔除：非交易日行、重复行、零或负价、最高 < 最低、开收越出高低价 0.5% 以上、成交量缺失、单日 ±80% 且次日回到原位的错价；单日 ±80% 但不是错价的股票标\"待复核\"，不按行业规则进股票池（时间线明星股、故事股除外，人工复核）。大额分红核对、人工修正见核对报告。剔除的行成为缺口（停牌）。"
+ },
+ "survivorship": "WIKI Prices 主要收录 2018 年前后仍在交易的美股，已破产或已退市的公司（如雷曼、贝尔斯登、安然、世通、朗讯、北电、房利美）大多不在数据里。所以数据里的股票都是\"活下来的\"，合成大盘会比当年真实的大盘好看，熊市年尤其明显。这些公司的事件只作为新闻出现，不能交易。"
+}

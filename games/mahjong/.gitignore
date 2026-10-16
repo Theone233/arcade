@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-cf/
+shots/
+*.log
+.vite/
+.wrangler/
+wrangler.local.jsonc
+.dev.vars

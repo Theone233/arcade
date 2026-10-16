@@ -1,0 +1,92 @@
+/**
+ * 电脑的性格（DESIGN.md 4.3；0.3.0 起的参数和取舍见 4.6）。名字是化名，不对应真人；平台的昵称保留名单要有这几个名字。
+ * 个数要等于规则里的 PERSONA_COUNT（test/ai.test.ts 核对）。
+ * 门槛都用"相对强度"：胜率 ×（对手数 + 1），千分数，1000 = 这一桌的平均水平。参数由 scripts/sim.ts 的机器人对打调。
+ */
+import type { StakesId } from '../core/stakes.ts';
+
+export interface Persona {
+  name: string;
+  /** 一句话风格（界面上的小字） */
+  style: string;
+  /** 翻牌前跟进的相对强度门槛 */
+  call: number;
+  /** 加注的相对强度门槛 */
+  raise: number;
+  /** 翻牌前开池加注的门槛，不填同 raise（0.3.0 实打后：慢慢翻牌后照样很少加注，翻牌前拿 QQ+、AK 这类大牌开池多加一点） */
+  open?: number;
+  /** 没人下注时诈唬下注的概率（‰，按对手数再打折） */
+  bluff: number;
+  /** 翻牌后跟注时对底池赔率的放宽（‰，负数是更挑；正数 0.3.0 起按档的 soft 打折） */
+  slack: number;
+  /** 拿到大牌时慢打（只过牌、跟注）的概率（‰） */
+  slow: number;
+  /** 翻牌后下注占池子的比例（‰） */
+  size: number;
+  /** 软桌上翻牌前跟进门槛再放低多少（相对强度，按档的 SKILL.soft 打折）：让老好、阿飙在小桌像真人那样松 */
+  loose: number;
+  /** 同上，加注门槛再放低多少 */
+  wild: number;
+  /** 翻牌后按"前百分之几"猜翻牌前加过注的人（和这一档的 SKILL.raiser 取紧的那个，100 = 按档） */
+  raiser: number;
+  /** 翻牌前面对一次加注，拿着够跟的牌再加注的概率（‰，0.3.0）：凶的人不只拿大牌再加 */
+  threebet: number;
+  /** 上一轮自己下了注、这一轮没人下注时，接着再打一枪的概率（‰，0.3.0；按档的 bluff 倍数，对手每多一个少 60） */
+  barrel: number;
+  /** 河牌上：连着打过来的诈唬改成全下、或者大牌直接全下的概率（‰，0.3.0） */
+  shove: number;
+  /**
+   * 河牌没人下注、手里只有高牌（也不到 THIN）时诈唬的概率（‰，0.3.0 实打后；按档的 bluff 倍数，对手每多一个少 80）。
+   * 翻牌上的诈唬多半当场把人打走，空气很少打到河牌；河牌的诈唬常被有一对的人跟到摊牌，"诈唬"才亮得出来
+   */
+  river: number;
+}
+
+export const PERSONAS: readonly Persona[] = [
+  { name: '稳哥', style: '好牌才进，进了就打', call: 1400, raise: 1320, bluff: 120, slack: 0, slow: 50, size: 750, loose: 60, wild: 0, raiser: 100, threebet: 40, barrel: 250, shove: 0, river: 300 },
+  // 0.3.0 起 call 是"没人加注时跟进"的门槛（不再查赔率），按目标入池率重调：紧的调高，loose 只剩软桌上的放松（原来要大到抵掉赔率那一关）
+  // 阿飙的 loose / wild 0.2.0 从 100 / 70 收到 80 / 55：9 人桌后面坐的人多，原来那么松在小桌混桌里每百手 −59，收一点到 −39；6 人桌小桌入池 34% → 32%
+  { name: '阿飙', style: '爱加注，常偷盲', call: 1250, raise: 1200, bluff: 220, slack: 0, slow: 30, size: 800, loose: 80, wild: 55, raiser: 60, threebet: 150, barrel: 350, shove: 120, river: 800 },
+  { name: '老好', style: '爱跟注，很难被吓走', call: 1100, raise: 1450, bluff: 40, slack: 30, slow: 100, size: 550, loose: 150, wild: 0, raiser: 45, threebet: 5, barrel: 80, shove: 0, river: 150 },
+  { name: '慢慢', style: '很少加注，好牌爱装弱', call: 1290, raise: 1700, open: 1500, bluff: 20, slack: -30, slow: 300, size: 500, loose: 0, wild: 0, raiser: 100, threebet: 0, barrel: 100, shove: 0, river: 30 },
+  { name: '算盘', style: '严格按赔率算', call: 1230, raise: 1300, bluff: 180, slack: -10, slow: 60, size: 700, loose: 0, wild: 0, raiser: 100, threebet: 50, barrel: 300, shove: 20, river: 400 },
+  { name: '江湖', style: '爱慢打，偶尔过牌加注', call: 1230, raise: 1300, bluff: 250, slack: 10, slow: 250, size: 800, loose: 0, wild: 0, raiser: 100, threebet: 60, barrel: 300, shove: 40, river: 650 },
+  // 0.2.0 起（9 人桌最多 8 个电脑、一桌不重复）
+  { name: '虎子', style: '爱诈唬，下注又大又猛', call: 1210, raise: 1250, bluff: 160, slack: 0, slow: 20, size: 850, loose: 40, wild: 40, raiser: 100, threebet: 180, barrel: 300, shove: 80, river: 900 },
+  { name: '老鹰', style: '挑牌进池，一进就加，翻牌后也凶', call: 1270, raise: 1190, bluff: 220, slack: 10, slow: 30, size: 750, loose: 0, wild: 0, raiser: 100, threebet: 100, barrel: 400, shove: 60, river: 600 },
+  { name: '叨叨', style: '话多，爱凑热闹跟一手', call: 1150, raise: 1400, bluff: 100, slack: 15, slow: 80, size: 600, loose: 180, wild: 0, raiser: 45, threebet: 15, barrel: 120, shove: 0, river: 500 },
+  { name: '小白', style: '刚学会，什么牌都想看看', call: 1150, raise: 1500, bluff: 30, slack: 40, slow: 120, size: 500, loose: 200, wild: 0, raiser: 40, threebet: 0, barrel: 50, shove: 0, river: 250 },
+];
+
+/**
+ * 每档桌子的"功力"（DESIGN.md 4.3）：同一种性格，小桌松、软、不太会看人，豪华桌紧、凶、会按对手的动作猜他的牌。
+ * 电脑从 View.stakes 知道是哪一档。补位时各档挑哪些性格多一些见 stakes.ts 的 house。
+ */
+export interface Skill {
+  /**
+   * 翻牌后这一轮每有一次下注、加注，胜率乘 (1 − read)（‰，最多连乘 3 次；转牌 ×1.15、河牌 ×1.3）：越大越相信别人下注是真有牌。
+   * 0.3.0 前是线性的 read × 次数、约 100；它是"简单打法"每百手最敏感的一项，各档的值见 DESIGN.md 4.6
+   */
+  read: number;
+  /** 翻牌前每有一次加注，加注门槛抬高多少（相对强度；跟注门槛少抬 50） */
+  pre: number;
+  /** 翻牌前加过注、跟过加注、平跟进来的对手，翻牌后按"前百分之几的起手牌"估他的底牌（100 = 不猜，当随机牌） */
+  raiser: number;
+  caller: number;
+  limper: number;
+  /** 翻牌后跟注对底池赔率的放宽（‰，加在性格的 slack 上）：正数是爱跟、难被吓走 */
+  slack: number;
+  /** 诈唬和持续下注的倍数（‰） */
+  bluff: number;
+  /** 翻牌前跟注、加注门槛整体抬高多少（相对强度）：负数是松 */
+  tight: number;
+  /** 性格的 loose / wild 和正的 slack 在这一档用几成（‰）：小桌全用，越往上越少 */
+  soft: number;
+}
+
+export const SKILL: Readonly<Record<StakesId, Skill>> = {
+  small: { read: 300, pre: 150, raiser: 100, caller: 100, limper: 100, slack: 0, bluff: 700, tight: 0, soft: 1000 },
+  mid: { read: 240, pre: 200, raiser: 40, caller: 70, limper: 100, slack: 0, bluff: 800, tight: 0, soft: 600 },
+  big: { read: 220, pre: 205, raiser: 30, caller: 55, limper: 90, slack: 0, bluff: 750, tight: 20, soft: 200 },
+  lux: { read: 240, pre: 215, raiser: 30, caller: 55, limper: 80, slack: -5, bluff: 800, tight: 40, soft: 0 },
+};

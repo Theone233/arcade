@@ -1,0 +1,15 @@
+# 每次推送和 PR 都跑模块独立性检查：任何模块都不能引用自己目录以外的文件（packages/ 下的共用包除外）。
+name: Check isolation
+on:
+  push:
+  pull_request:
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node tools/check-isolation.mjs

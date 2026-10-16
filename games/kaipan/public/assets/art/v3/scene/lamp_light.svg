@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<defs><radialGradient id="lamp" gradientUnits="userSpaceOnUse" cx="320" cy="560" r="220"><stop offset="0" stop-color="#ffd98a" stop-opacity="0.55"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient></defs>
+<path d="M286 440L330 420L520 600L150 600Z" fill="url(#lamp)"/><ellipse cx="330" cy="584" rx="190" ry="32" fill="url(#lamp)"/>
+</svg>

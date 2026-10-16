@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs><clipPath id="cd"><path d="M24.00 5.00L29.64 17.23L43.02 18.82L33.13 27.97L35.76 41.18L24.00 34.60L12.24 41.18L14.87 27.97L4.98 18.82L18.36 17.23Z"/></clipPath></defs>
+<path d="M24.00 5.00L29.64 17.23L43.02 18.82L33.13 27.97L35.76 41.18L24.00 34.60L12.24 41.18L14.87 27.97L4.98 18.82L18.36 17.23Z" fill="#f0a020"/><g clip-path="url(#cd)"><path d="M24.00 5.00L29.64 17.23L43.02 18.82L33.13 27.97L35.76 41.18L24.00 34.60L12.24 41.18L14.87 27.97L4.98 18.82L18.36 17.23Z" transform="translate(-3 -3)" fill="#ffd23f"/></g><path d="M24.00 5.00L29.64 17.23L43.02 18.82L33.13 27.97L35.76 41.18L24.00 34.60L12.24 41.18L14.87 27.97L4.98 18.82L18.36 17.23Z" fill="none" stroke="#3a2634" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="M17 18L22 12" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

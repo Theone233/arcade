@@ -1,0 +1,4009 @@
+{
+  "$comment": "由 tools/art/build.ts 根据 tools/art/stocks.json 生成，不要手改。坐标单位为 128×128 画布像素。",
+  "canvas": 128,
+  "ground": 116,
+  "expressions": [
+    "calm",
+    "happy",
+    "limitup",
+    "worried",
+    "limitdown",
+    "delisted"
+  ],
+  "blink": "<id>/blink.svg：与 calm 同画布、完全对齐的闭眼帧（墨镜款为镜片反光），待机时 calm↔blink 短暂切换",
+  "roles": {
+    "leader": {
+      "name": "龙头",
+      "accessory": "crown"
+    },
+    "follower": {
+      "name": "跟风",
+      "accessory": "flag"
+    },
+    "bluechip": {
+      "name": "白马",
+      "accessory": "tie"
+    },
+    "meme": {
+      "name": "妖股",
+      "accessory": "bolt"
+    },
+    "st": {
+      "name": "ST",
+      "accessory": "bandage"
+    }
+  },
+  "stocks": [
+    {
+      "id": "ai_leader",
+      "name": "韭菜芯片",
+      "theme": "ai",
+      "role": "leader",
+      "hero": true,
+      "recipe": {
+        "body": "leekchip"
+      },
+      "colors": {
+        "body": "#2f9fd0",
+        "accent": "#56c45a",
+        "trim": "#f3c24a"
+      },
+      "composite": {
+        "calm": "ai_leader/calm.svg",
+        "happy": "ai_leader/happy.svg",
+        "limitup": "ai_leader/limitup.svg",
+        "worried": "ai_leader/worried.svg",
+        "limitdown": "ai_leader/limitdown.svg",
+        "delisted": "ai_leader/delisted.svg",
+        "blink": "ai_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          76
+        ],
+        "eyes": [
+          64,
+          76
+        ],
+        "eyeL": [
+          51,
+          76
+        ],
+        "eyeR": [
+          77,
+          76
+        ],
+        "mouth": [
+          64,
+          87
+        ],
+        "headTop": [
+          64,
+          6
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "ai_follower",
+      "name": "算力搬砖",
+      "theme": "ai",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "brickfan",
+        "motif": null
+      },
+      "colors": {
+        "body": "#e2714a",
+        "accent": "#1fbfe8",
+        "trim": "#2385a6"
+      },
+      "composite": {
+        "calm": "ai_follower/calm.svg",
+        "happy": "ai_follower/happy.svg",
+        "limitup": "ai_follower/limitup.svg",
+        "worried": "ai_follower/worried.svg",
+        "limitdown": "ai_follower/limitdown.svg",
+        "delisted": "ai_follower/delisted.svg",
+        "blink": "ai_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "spin",
+          "file": "parts/spin.svg",
+          "z": 2
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 3
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 4,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 5
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 6
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 7
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 8,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          90.2
+        ],
+        "eyes": [
+          64,
+          90.2
+        ],
+        "eyeL": [
+          51.1,
+          90.2
+        ],
+        "eyeR": [
+          76.9,
+          90.2
+        ],
+        "mouth": [
+          64,
+          99.7
+        ],
+        "headTop": [
+          64,
+          30
+        ],
+        "hand": [
+          101.84,
+          81.6
+        ],
+        "spin": [
+          53.68,
+          48.92
+        ]
+      },
+      "faceScale": 0.86
+    },
+    {
+      "id": "ai_meme",
+      "name": "量子波动",
+      "theme": "ai",
+      "role": "meme",
+      "hero": true,
+      "recipe": {
+        "body": "quantumjelly"
+      },
+      "colors": {
+        "body": "#5cc9f2",
+        "accent": "#b98cff",
+        "trim": "#ff7ad9"
+      },
+      "composite": {
+        "calm": "ai_meme/calm.svg",
+        "happy": "ai_meme/happy.svg",
+        "limitup": "ai_meme/limitup.svg",
+        "worried": "ai_meme/worried.svg",
+        "limitdown": "ai_meme/limitdown.svg",
+        "delisted": "ai_meme/delisted.svg",
+        "blink": "ai_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 3
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 4,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 5
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 6
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 7
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 8,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          70
+        ],
+        "eyes": [
+          64,
+          70
+        ],
+        "eyeL": [
+          50,
+          70
+        ],
+        "eyeR": [
+          78,
+          70
+        ],
+        "mouth": [
+          64,
+          81
+        ],
+        "headTop": [
+          64,
+          34
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "ne_leader",
+      "name": "光伏追光",
+      "theme": "newenergy",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "sunflower",
+        "motif": null
+      },
+      "colors": {
+        "body": "#9ad13c",
+        "accent": "#c7e694",
+        "trim": "#739136"
+      },
+      "composite": {
+        "calm": "ne_leader/calm.svg",
+        "happy": "ne_leader/happy.svg",
+        "limitup": "ne_leader/limitup.svg",
+        "worried": "ne_leader/worried.svg",
+        "limitdown": "ne_leader/limitdown.svg",
+        "delisted": "ne_leader/delisted.svg",
+        "blink": "ne_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          55
+        ],
+        "eyes": [
+          64,
+          55
+        ],
+        "eyeL": [
+          53,
+          55
+        ],
+        "eyeR": [
+          75,
+          55
+        ],
+        "mouth": [
+          64,
+          65.1
+        ],
+        "headTop": [
+          64,
+          4
+        ]
+      },
+      "faceScale": 0.92
+    },
+    {
+      "id": "ne_follower",
+      "name": "充电五分钟",
+      "theme": "newenergy",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "battery",
+        "motif": null
+      },
+      "colors": {
+        "body": "#9ad13c",
+        "accent": "#c7e694",
+        "trim": "#739136"
+      },
+      "composite": {
+        "calm": "ne_follower/calm.svg",
+        "happy": "ne_follower/happy.svg",
+        "limitup": "ne_follower/limitup.svg",
+        "worried": "ne_follower/worried.svg",
+        "limitdown": "ne_follower/limitdown.svg",
+        "delisted": "ne_follower/delisted.svg",
+        "blink": "ne_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          74.7
+        ],
+        "eyes": [
+          64,
+          74.7
+        ],
+        "eyeL": [
+          53.4,
+          74.7
+        ],
+        "eyeR": [
+          74.6,
+          74.7
+        ],
+        "mouth": [
+          64,
+          83.7
+        ],
+        "headTop": [
+          64,
+          33.44
+        ],
+        "hand": [
+          98.4,
+          79.88
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "ne_meme",
+      "name": "永动机能源",
+      "theme": "newenergy",
+      "role": "meme",
+      "hero": true,
+      "recipe": {
+        "body": "hamsterwheel"
+      },
+      "colors": {
+        "body": "#f2a65a",
+        "accent": "#9ad13c",
+        "trim": "#fff1d6"
+      },
+      "composite": {
+        "calm": "ne_meme/calm.svg",
+        "happy": "ne_meme/happy.svg",
+        "limitup": "ne_meme/limitup.svg",
+        "worried": "ne_meme/worried.svg",
+        "limitdown": "ne_meme/limitdown.svg",
+        "delisted": "ne_meme/delisted.svg",
+        "blink": "ne_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "spin",
+          "file": "parts/spin.svg",
+          "z": 2
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 3
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 4
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 5,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 6
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 7
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 8,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          67.1
+        ],
+        "eyes": [
+          64,
+          67.1
+        ],
+        "eyeL": [
+          49.7,
+          67.1
+        ],
+        "eyeR": [
+          78.3,
+          67.1
+        ],
+        "mouth": [
+          64,
+          77.8
+        ],
+        "headTop": [
+          64,
+          6
+        ],
+        "spin": [
+          64,
+          58
+        ]
+      },
+      "faceScale": 1.1880000000000002
+    },
+    {
+      "id": "con_leader",
+      "name": "奶茶续命",
+      "theme": "consumer",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "cup",
+        "motif": null
+      },
+      "colors": {
+        "body": "#f0c08a",
+        "accent": "#ff8a3d",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "con_leader/calm.svg",
+        "happy": "con_leader/happy.svg",
+        "limitup": "con_leader/limitup.svg",
+        "worried": "con_leader/worried.svg",
+        "limitdown": "con_leader/limitdown.svg",
+        "delisted": "con_leader/delisted.svg",
+        "blink": "con_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          86
+        ],
+        "eyes": [
+          64,
+          86
+        ],
+        "eyeL": [
+          52,
+          86
+        ],
+        "eyeR": [
+          76,
+          86
+        ],
+        "mouth": [
+          64,
+          95.2
+        ],
+        "headTop": [
+          64,
+          8
+        ]
+      },
+      "faceScale": 0.92
+    },
+    {
+      "id": "con_blue",
+      "name": "国民辣条",
+      "theme": "consumer",
+      "role": "bluechip",
+      "hero": true,
+      "recipe": {
+        "body": "latiao"
+      },
+      "colors": {
+        "body": "#ec4a2c",
+        "accent": "#ffb347",
+        "trim": "#2f3b80"
+      },
+      "composite": {
+        "calm": "con_blue/calm.svg",
+        "happy": "con_blue/happy.svg",
+        "limitup": "con_blue/limitup.svg",
+        "worried": "con_blue/worried.svg",
+        "limitdown": "con_blue/limitdown.svg",
+        "delisted": "con_blue/delisted.svg",
+        "blink": "con_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          48
+        ],
+        "eyes": [
+          64,
+          48
+        ],
+        "eyeL": [
+          52,
+          48
+        ],
+        "eyeR": [
+          76,
+          48
+        ],
+        "mouth": [
+          64,
+          61
+        ],
+        "headTop": [
+          64,
+          10
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "con_meme",
+      "name": "预制菜大王",
+      "theme": "consumer",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "bento",
+        "motif": null
+      },
+      "colors": {
+        "body": "#ff7a33",
+        "accent": "#ffb68f",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "con_meme/calm.svg",
+        "happy": "con_meme/happy.svg",
+        "limitup": "con_meme/limitup.svg",
+        "worried": "con_meme/worried.svg",
+        "limitdown": "con_meme/limitdown.svg",
+        "delisted": "con_meme/delisted.svg",
+        "blink": "con_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          89
+        ],
+        "eyes": [
+          64,
+          89
+        ],
+        "eyeL": [
+          49.8,
+          89
+        ],
+        "eyeR": [
+          78.3,
+          89
+        ],
+        "mouth": [
+          64,
+          99.5
+        ],
+        "headTop": [
+          64,
+          8
+        ]
+      },
+      "faceScale": 0.95
+    },
+    {
+      "id": "ph_leader",
+      "name": "熬夜救星药业",
+      "theme": "pharma",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "pillbottle",
+        "motif": null
+      },
+      "colors": {
+        "body": "#2fc49a",
+        "accent": "#8ddfc7",
+        "trim": "#2d8973"
+      },
+      "composite": {
+        "calm": "ph_leader/calm.svg",
+        "happy": "ph_leader/happy.svg",
+        "limitup": "ph_leader/limitup.svg",
+        "worried": "ph_leader/worried.svg",
+        "limitdown": "ph_leader/limitdown.svg",
+        "delisted": "ph_leader/delisted.svg",
+        "blink": "ph_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          79
+        ],
+        "eyes": [
+          64,
+          79
+        ],
+        "eyeL": [
+          51.7,
+          79
+        ],
+        "eyeR": [
+          76.4,
+          79
+        ],
+        "mouth": [
+          64,
+          89.5
+        ],
+        "headTop": [
+          64,
+          8
+        ]
+      },
+      "faceScale": 0.95
+    },
+    {
+      "id": "ph_blue",
+      "name": "板蓝根集团",
+      "theme": "pharma",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "packet",
+        "motif": null
+      },
+      "colors": {
+        "body": "#2fc49a",
+        "accent": "#8ddfc7",
+        "trim": "#2d8973"
+      },
+      "composite": {
+        "calm": "ph_blue/calm.svg",
+        "happy": "ph_blue/happy.svg",
+        "limitup": "ph_blue/limitup.svg",
+        "worried": "ph_blue/worried.svg",
+        "limitdown": "ph_blue/limitdown.svg",
+        "delisted": "ph_blue/delisted.svg",
+        "blink": "ph_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          74
+        ],
+        "eyes": [
+          64,
+          74
+        ],
+        "eyeL": [
+          51,
+          74
+        ],
+        "eyeR": [
+          77,
+          74
+        ],
+        "mouth": [
+          64,
+          85
+        ],
+        "headTop": [
+          64,
+          40
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "ph_meme",
+      "name": "神药概念",
+      "theme": "pharma",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "potion",
+        "motif": null
+      },
+      "colors": {
+        "body": "#2fc49a",
+        "accent": "#8ddfc7",
+        "trim": "#2d8973"
+      },
+      "composite": {
+        "calm": "ph_meme/calm.svg",
+        "happy": "ph_meme/happy.svg",
+        "limitup": "ph_meme/limitup.svg",
+        "worried": "ph_meme/worried.svg",
+        "limitdown": "ph_meme/limitdown.svg",
+        "delisted": "ph_meme/delisted.svg",
+        "blink": "ph_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          84
+        ],
+        "eyes": [
+          64,
+          84
+        ],
+        "eyeL": [
+          51.7,
+          84
+        ],
+        "eyeR": [
+          76.4,
+          84
+        ],
+        "mouth": [
+          64,
+          94.5
+        ],
+        "headTop": [
+          64,
+          2
+        ]
+      },
+      "faceScale": 0.95
+    },
+    {
+      "id": "fin_leader",
+      "name": "割韭菜证券",
+      "theme": "finance",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "sickle",
+        "motif": null
+      },
+      "colors": {
+        "body": "#d39a5a",
+        "accent": "#f6c02f",
+        "trim": "#e6ecf5"
+      },
+      "composite": {
+        "calm": "fin_leader/calm.svg",
+        "happy": "fin_leader/happy.svg",
+        "limitup": "fin_leader/limitup.svg",
+        "worried": "fin_leader/worried.svg",
+        "limitdown": "fin_leader/limitdown.svg",
+        "delisted": "fin_leader/delisted.svg",
+        "blink": "fin_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          62,
+          84
+        ],
+        "eyes": [
+          62,
+          84
+        ],
+        "eyeL": [
+          51.7,
+          84
+        ],
+        "eyeR": [
+          72.3,
+          84
+        ],
+        "mouth": [
+          62,
+          94.3
+        ],
+        "headTop": [
+          72,
+          4
+        ]
+      },
+      "faceScale": 0.86
+    },
+    {
+      "id": "fin_blue",
+      "name": "躺平银行",
+      "theme": "finance",
+      "role": "bluechip",
+      "hero": true,
+      "recipe": {
+        "body": "lazypiggy"
+      },
+      "colors": {
+        "body": "#f5b52e",
+        "accent": "#ffd98a",
+        "trim": "#3b5bd6"
+      },
+      "composite": {
+        "calm": "fin_blue/calm.svg",
+        "happy": "fin_blue/happy.svg",
+        "limitup": "fin_blue/limitup.svg",
+        "worried": "fin_blue/worried.svg",
+        "limitdown": "fin_blue/limitdown.svg",
+        "delisted": "fin_blue/delisted.svg",
+        "blink": "fin_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          42,
+          76
+        ],
+        "eyes": [
+          42,
+          76
+        ],
+        "eyeL": [
+          28.7,
+          76
+        ],
+        "eyeR": [
+          55.3,
+          76
+        ],
+        "mouth": [
+          42,
+          101.5
+        ],
+        "headTop": [
+          42,
+          40
+        ]
+      },
+      "faceScale": 1.02
+    },
+    {
+      "id": "fin_meme",
+      "name": "币圈信托",
+      "theme": "finance",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "coin",
+        "motif": null
+      },
+      "colors": {
+        "body": "#f6c02f",
+        "accent": "#fadc8d",
+        "trim": "#af862d"
+      },
+      "composite": {
+        "calm": "fin_meme/calm.svg",
+        "happy": "fin_meme/happy.svg",
+        "limitup": "fin_meme/limitup.svg",
+        "worried": "fin_meme/worried.svg",
+        "limitdown": "fin_meme/limitdown.svg",
+        "delisted": "fin_meme/delisted.svg",
+        "blink": "fin_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 3
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 4,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 5
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 6
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 7
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 8,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          76
+        ],
+        "eyes": [
+          64,
+          76
+        ],
+        "eyeL": [
+          51.7,
+          76
+        ],
+        "eyeR": [
+          76.4,
+          76
+        ],
+        "mouth": [
+          64,
+          86.5
+        ],
+        "headTop": [
+          64,
+          18
+        ]
+      },
+      "faceScale": 0.95
+    },
+    {
+      "id": "la_leader",
+      "name": "飞天外卖",
+      "theme": "lowalt",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "propbox",
+        "motif": null
+      },
+      "colors": {
+        "body": "#4f7cff",
+        "accent": "#9eb7ff",
+        "trim": "#425ab4"
+      },
+      "composite": {
+        "calm": "la_leader/calm.svg",
+        "happy": "la_leader/happy.svg",
+        "limitup": "la_leader/limitup.svg",
+        "worried": "la_leader/worried.svg",
+        "limitdown": "la_leader/limitdown.svg",
+        "delisted": "la_leader/delisted.svg",
+        "blink": "la_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          63,
+          80
+        ],
+        "eyes": [
+          63,
+          80
+        ],
+        "eyeL": [
+          49,
+          80
+        ],
+        "eyeR": [
+          77,
+          80
+        ],
+        "mouth": [
+          63,
+          91
+        ],
+        "headTop": [
+          64,
+          16
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "la_follower",
+      "name": "螺旋桨精工",
+      "theme": "lowalt",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "propeller",
+        "motif": null
+      },
+      "colors": {
+        "body": "#4f7cff",
+        "accent": "#9eb7ff",
+        "trim": "#425ab4"
+      },
+      "composite": {
+        "calm": "la_follower/calm.svg",
+        "happy": "la_follower/happy.svg",
+        "limitup": "la_follower/limitup.svg",
+        "worried": "la_follower/worried.svg",
+        "limitdown": "la_follower/limitdown.svg",
+        "delisted": "la_follower/delisted.svg",
+        "blink": "la_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "spin",
+          "file": "parts/spin.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          69.6
+        ],
+        "eyes": [
+          64,
+          69.6
+        ],
+        "eyeL": [
+          52.6,
+          69.6
+        ],
+        "eyeR": [
+          75.4,
+          69.6
+        ],
+        "mouth": [
+          64,
+          79.2
+        ],
+        "headTop": [
+          64,
+          17.96
+        ],
+        "hand": [
+          44.22,
+          57.52
+        ],
+        "spin": [
+          64,
+          69.56
+        ]
+      },
+      "faceScale": 0.877
+    },
+    {
+      "id": "la_meme",
+      "name": "会飞的车",
+      "theme": "lowalt",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "car",
+        "motif": null
+      },
+      "colors": {
+        "body": "#4f7cff",
+        "accent": "#9eb7ff",
+        "trim": "#425ab4"
+      },
+      "composite": {
+        "calm": "la_meme/calm.svg",
+        "happy": "la_meme/happy.svg",
+        "limitup": "la_meme/limitup.svg",
+        "worried": "la_meme/worried.svg",
+        "limitdown": "la_meme/limitdown.svg",
+        "delisted": "la_meme/delisted.svg",
+        "blink": "la_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 3
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          67
+        ],
+        "eyes": [
+          64,
+          67
+        ],
+        "eyeL": [
+          53.3,
+          67
+        ],
+        "eyeR": [
+          74.7,
+          67
+        ],
+        "mouth": [
+          64,
+          75.2
+        ],
+        "headTop": [
+          64,
+          40
+        ]
+      },
+      "faceScale": 0.82
+    },
+    {
+      "id": "gm_leader",
+      "name": "氪金游戏",
+      "theme": "gaming",
+      "role": "leader",
+      "hero": false,
+      "recipe": {
+        "shape": "gamepad",
+        "motif": null
+      },
+      "colors": {
+        "body": "#cc4fe0",
+        "accent": "#e39eee",
+        "trim": "#933ca0"
+      },
+      "composite": {
+        "calm": "gm_leader/calm.svg",
+        "happy": "gm_leader/happy.svg",
+        "limitup": "gm_leader/limitup.svg",
+        "worried": "gm_leader/worried.svg",
+        "limitdown": "gm_leader/limitdown.svg",
+        "delisted": "gm_leader/delisted.svg",
+        "blink": "gm_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          72
+        ],
+        "eyes": [
+          64,
+          72
+        ],
+        "eyeL": [
+          53.2,
+          72
+        ],
+        "eyeR": [
+          74.8,
+          72
+        ],
+        "mouth": [
+          64,
+          81.9
+        ],
+        "headTop": [
+          64,
+          20
+        ]
+      },
+      "faceScale": 0.9
+    },
+    {
+      "id": "gm_follower",
+      "name": "电竞椅",
+      "theme": "gaming",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "gamingchair",
+        "motif": null
+      },
+      "colors": {
+        "body": "#cc4fe0",
+        "accent": "#e39eee",
+        "trim": "#933ca0"
+      },
+      "composite": {
+        "calm": "gm_follower/calm.svg",
+        "happy": "gm_follower/happy.svg",
+        "limitup": "gm_follower/limitup.svg",
+        "worried": "gm_follower/worried.svg",
+        "limitdown": "gm_follower/limitdown.svg",
+        "delisted": "gm_follower/delisted.svg",
+        "blink": "gm_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          66.1
+        ],
+        "eyes": [
+          64,
+          66.1
+        ],
+        "eyeL": [
+          55.3,
+          66.1
+        ],
+        "eyeR": [
+          72.7,
+          66.1
+        ],
+        "mouth": [
+          64,
+          74.8
+        ],
+        "headTop": [
+          64,
+          19.68
+        ],
+        "hand": [
+          98.4,
+          73
+        ]
+      },
+      "faceScale": 0.791
+    },
+    {
+      "id": "gm_meme",
+      "name": "元宇宙",
+      "theme": "gaming",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "vrhead",
+        "motif": null
+      },
+      "colors": {
+        "body": "#cc4fe0",
+        "accent": "#e39eee",
+        "trim": "#933ca0"
+      },
+      "composite": {
+        "calm": "gm_meme/calm.svg",
+        "happy": "gm_meme/happy.svg",
+        "limitup": "gm_meme/limitup.svg",
+        "worried": "gm_meme/worried.svg",
+        "limitdown": "gm_meme/limitdown.svg",
+        "delisted": "gm_meme/delisted.svg",
+        "blink": "gm_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 3
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 4,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 5
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          66
+        ],
+        "eyes": [
+          64,
+          66
+        ],
+        "eyeL": [
+          51.3,
+          66
+        ],
+        "eyeR": [
+          76.8,
+          66
+        ],
+        "mouth": [
+          64,
+          75.4
+        ],
+        "headTop": [
+          64,
+          12
+        ]
+      },
+      "faceScale": 0.85
+    },
+    {
+      "id": "pig_leader",
+      "name": "二师兄牧业",
+      "theme": "pig",
+      "role": "leader",
+      "hero": true,
+      "recipe": {
+        "body": "bajie"
+      },
+      "colors": {
+        "body": "#ffa8bd",
+        "accent": "#ff7f9f",
+        "trim": "#8a5a3a"
+      },
+      "composite": {
+        "calm": "pig_leader/calm.svg",
+        "happy": "pig_leader/happy.svg",
+        "limitup": "pig_leader/limitup.svg",
+        "worried": "pig_leader/worried.svg",
+        "limitdown": "pig_leader/limitdown.svg",
+        "delisted": "pig_leader/delisted.svg",
+        "blink": "pig_leader/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          72
+        ],
+        "eyes": [
+          64,
+          72
+        ],
+        "eyeL": [
+          48,
+          72
+        ],
+        "eyeR": [
+          80,
+          72
+        ],
+        "mouth": [
+          64,
+          98
+        ],
+        "headTop": [
+          64,
+          26
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "pig_follower",
+      "name": "饲料大王",
+      "theme": "pig",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "sack",
+        "motif": null
+      },
+      "colors": {
+        "body": "#e2c08d",
+        "accent": "#ff9db4",
+        "trim": "#b46f91"
+      },
+      "composite": {
+        "calm": "pig_follower/calm.svg",
+        "happy": "pig_follower/happy.svg",
+        "limitup": "pig_follower/limitup.svg",
+        "worried": "pig_follower/worried.svg",
+        "limitdown": "pig_follower/limitdown.svg",
+        "delisted": "pig_follower/delisted.svg",
+        "blink": "pig_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          78.2
+        ],
+        "eyes": [
+          64,
+          78.2
+        ],
+        "eyeL": [
+          53.4,
+          78.2
+        ],
+        "eyeR": [
+          74.6,
+          78.2
+        ],
+        "mouth": [
+          64,
+          87.1
+        ],
+        "headTop": [
+          64,
+          35.16
+        ],
+        "hand": [
+          98.4,
+          83.32
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "pig_meme",
+      "name": "风口上的猪",
+      "theme": "pig",
+      "role": "meme",
+      "hero": false,
+      "recipe": {
+        "shape": "fanpig",
+        "motif": null
+      },
+      "colors": {
+        "body": "#ff9cc8",
+        "accent": "#ffc9e1",
+        "trim": "#b46f91"
+      },
+      "composite": {
+        "calm": "pig_meme/calm.svg",
+        "happy": "pig_meme/happy.svg",
+        "limitup": "pig_meme/limitup.svg",
+        "worried": "pig_meme/worried.svg",
+        "limitdown": "pig_meme/limitdown.svg",
+        "delisted": "pig_meme/delisted.svg",
+        "blink": "pig_meme/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "spin",
+          "file": "parts/spin.svg",
+          "z": 2
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 3
+        },
+        {
+          "name": "mark",
+          "file": "parts/mark.svg",
+          "z": 4
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 5,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 6
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 7
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 8,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          78,
+          49
+        ],
+        "eyes": [
+          78,
+          49
+        ],
+        "eyeL": [
+          63.4,
+          49
+        ],
+        "eyeR": [
+          92.6,
+          49
+        ],
+        "mouth": [
+          78,
+          75
+        ],
+        "headTop": [
+          78,
+          12
+        ],
+        "spin": [
+          20,
+          88
+        ]
+      },
+      "faceScale": 1.04
+    },
+    {
+      "id": "st_lazy",
+      "name": "ST摆烂",
+      "theme": "consumer",
+      "role": "st",
+      "hero": false,
+      "recipe": {
+        "shape": "melt",
+        "motif": null
+      },
+      "colors": {
+        "body": "#e9b07f",
+        "accent": "#ff7a33",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "st_lazy/calm.svg",
+        "happy": "st_lazy/happy.svg",
+        "limitup": "st_lazy/limitup.svg",
+        "worried": "st_lazy/worried.svg",
+        "limitdown": "st_lazy/limitdown.svg",
+        "delisted": "st_lazy/delisted.svg",
+        "blink": "st_lazy/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          94
+        ],
+        "eyes": [
+          64,
+          94
+        ],
+        "eyeL": [
+          52,
+          94
+        ],
+        "eyeR": [
+          76,
+          94
+        ],
+        "mouth": [
+          64,
+          103.2
+        ],
+        "headTop": [
+          64,
+          62
+        ]
+      },
+      "faceScale": 0.92
+    },
+    {
+      "id": "st_bye",
+      "name": "ST退退退",
+      "theme": "finance",
+      "role": "st",
+      "hero": false,
+      "recipe": {
+        "shape": "backpedal",
+        "motif": null
+      },
+      "colors": {
+        "body": "#d9c07a",
+        "accent": "#f6c02f",
+        "trim": "#af862d"
+      },
+      "composite": {
+        "calm": "st_bye/calm.svg",
+        "happy": "st_bye/happy.svg",
+        "limitup": "st_bye/limitup.svg",
+        "worried": "st_bye/worried.svg",
+        "limitdown": "st_bye/limitdown.svg",
+        "delisted": "st_bye/delisted.svg",
+        "blink": "st_bye/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          66,
+          80
+        ],
+        "eyes": [
+          66,
+          80
+        ],
+        "eyeL": [
+          53.7,
+          80
+        ],
+        "eyeR": [
+          78.4,
+          80
+        ],
+        "mouth": [
+          66,
+          90.5
+        ],
+        "headTop": [
+          66,
+          40
+        ]
+      },
+      "faceScale": 0.95
+    },
+    {
+      "id": "ai_blue",
+      "name": "稳稳算力云",
+      "theme": "ai",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "cloudrack",
+        "motif": null
+      },
+      "colors": {
+        "body": "#f4fbff",
+        "accent": "#1fbfe8",
+        "trim": "#2385a6"
+      },
+      "composite": {
+        "calm": "ai_blue/calm.svg",
+        "happy": "ai_blue/happy.svg",
+        "limitup": "ai_blue/limitup.svg",
+        "worried": "ai_blue/worried.svg",
+        "limitdown": "ai_blue/limitdown.svg",
+        "delisted": "ai_blue/delisted.svg",
+        "blink": "ai_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          60
+        ],
+        "eyes": [
+          64,
+          60
+        ],
+        "eyeL": [
+          48.7,
+          60
+        ],
+        "eyeR": [
+          79.3,
+          60
+        ],
+        "mouth": [
+          64,
+          71.2
+        ],
+        "headTop": [
+          64,
+          24
+        ]
+      },
+      "faceScale": 1.02
+    },
+    {
+      "id": "ai_follower2",
+      "name": "提示词工坊",
+      "theme": "ai",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "promptbubble",
+        "motif": null
+      },
+      "colors": {
+        "body": "#1fbfe8",
+        "accent": "#84dcf2",
+        "trim": "#2385a6"
+      },
+      "composite": {
+        "calm": "ai_follower2/calm.svg",
+        "happy": "ai_follower2/happy.svg",
+        "limitup": "ai_follower2/limitup.svg",
+        "worried": "ai_follower2/worried.svg",
+        "limitdown": "ai_follower2/limitdown.svg",
+        "delisted": "ai_follower2/delisted.svg",
+        "blink": "ai_follower2/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          66.1
+        ],
+        "eyes": [
+          64,
+          66.1
+        ],
+        "eyeL": [
+          53.4,
+          66.1
+        ],
+        "eyeR": [
+          74.6,
+          66.1
+        ],
+        "mouth": [
+          64,
+          74.3
+        ],
+        "headTop": [
+          64,
+          26.56
+        ],
+        "hand": [
+          103.56,
+          73
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "ne_blue",
+      "name": "老实电池",
+      "theme": "newenergy",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "cellbattery",
+        "motif": null
+      },
+      "colors": {
+        "body": "#86c43a",
+        "accent": "#9ad13c",
+        "trim": "#739136"
+      },
+      "composite": {
+        "calm": "ne_blue/calm.svg",
+        "happy": "ne_blue/happy.svg",
+        "limitup": "ne_blue/limitup.svg",
+        "worried": "ne_blue/worried.svg",
+        "limitdown": "ne_blue/limitdown.svg",
+        "delisted": "ne_blue/delisted.svg",
+        "blink": "ne_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          60
+        ],
+        "eyes": [
+          64,
+          60
+        ],
+        "eyeL": [
+          50,
+          60
+        ],
+        "eyeR": [
+          78,
+          60
+        ],
+        "mouth": [
+          64,
+          71
+        ],
+        "headTop": [
+          64,
+          20
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "ne_follower2",
+      "name": "风车转转",
+      "theme": "newenergy",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "pinwheel",
+        "motif": null
+      },
+      "colors": {
+        "body": "#9ad13c",
+        "accent": "#c7e694",
+        "trim": "#739136"
+      },
+      "composite": {
+        "calm": "ne_follower2/calm.svg",
+        "happy": "ne_follower2/happy.svg",
+        "limitup": "ne_follower2/limitup.svg",
+        "worried": "ne_follower2/worried.svg",
+        "limitdown": "ne_follower2/limitdown.svg",
+        "delisted": "ne_follower2/delisted.svg",
+        "blink": "ne_follower2/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "spin",
+          "file": "parts/spin.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          88.5
+        ],
+        "eyes": [
+          64,
+          88.5
+        ],
+        "eyeL": [
+          53.4,
+          88.5
+        ],
+        "eyeR": [
+          74.6,
+          88.5
+        ],
+        "mouth": [
+          64,
+          97.5
+        ],
+        "headTop": [
+          64,
+          17.96
+        ],
+        "hand": [
+          98.4,
+          88.48
+        ],
+        "spin": [
+          64,
+          40.32
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "con_follower",
+      "name": "螺蛳粉工厂",
+      "theme": "consumer",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "noodlebowl",
+        "motif": null
+      },
+      "colors": {
+        "body": "#ff7a33",
+        "accent": "#ffb68f",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "con_follower/calm.svg",
+        "happy": "con_follower/happy.svg",
+        "limitup": "con_follower/limitup.svg",
+        "worried": "con_follower/worried.svg",
+        "limitdown": "con_follower/limitdown.svg",
+        "delisted": "con_follower/delisted.svg",
+        "blink": "con_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          90.2
+        ],
+        "eyes": [
+          64,
+          90.2
+        ],
+        "eyeL": [
+          53.9,
+          90.2
+        ],
+        "eyeR": [
+          74.1,
+          90.2
+        ],
+        "mouth": [
+          64,
+          97.9
+        ],
+        "headTop": [
+          64,
+          23.12
+        ],
+        "hand": [
+          38.2,
+          71.28
+        ]
+      },
+      "faceScale": 0.774
+    },
+    {
+      "id": "con_follower2",
+      "name": "云养猫",
+      "theme": "consumer",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "cloudcat",
+        "motif": null
+      },
+      "colors": {
+        "body": "#fdf9f4",
+        "accent": "#ff9a4d",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "con_follower2/calm.svg",
+        "happy": "con_follower2/happy.svg",
+        "limitup": "con_follower2/limitup.svg",
+        "worried": "con_follower2/worried.svg",
+        "limitdown": "con_follower2/limitdown.svg",
+        "delisted": "con_follower2/delisted.svg",
+        "blink": "con_follower2/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          79.9
+        ],
+        "eyes": [
+          64,
+          79.9
+        ],
+        "eyeL": [
+          53.4,
+          79.9
+        ],
+        "eyeR": [
+          74.6,
+          79.9
+        ],
+        "mouth": [
+          64,
+          88.9
+        ],
+        "headTop": [
+          64,
+          16.24
+        ],
+        "hand": [
+          65.72,
+          55.8
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "ph_follower",
+      "name": "护发生发",
+      "theme": "pharma",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "baldsprout",
+        "motif": null
+      },
+      "colors": {
+        "body": "#ffd9b8",
+        "accent": "#2fc49a",
+        "trim": "#2d8973"
+      },
+      "composite": {
+        "calm": "ph_follower/calm.svg",
+        "happy": "ph_follower/happy.svg",
+        "limitup": "ph_follower/limitup.svg",
+        "worried": "ph_follower/worried.svg",
+        "limitdown": "ph_follower/limitdown.svg",
+        "delisted": "ph_follower/delisted.svg",
+        "blink": "ph_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          85
+        ],
+        "eyes": [
+          64,
+          85
+        ],
+        "eyeL": [
+          53.4,
+          85
+        ],
+        "eyeR": [
+          74.6,
+          85
+        ],
+        "mouth": [
+          64,
+          94
+        ],
+        "headTop": [
+          64,
+          33.44
+        ],
+        "hand": [
+          98.4,
+          93.64
+        ]
+      },
+      "faceScale": 0.817
+    },
+    {
+      "id": "fin_follower",
+      "name": "理财小课堂",
+      "theme": "finance",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "classroom",
+        "motif": null
+      },
+      "colors": {
+        "body": "#f6c02f",
+        "accent": "#fadc8d",
+        "trim": "#af862d"
+      },
+      "composite": {
+        "calm": "fin_follower/calm.svg",
+        "happy": "fin_follower/happy.svg",
+        "limitup": "fin_follower/limitup.svg",
+        "worried": "fin_follower/worried.svg",
+        "limitdown": "fin_follower/limitdown.svg",
+        "delisted": "fin_follower/delisted.svg",
+        "blink": "fin_follower/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          69.2,
+          91.9
+        ],
+        "eyes": [
+          69.2,
+          91.9
+        ],
+        "eyeL": [
+          59.9,
+          91.9
+        ],
+        "eyeR": [
+          78.4,
+          91.9
+        ],
+        "mouth": [
+          69.2,
+          99.7
+        ],
+        "headTop": [
+          69.16,
+          40.32
+        ],
+        "hand": [
+          101.84,
+          86.76
+        ]
+      },
+      "faceScale": 0.774
+    },
+    {
+      "id": "la_blue",
+      "name": "停机坪物业",
+      "theme": "lowalt",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "helipad",
+        "motif": null
+      },
+      "colors": {
+        "body": "#4f7cff",
+        "accent": "#9eb7ff",
+        "trim": "#425ab4"
+      },
+      "composite": {
+        "calm": "la_blue/calm.svg",
+        "happy": "la_blue/happy.svg",
+        "limitup": "la_blue/limitup.svg",
+        "worried": "la_blue/worried.svg",
+        "limitdown": "la_blue/limitdown.svg",
+        "delisted": "la_blue/delisted.svg",
+        "blink": "la_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          68
+        ],
+        "eyes": [
+          64,
+          68
+        ],
+        "eyeL": [
+          51.3,
+          68
+        ],
+        "eyeR": [
+          76.7,
+          68
+        ],
+        "mouth": [
+          64,
+          78.8
+        ],
+        "headTop": [
+          64,
+          14
+        ]
+      },
+      "faceScale": 0.98
+    },
+    {
+      "id": "gm_blue",
+      "name": "像素老厂",
+      "theme": "gaming",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "pixelfactory",
+        "motif": null
+      },
+      "colors": {
+        "body": "#cc4fe0",
+        "accent": "#e39eee",
+        "trim": "#933ca0"
+      },
+      "composite": {
+        "calm": "gm_blue/calm.svg",
+        "happy": "gm_blue/happy.svg",
+        "limitup": "gm_blue/limitup.svg",
+        "worried": "gm_blue/worried.svg",
+        "limitdown": "gm_blue/limitdown.svg",
+        "delisted": "gm_blue/delisted.svg",
+        "blink": "gm_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          80
+        ],
+        "eyes": [
+          64,
+          80
+        ],
+        "eyeL": [
+          49,
+          80
+        ],
+        "eyeR": [
+          79,
+          80
+        ],
+        "mouth": [
+          64,
+          91
+        ],
+        "headTop": [
+          64,
+          24
+        ]
+      },
+      "faceScale": 1
+    },
+    {
+      "id": "gm_follower2",
+      "name": "主播经纪",
+      "theme": "gaming",
+      "role": "follower",
+      "hero": false,
+      "recipe": {
+        "shape": "livemic",
+        "motif": null
+      },
+      "colors": {
+        "body": "#cc4fe0",
+        "accent": "#e39eee",
+        "trim": "#933ca0"
+      },
+      "composite": {
+        "calm": "gm_follower2/calm.svg",
+        "happy": "gm_follower2/happy.svg",
+        "limitup": "gm_follower2/limitup.svg",
+        "worried": "gm_follower2/worried.svg",
+        "limitdown": "gm_follower2/limitdown.svg",
+        "delisted": "gm_follower2/delisted.svg",
+        "blink": "gm_follower2/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          71.3
+        ],
+        "eyes": [
+          64,
+          71.3
+        ],
+        "eyeL": [
+          54.5,
+          71.3
+        ],
+        "eyeR": [
+          73.5,
+          71.3
+        ],
+        "mouth": [
+          64,
+          79.2
+        ],
+        "headTop": [
+          64,
+          24.84
+        ],
+        "hand": [
+          98.4,
+          76.44
+        ]
+      },
+      "faceScale": 0.791
+    },
+    {
+      "id": "pig_blue",
+      "name": "冷鲜肉铺",
+      "theme": "pig",
+      "role": "bluechip",
+      "hero": false,
+      "recipe": {
+        "shape": "fridgepig",
+        "motif": null
+      },
+      "colors": {
+        "body": "#e6f2fb",
+        "accent": "#ff9cc8",
+        "trim": "#b46f91"
+      },
+      "composite": {
+        "calm": "pig_blue/calm.svg",
+        "happy": "pig_blue/happy.svg",
+        "limitup": "pig_blue/limitup.svg",
+        "worried": "pig_blue/worried.svg",
+        "limitdown": "pig_blue/limitdown.svg",
+        "delisted": "pig_blue/delisted.svg",
+        "blink": "pig_blue/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          60
+        ],
+        "eyes": [
+          64,
+          60
+        ],
+        "eyeL": [
+          49.3,
+          60
+        ],
+        "eyeR": [
+          78.7,
+          60
+        ],
+        "mouth": [
+          64,
+          84.5
+        ],
+        "headTop": [
+          64,
+          10
+        ]
+      },
+      "faceScale": 0.98
+    },
+    {
+      "id": "st_dream",
+      "name": "ST画大饼",
+      "theme": "consumer",
+      "role": "st",
+      "hero": false,
+      "recipe": {
+        "shape": "pie",
+        "motif": null
+      },
+      "colors": {
+        "body": "#d2b47c",
+        "accent": "#a89a86",
+        "trim": "#b45830"
+      },
+      "composite": {
+        "calm": "st_dream/calm.svg",
+        "happy": "st_dream/happy.svg",
+        "limitup": "st_dream/limitup.svg",
+        "worried": "st_dream/worried.svg",
+        "limitdown": "st_dream/limitdown.svg",
+        "delisted": "st_dream/delisted.svg",
+        "blink": "st_dream/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "back",
+          "file": "parts/back.svg",
+          "z": 1
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 2
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 3,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 4
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 5
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 6
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 7,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          60,
+          84
+        ],
+        "eyes": [
+          60,
+          84
+        ],
+        "eyeL": [
+          48,
+          84
+        ],
+        "eyeR": [
+          72,
+          84
+        ],
+        "mouth": [
+          60,
+          93.2
+        ],
+        "headTop": [
+          60,
+          52
+        ]
+      },
+      "faceScale": 0.92
+    },
+    {
+      "id": "st_ghost",
+      "name": "ST失联中",
+      "theme": "finance",
+      "role": "st",
+      "hero": false,
+      "recipe": {
+        "shape": "deadphone",
+        "motif": null
+      },
+      "colors": {
+        "body": "#8f949b",
+        "accent": "#b0a890",
+        "trim": "#af862d"
+      },
+      "composite": {
+        "calm": "st_ghost/calm.svg",
+        "happy": "st_ghost/happy.svg",
+        "limitup": "st_ghost/limitup.svg",
+        "worried": "st_ghost/worried.svg",
+        "limitdown": "st_ghost/limitdown.svg",
+        "delisted": "st_ghost/delisted.svg",
+        "blink": "st_ghost/blink.svg"
+      },
+      "layers": [
+        {
+          "name": "shadow",
+          "file": "parts/shadow.svg",
+          "z": 0
+        },
+        {
+          "name": "body",
+          "file": "parts/body.svg",
+          "z": 1
+        },
+        {
+          "name": "cheeks",
+          "file": "parts/cheeks.svg",
+          "z": 2,
+          "when": "除 delisted 外"
+        },
+        {
+          "name": "eyes",
+          "file": "parts/eyes_<expr|blink>.svg",
+          "z": 3
+        },
+        {
+          "name": "mouth",
+          "file": "parts/mouth_<expr>.svg",
+          "z": 4
+        },
+        {
+          "name": "acc",
+          "file": "parts/acc.svg",
+          "z": 5
+        },
+        {
+          "name": "fx",
+          "file": "parts/fx_<expr>.svg",
+          "z": 6,
+          "when": "limitup / worried / limitdown / delisted"
+        }
+      ],
+      "anchors": {
+        "ground": [
+          64,
+          116
+        ],
+        "face": [
+          64,
+          66
+        ],
+        "eyes": [
+          64,
+          66
+        ],
+        "eyeL": [
+          53.4,
+          66
+        ],
+        "eyeR": [
+          74.6,
+          66
+        ],
+        "mouth": [
+          64,
+          75.7
+        ],
+        "headTop": [
+          64,
+          12
+        ]
+      },
+      "faceScale": 0.88
+    }
+  ]
+}

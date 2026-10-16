@@ -1,0 +1,13 @@
+# Cloudflare 静态资源缓存规则（build-cf 会给每行路径加上 /games/guandan 前缀）
+# 构建产物带内容哈希，可以永久缓存
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/cover.png
+  Cache-Control: public, max-age=3600, must-revalidate
+# 称号的名字（平台的称号墙读，docs/platform-backend.md 5.10）：加了新称号一小时内看得到
+/titles.json
+  Cache-Control: public, max-age=3600, must-revalidate
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

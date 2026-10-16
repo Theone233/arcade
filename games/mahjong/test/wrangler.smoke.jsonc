@@ -1,0 +1,24 @@
+// 冒烟（scripts/smoke-room.ts）用：真的 Worker + 页面（npm run build:cf 的产物），平台和平台钱包换成 test/arcade.dev.ts。不部署。
+{
+  "name": "mahjong",
+  "main": "./dev-entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "../dist-cf",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": ["/games/mahjong", "/games/mahjong/", "/games/mahjong/index.html", "/games/mahjong/api/stake/*", "/games/mahjong/rooms", "/games/mahjong/rooms/*", "/api/me", "/api/wallet", "/api/wallet/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "MahjongRoom" },
+      { "name": "METER", "class_name": "RoomMeter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MahjongRoom", "RoomMeter"] }],
+  "services": [
+    { "binding": "ARCADE", "service": "arcade" },
+    { "binding": "WALLET", "service": "arcade", "entrypoint": "WalletService", "props": { "game": "mahjong" } }
+  ],
+  "vars": { "GATE": "login", "SITE_ORIGIN": "http://localhost", "KIT_QUOTA": { "busyWrites": 8000, "stopWrites": 10000, "roomsPerUser": 5, "dailyRoomsPerUser": 100 } }
+}

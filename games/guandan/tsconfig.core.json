@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // 规则核心不准用 DOM：这里只给 ES 库，误用 window/document 会直接编译失败
+    "lib": ["es2023"],
+    "types": []
+  },
+  "include": ["src/core", "src/ai", "src/stake"]
+}

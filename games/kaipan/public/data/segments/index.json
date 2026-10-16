@@ -1,0 +1,546 @@
+{
+ "v": 1,
+ "source": "公有领域的历史日线；只存相对涨跌（基点），不存价格、年份和公司。",
+ "segments": [
+  {
+   "id": "seg_118683445d",
+   "file": "seg_118683445d.json"
+  },
+  {
+   "id": "seg_bea9d7405c",
+   "file": "seg_bea9d7405c.json"
+  },
+  {
+   "id": "seg_a2b822e5af",
+   "file": "seg_a2b822e5af.json"
+  },
+  {
+   "id": "seg_3406225ac6",
+   "file": "seg_3406225ac6.json"
+  },
+  {
+   "id": "seg_503ea2c0d0",
+   "file": "seg_503ea2c0d0.json"
+  },
+  {
+   "id": "seg_1f3c87568b",
+   "file": "seg_1f3c87568b.json"
+  },
+  {
+   "id": "seg_426e8efecc",
+   "file": "seg_426e8efecc.json"
+  },
+  {
+   "id": "seg_2fd2afad3f",
+   "file": "seg_2fd2afad3f.json"
+  },
+  {
+   "id": "seg_62e2bca898",
+   "file": "seg_62e2bca898.json"
+  },
+  {
+   "id": "seg_435be7140d",
+   "file": "seg_435be7140d.json"
+  },
+  {
+   "id": "seg_188db92273",
+   "file": "seg_188db92273.json"
+  },
+  {
+   "id": "seg_db858da5df",
+   "file": "seg_db858da5df.json"
+  },
+  {
+   "id": "seg_dcd5b6fac7",
+   "file": "seg_dcd5b6fac7.json"
+  },
+  {
+   "id": "seg_6dbd01d1ce",
+   "file": "seg_6dbd01d1ce.json"
+  },
+  {
+   "id": "seg_923a3f89bd",
+   "file": "seg_923a3f89bd.json"
+  },
+  {
+   "id": "seg_e34a8b4435",
+   "file": "seg_e34a8b4435.json"
+  },
+  {
+   "id": "seg_7b9d056818",
+   "file": "seg_7b9d056818.json"
+  },
+  {
+   "id": "seg_2b876ce185",
+   "file": "seg_2b876ce185.json"
+  },
+  {
+   "id": "seg_3fdb054fe1",
+   "file": "seg_3fdb054fe1.json"
+  },
+  {
+   "id": "seg_655883e4d0",
+   "file": "seg_655883e4d0.json"
+  },
+  {
+   "id": "seg_04025d30f3",
+   "file": "seg_04025d30f3.json"
+  },
+  {
+   "id": "seg_2dd72eb974",
+   "file": "seg_2dd72eb974.json"
+  },
+  {
+   "id": "seg_758d4d2cf7",
+   "file": "seg_758d4d2cf7.json"
+  },
+  {
+   "id": "seg_1cb0f5baaf",
+   "file": "seg_1cb0f5baaf.json"
+  },
+  {
+   "id": "seg_def6def30e",
+   "file": "seg_def6def30e.json"
+  },
+  {
+   "id": "seg_d22e61588d",
+   "file": "seg_d22e61588d.json"
+  },
+  {
+   "id": "seg_bd9c3ca090",
+   "file": "seg_bd9c3ca090.json"
+  },
+  {
+   "id": "seg_943fcafbba",
+   "file": "seg_943fcafbba.json"
+  },
+  {
+   "id": "seg_76141a5a68",
+   "file": "seg_76141a5a68.json"
+  },
+  {
+   "id": "seg_4613aac355",
+   "file": "seg_4613aac355.json"
+  },
+  {
+   "id": "seg_2c1c80524e",
+   "file": "seg_2c1c80524e.json"
+  },
+  {
+   "id": "seg_338a414526",
+   "file": "seg_338a414526.json"
+  },
+  {
+   "id": "seg_f5aa21f612",
+   "file": "seg_f5aa21f612.json"
+  },
+  {
+   "id": "seg_25e2bcb094",
+   "file": "seg_25e2bcb094.json"
+  },
+  {
+   "id": "seg_8480d8e3c0",
+   "file": "seg_8480d8e3c0.json"
+  },
+  {
+   "id": "seg_7988d655a8",
+   "file": "seg_7988d655a8.json"
+  },
+  {
+   "id": "seg_ca2d6fd6fc",
+   "file": "seg_ca2d6fd6fc.json"
+  },
+  {
+   "id": "seg_cd44f3e18d",
+   "file": "seg_cd44f3e18d.json"
+  },
+  {
+   "id": "seg_309a09ba3b",
+   "file": "seg_309a09ba3b.json"
+  },
+  {
+   "id": "seg_25dce90ff4",
+   "file": "seg_25dce90ff4.json"
+  },
+  {
+   "id": "seg_cd24d077cc",
+   "file": "seg_cd24d077cc.json"
+  },
+  {
+   "id": "seg_dd0dee071c",
+   "file": "seg_dd0dee071c.json"
+  },
+  {
+   "id": "seg_ff25469029",
+   "file": "seg_ff25469029.json"
+  },
+  {
+   "id": "seg_babddf96a2",
+   "file": "seg_babddf96a2.json"
+  },
+  {
+   "id": "seg_634d0c2877",
+   "file": "seg_634d0c2877.json"
+  },
+  {
+   "id": "seg_3c14ae5087",
+   "file": "seg_3c14ae5087.json"
+  },
+  {
+   "id": "seg_65c0bdebf8",
+   "file": "seg_65c0bdebf8.json"
+  },
+  {
+   "id": "seg_da57885794",
+   "file": "seg_da57885794.json"
+  },
+  {
+   "id": "seg_aceb555daf",
+   "file": "seg_aceb555daf.json"
+  },
+  {
+   "id": "seg_bb3b3777b9",
+   "file": "seg_bb3b3777b9.json"
+  },
+  {
+   "id": "seg_440855e0fd",
+   "file": "seg_440855e0fd.json"
+  },
+  {
+   "id": "seg_3a6c9194fc",
+   "file": "seg_3a6c9194fc.json"
+  },
+  {
+   "id": "seg_31508e7e93",
+   "file": "seg_31508e7e93.json"
+  },
+  {
+   "id": "seg_efbf89dcec",
+   "file": "seg_efbf89dcec.json"
+  },
+  {
+   "id": "seg_3307a68e6d",
+   "file": "seg_3307a68e6d.json"
+  },
+  {
+   "id": "seg_95dc976491",
+   "file": "seg_95dc976491.json"
+  },
+  {
+   "id": "seg_1fc332bcd7",
+   "file": "seg_1fc332bcd7.json"
+  },
+  {
+   "id": "seg_e21e73727a",
+   "file": "seg_e21e73727a.json"
+  },
+  {
+   "id": "seg_5a19480cb6",
+   "file": "seg_5a19480cb6.json"
+  },
+  {
+   "id": "seg_0bc43a9ab6",
+   "file": "seg_0bc43a9ab6.json"
+  },
+  {
+   "id": "seg_da902cd185",
+   "file": "seg_da902cd185.json"
+  },
+  {
+   "id": "seg_d6f48b3056",
+   "file": "seg_d6f48b3056.json"
+  },
+  {
+   "id": "seg_abb12682c3",
+   "file": "seg_abb12682c3.json"
+  },
+  {
+   "id": "seg_ff5d97b294",
+   "file": "seg_ff5d97b294.json"
+  },
+  {
+   "id": "seg_0204fc7298",
+   "file": "seg_0204fc7298.json"
+  },
+  {
+   "id": "seg_a0b8ee7f27",
+   "file": "seg_a0b8ee7f27.json"
+  },
+  {
+   "id": "seg_6a25320dc7",
+   "file": "seg_6a25320dc7.json"
+  },
+  {
+   "id": "seg_e44db292e4",
+   "file": "seg_e44db292e4.json"
+  },
+  {
+   "id": "seg_e9258f8930",
+   "file": "seg_e9258f8930.json"
+  },
+  {
+   "id": "seg_f082ee99f3",
+   "file": "seg_f082ee99f3.json"
+  },
+  {
+   "id": "seg_9816bf0c92",
+   "file": "seg_9816bf0c92.json"
+  },
+  {
+   "id": "seg_bbb3f4be6c",
+   "file": "seg_bbb3f4be6c.json"
+  },
+  {
+   "id": "seg_b6b58172a8",
+   "file": "seg_b6b58172a8.json"
+  },
+  {
+   "id": "seg_1eb326014c",
+   "file": "seg_1eb326014c.json"
+  },
+  {
+   "id": "seg_def0f596da",
+   "file": "seg_def0f596da.json"
+  },
+  {
+   "id": "seg_728ace7944",
+   "file": "seg_728ace7944.json"
+  },
+  {
+   "id": "seg_ead7e4f6f0",
+   "file": "seg_ead7e4f6f0.json"
+  },
+  {
+   "id": "seg_b6ac8d6987",
+   "file": "seg_b6ac8d6987.json"
+  },
+  {
+   "id": "seg_3b37f95ee9",
+   "file": "seg_3b37f95ee9.json"
+  },
+  {
+   "id": "seg_dda1ec935f",
+   "file": "seg_dda1ec935f.json"
+  },
+  {
+   "id": "seg_82fced5703",
+   "file": "seg_82fced5703.json"
+  },
+  {
+   "id": "seg_99f42d8816",
+   "file": "seg_99f42d8816.json"
+  },
+  {
+   "id": "seg_2cb161b2a6",
+   "file": "seg_2cb161b2a6.json"
+  },
+  {
+   "id": "seg_88275e65cc",
+   "file": "seg_88275e65cc.json"
+  },
+  {
+   "id": "seg_9a9ac9b8fd",
+   "file": "seg_9a9ac9b8fd.json"
+  },
+  {
+   "id": "seg_1f4bcac893",
+   "file": "seg_1f4bcac893.json"
+  },
+  {
+   "id": "seg_4dfb09075b",
+   "file": "seg_4dfb09075b.json"
+  },
+  {
+   "id": "seg_ba540ef282",
+   "file": "seg_ba540ef282.json"
+  },
+  {
+   "id": "seg_db8500881c",
+   "file": "seg_db8500881c.json"
+  },
+  {
+   "id": "seg_16bfe54492",
+   "file": "seg_16bfe54492.json"
+  },
+  {
+   "id": "seg_f8dc5bb25a",
+   "file": "seg_f8dc5bb25a.json"
+  },
+  {
+   "id": "seg_b4cb115eb7",
+   "file": "seg_b4cb115eb7.json"
+  },
+  {
+   "id": "seg_734bdae7f9",
+   "file": "seg_734bdae7f9.json"
+  },
+  {
+   "id": "seg_2b0f716902",
+   "file": "seg_2b0f716902.json"
+  },
+  {
+   "id": "seg_facc40b740",
+   "file": "seg_facc40b740.json"
+  },
+  {
+   "id": "seg_7dae4bb657",
+   "file": "seg_7dae4bb657.json"
+  },
+  {
+   "id": "seg_70350a0c32",
+   "file": "seg_70350a0c32.json"
+  },
+  {
+   "id": "seg_f0561c354b",
+   "file": "seg_f0561c354b.json"
+  },
+  {
+   "id": "seg_81030f19e7",
+   "file": "seg_81030f19e7.json"
+  },
+  {
+   "id": "seg_80e2463761",
+   "file": "seg_80e2463761.json"
+  },
+  {
+   "id": "seg_43f51ed12a",
+   "file": "seg_43f51ed12a.json"
+  },
+  {
+   "id": "seg_23fe0a85a9",
+   "file": "seg_23fe0a85a9.json"
+  },
+  {
+   "id": "seg_5ea5fb7c77",
+   "file": "seg_5ea5fb7c77.json"
+  },
+  {
+   "id": "seg_9ed5130e70",
+   "file": "seg_9ed5130e70.json"
+  },
+  {
+   "id": "seg_125fe8910e",
+   "file": "seg_125fe8910e.json"
+  },
+  {
+   "id": "seg_e4ebe7cec5",
+   "file": "seg_e4ebe7cec5.json"
+  },
+  {
+   "id": "seg_e2fb4b5bf8",
+   "file": "seg_e2fb4b5bf8.json"
+  },
+  {
+   "id": "seg_4bede8089a",
+   "file": "seg_4bede8089a.json"
+  },
+  {
+   "id": "seg_b30d588bbe",
+   "file": "seg_b30d588bbe.json"
+  },
+  {
+   "id": "seg_c5e74c681b",
+   "file": "seg_c5e74c681b.json"
+  },
+  {
+   "id": "seg_8e92dc8a3d",
+   "file": "seg_8e92dc8a3d.json"
+  },
+  {
+   "id": "seg_cce998284d",
+   "file": "seg_cce998284d.json"
+  },
+  {
+   "id": "seg_27b25e5358",
+   "file": "seg_27b25e5358.json"
+  },
+  {
+   "id": "seg_7b04af091b",
+   "file": "seg_7b04af091b.json"
+  },
+  {
+   "id": "seg_1210f89a3b",
+   "file": "seg_1210f89a3b.json"
+  },
+  {
+   "id": "seg_97df6f0194",
+   "file": "seg_97df6f0194.json"
+  },
+  {
+   "id": "seg_d3c4ca1e0f",
+   "file": "seg_d3c4ca1e0f.json"
+  },
+  {
+   "id": "seg_f4a717fc59",
+   "file": "seg_f4a717fc59.json"
+  },
+  {
+   "id": "seg_07ec320ac3",
+   "file": "seg_07ec320ac3.json"
+  },
+  {
+   "id": "seg_693e78af8e",
+   "file": "seg_693e78af8e.json"
+  },
+  {
+   "id": "seg_f7a18867cf",
+   "file": "seg_f7a18867cf.json"
+  },
+  {
+   "id": "seg_7df378d46a",
+   "file": "seg_7df378d46a.json"
+  },
+  {
+   "id": "seg_73bc184761",
+   "file": "seg_73bc184761.json"
+  },
+  {
+   "id": "seg_8d5a59581b",
+   "file": "seg_8d5a59581b.json"
+  },
+  {
+   "id": "seg_7a8c3acabd",
+   "file": "seg_7a8c3acabd.json"
+  },
+  {
+   "id": "seg_046422299d",
+   "file": "seg_046422299d.json"
+  },
+  {
+   "id": "seg_f277f1ff5e",
+   "file": "seg_f277f1ff5e.json"
+  },
+  {
+   "id": "seg_9ca2f98ffd",
+   "file": "seg_9ca2f98ffd.json"
+  },
+  {
+   "id": "seg_1ba8683384",
+   "file": "seg_1ba8683384.json"
+  },
+  {
+   "id": "seg_943cfb5208",
+   "file": "seg_943cfb5208.json"
+  },
+  {
+   "id": "seg_4cc74f2b7d",
+   "file": "seg_4cc74f2b7d.json"
+  },
+  {
+   "id": "seg_e6a3bc5e35",
+   "file": "seg_e6a3bc5e35.json"
+  },
+  {
+   "id": "seg_38a08baeb0",
+   "file": "seg_38a08baeb0.json"
+  },
+  {
+   "id": "seg_19961418f4",
+   "file": "seg_19961418f4.json"
+  },
+  {
+   "id": "seg_6e83483077",
+   "file": "seg_6e83483077.json"
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "guandan",
+  "private": true,
+  "version": "0.6.4",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
+    "test": "vitest run",
+    "sim": "node tools/sim.ts",
+    "shot": "node tools/shot.ts",
+    "art": "node tools/art-preview.ts",
+    "cover": "node tools/cover.ts",
+    "build:cf": "tsc --noEmit && node tools/build-cf.ts",
+    "deploy": "npm run build:cf && wrangler deploy",
+    "test:room": "vitest run -c vitest.room.config.ts",
+    "room-sim": "node tools/room-sim.ts",
+    "online-dev": "node tools/online-dev.ts",
+    "online-smoke": "node tools/online-smoke.ts",
+    "quota-smoke": "node tools/quota-smoke.ts",
+    "stake-smoke": "node tools/stake-smoke.ts",
+    "room-bulk": "ROOM_GAMES=200 ROOM_GAMES_SOLO=200 vitest run -c vitest.room.config.ts tests/room/bots.spec.ts --silent=false"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.2",
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "playwright-core": "1.58.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.149.0"
+  },
+  "dependencies": {
+    "arcade-kit": "file:../../packages/arcade-kit",
+    "phaser": "^4.2.1"
+  }
+}

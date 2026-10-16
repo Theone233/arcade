@@ -1,0 +1,144 @@
+# arcade 总仓库：给所有代理和开发者的约定
+
+> 本文件是总仓库的规范正本（Claude Code 通过 `CLAUDE.md` 导入；Codex 等直接读本文件）。
+> 各模块目录下还有自己的 `AGENTS.md`，写该模块特有的约定；两者冲突时，以本文件第 1、2 节的硬约束为准。
+> 2026-10-13 建立：平台和所有游戏合并到这一个仓库（`yyyu-star/arcade`），每个游戏是可以随时拆分、单独部署的独立模块。
+> 改动怎么进 main、怎么上线，见 [CONTRIBUTING.md](CONTRIBUTING.md)：main 只接受 PR 合并，只有经 PR 合并的提交才会部署。
+> 项目做什么、给谁、守什么底线，先读 [docs/project.md](docs/project.md)（项目总体定义）。
+
+## 0. 仓库结构
+
+```
+arcade/
+├─ AGENTS.md / CLAUDE.md   本文件（总规范）
+├─ README.md               总览：有哪些模块、怎么开发、怎么部署
+├─ CONTRIBUTING.md         合作指南：分支、PR、审阅、合并、部署、回滚
+├─ docs/                   跨模块的设计：project.md（项目总体定义）、architecture.md（整体架构）、platform-backend.md（账号/联机/熔断方案）、economy.md（筹码体系：一个钱包，娱乐和实盘）
+├─ tools/                  仓库级工具：check-isolation.mjs（模块独立性检查）、split-module.sh（拆分模块）、git-hooks/（本机推送拦截）
+├─ .github/workflows/      每个模块一个流程（PR 上测试、main 上部署，按路径触发）+ check.yml（独立性检查）+ main-guard.yml（直接推 main 报警）
+├─ platform/               模块：平台主界面 + /api（Worker 名 arcade，域名 game.yyyu.org）
+├─ games/
+│  ├─ kaipan/              模块：《开盘》（Worker 名 kaipan，路径 /games/kaipan/）
+│  ├─ guandan/             模块：掼蛋（Worker 名 guandan，路径 /games/guandan/）
+│  ├─ texas/               模块：德州扑克（Worker 名 texas，路径 /games/texas/；设计见 games/texas/DESIGN.md）
+│  └─ mahjong/             模块：《雀馆》麻将（Worker 名 mahjong，路径 /games/mahjong/；一套引擎多种玩法，先做川麻·血战到底，设计见 games/mahjong/DESIGN.md）
+└─ packages/
+   └─ arcade-kit/          共用包：联机房间基类、开房进房入口、浏览器连接器、协议、计量、表情道具（版本见它的 package.json；入场票以后加）。只测不部署（pkg-arcade-kit.yml）
+```
+
+"模块" = `platform/`、`games/<id>/`、`packages/<name>/` 中的任意一个目录。
+
+## 1. 硬约束：每个模块都是独立的
+
+每个模块必须**随时能拆成一个单独的仓库、随时能单独部署**，不需要改模块里的代码。具体要求：
+
+1. **自带全部运行所需文件**：`package.json`、`package-lock.json`、`.nvmrc`、`tsconfig*.json`、构建配置、`wrangler.jsonc`、测试、
+   `README.md`、`AGENTS.md`（和导入它的 `CLAUDE.md`）、`CHANGELOG.md`（游戏必有）、`.gitignore`。
+2. **不引用自己目录以外的任何文件**：import、require、`new URL(..., import.meta.url)`、tsconfig 的 extends/paths、构建和部署配置里的路径
+   都不能出现 `../` 指到模块外。唯一例外：通过 `package.json` 的 `"file:../../packages/<name>"` 依赖 `packages/` 下的共用包。
+3. **不用 npm workspaces，不在仓库根装依赖**：每个模块各自 `npm ci`、各自有 lockfile 和 `node_modules`。仓库根没有 `package.json`。
+4. **模块之间只通过公开接口交互**：
+   - 游戏和平台之间：同域 HTTP（`/api/*`）、Cloudflare 服务绑定 RPC、入场票（以后，第一版用 `/api/me`）；
+   - 游戏之间：完全不交互；
+   - 禁止直接读别的模块的源码、数据文件、构建产物、D1 或 DO。
+5. **线上资源各自独立**：
+   - 每个模块一个 Worker（Worker 名 = 模块 id；平台例外，叫 `arcade`），路由、绑定、Secret 都写在模块自己的 `wrangler.jsonc` 里；
+   - 浏览器存储（localStorage、IndexedDB、Cache）的 key 一律加 `<游戏id>.` 前缀，比如开盘用 `kaipan.save`。平台自己的 key 用 `arcade.` 前缀（目前只有 sessionStorage 的 `arcade.reloaded`：0.9.8 发版后分块加载失败时防重复重载，PR #110；原来的 `arcade.beta` 0.10.17 删了，启动时清掉旧值，PR #146）。所有游戏和平台同域，前缀是唯一的隔离手段；
+   - 游戏挂在 `/games/<id>/` 下，资源一律用相对路径，不假设自己在域名根；回大厅的入口例外，指向平台首页 `/`（平台的公开地址）；
+   - 线上 Worker 数量 = 平台 1 个 + 每个游戏 1 个，**不另建测试或实验 Worker**（不设 staging）；需要临时实验时用完当天删除。
+6. **不写死本机路径**：代码和配置里不能有 `/root/`、`/home/`、`/tmp/` 这类绝对路径。临时文件用 `os.tmpdir()` 或命令行参数传入。
+7. **每个模块一个部署流程**：`.github/workflows/<platform|game-<id>|pkg-<name>>.yml`，用 `paths` 只在该模块（或它依赖的 `packages/`）改动时触发，
+   `working-directory` 指向模块目录。
+8. **版本号、更新日志各自独立**：模块自己的 `package.json` version 和 `CHANGELOG.md`；提交信息以模块名开头，例如 `kaipan: ...`、`platform: ...`。
+
+`tools/check-isolation.mjs` 会自动检查第 1、2、3（依赖部分）、6 条，CI 每次推送都跑，失败就不能部署。新增约束时，同步加进这个脚本。
+
+## 2. 拆分与单独部署
+
+- **单独部署**：每个模块的流程只部署自己的 Worker，一个模块的部署不会动到其他模块。正式环境只由 main 上经 PR 合并的提交触发部署
+  （或在 GitHub Actions 里对 main 手动重跑该模块的流程）；模块里的 `npm run deploy` 是拆成独立仓库后用的，不在本仓库对正式环境手动执行。
+- **拆成独立仓库**：`tools/split-module.sh games/<id>`，会生成带完整历史的分支 `split/<id>`，推到新仓库的 `main`；再按脚本里的说明搬部署流程、
+  把 `file:` 共用包换成发布的版本。线上 Worker、路由、存储前缀都不用改。
+- **新增一个游戏**：
+  1. 建 `games/<id>/`，满足第 1 节；
+  2. 加 `.github/workflows/game-<id>.yml`，从 `game-kaipan.yml` 复制后改名字和路径（保留 test/deploy 两段、`environment: production` 和"只部署经 PR 合并的提交"那一步）；
+  3. 在平台的 `platform/src/games.ts` 里登记，并放一张封面；
+  4. 游戏的 `wrangler.jsonc` 加路由 `game.yyyu.org/games/<id>` 和 `game.yyyu.org/games/<id>/*`，关掉 `workers_dev`；
+  5. 在下面的端口表里登记开发端口；
+  6. 做一个常驻的"回大厅"入口（左上角，小房子加"大厅"，指向 `/`）：任何界面两步内能回到大厅，对局中离开先确认一次并补传云存档，冒烟里点一次（所有者 2026-10-14 要求）。
+
+## 3. 本地开发
+
+每个模块在自己的目录里操作：`npm ci`、`npm run dev`、`npm test`、`npm run build`。端口登记（开发 / 预览）：
+
+| 模块 | 开发 | 预览 |
+|---|---|---|
+| platform | 5180（接口 `npm run dev:api`：5181） | 4180 |
+| games/kaipan | 5173 | 4173 |
+| games/guandan | 5174 | 4174 |
+| games/texas | 5175 | 4175 |
+| games/mahjong | 5176 | 4176 |
+| 下一个游戏 | 5177 | 4177 |
+
+模块里的截图、音频检查等工具也只用本模块登记的端口，或者由系统分配的临时端口（端口写 0），不占别的模块的。
+允许临时端口是因为模块登记的两个端口常年被给所有者用的 dev 和 preview 占着（开盘就是这样），工具再去抢只会冲突，或者连到旧服务上。
+本机通过 Paseo 守卫运行：服务要监听 0.0.0.0，并用 `paseo-svc publish <端口>` 对外发布（守卫配置里已放行 4173、5173）。
+
+## 4. 代码规范（所有模块）
+
+- **技术栈**：TypeScript（严格模式）+ Vite，Node 22（`.nvmrc`）；平台界面用 React，游戏按类型选渲染层（开盘用 Phaser）。
+  后端代码是 Cloudflare Worker / Durable Object，同样用 TypeScript。
+- **规则和画面分开**（游戏必须遵守）：
+  - 规则核心（如 `src/core/`）是纯函数：输入状态和操作，输出新状态和事件；不依赖 DOM、渲染库、网络；
+  - 规则核心里禁止 `Math.random`、`Date.now`、`new Date`，以及结果依赖平台的数学函数（如 `Math.exp`、`Math.log`、三角函数）；随机一律用带种子、按用途分流的 RNG；
+  - 画面层只读规则核心给出的状态和事件，不自己算规则；
+  - 同一个种子加同一串操作，必须得到完全相同的结果，这是存档、回放、复现 bug 和联机校验的基础。
+- **手机和平板（尤其 iOS）**：开盘 0.5.9（#45）在 iPhone、iPad 上踩过的坑，以开盘的代码为准（掼蛋按同样的做法修，#44 进行中），所有游戏照做：
+  - **省内存设备渲染倍数封顶 2**：手机平板（iOS、触屏）上画布的渲染倍数最多 2，不按 `devicePixelRatio` 拉到 3；整屏的大背景按 1 倍光栅化。
+    老 iPhone 只有 2GB 内存，开盘按 3 倍画时估算占 400–870 MB，网页反复崩溃；封顶后约 170 MB；
+  - **高度按看得见的区域算，不用 `100vh`**：iOS Safari 的 `100vh` 是工具栏收起时的高度，横屏时画面顶上一截被地址栏压住。
+    CSS 依次写 `100vh` → `100dvh` → 脚本按 `visualViewport`（没有就 `innerHeight`）写的变量；转屏、收放地址栏后重算，转屏后稍等再补算一次；
+  - **双指放大时不改尺寸**：`visualViewport.scale` 明显不是 1 时，可见区的宽高是放大后的，这时不改画布、不滚动、不重排，缩回 1 倍再说；
+  - **WebGL 上下文**：丢了（显存吃紧时 iOS 会收回）等几秒还没恢复才提示刷新；`webglcontextrestored` 时收起提示，同一时间只有一条；
+  - **safe-area 带兜底值**：四边用 `env(safe-area-inset-*, 0px)` 让出刘海和圆角（配 `viewport-fit=cover`），不支持的浏览器按 0 算；
+  - 冒烟里模拟一次省内存设备（开盘的 `--lowmem`）、双指放大和上下文丢失/恢复。
+- **测试**：
+  - 规则核心用 vitest 覆盖；
+  - 每个游戏都要有一个无头浏览器冒烟脚本，跑一遍主流程并检查控制台零报错；
+  - 架构约束（例如"核心不准用 Math.random"）写成测试；
+  - 改数值的，用模拟器跑机器人验证，不凭感觉。
+- **联机和后端**：必须遵守 `docs/platform-backend.md` 第 4 节的房间规范：
+  - 只用 `ctx.acceptWebSocket`，不用 `ws.accept()`；
+  - 只用一个闹钟，不用 `setTimeout`、`setInterval`；
+  - 每步最多写 2 行存储；
+  - AI 批量出牌；单机对 AI 在浏览器里跑；
+  - 服务端说了算，绝不下发别人的隐藏信息。
+
+  联机房间统一基于 `packages/arcade-kit`，不各写一套：房间类继承 `GameRoom`，游戏 Worker 的路由只接 `acceptCreate` / `acceptJoin`（不自己把浏览器的请求转给房间），
+  浏览器用 `RoomClient`；用法和规矩见 `packages/arcade-kit/README.md`，第一版的取舍见 `docs/platform-backend.md` 4.6、5.3。
+- **用户看到的文字**：
+  - 中文，大白话，少术语；
+  - 能用图标、数字、颜色、动画表达的，不写长句；
+  - 不嘲弄真实个人，涉及伤亡的事件不拿来搞笑。
+- **素材**：只用自己程序生成的，或者许可明确可商用的素材；来源写进模块的素材说明。真实公司名、真实商标不进游戏，用化名。
+- **不碰真钱**：积分、筹码不能买、不能兑换、不能转让，不设现金或实物奖品。
+- **凭证**：不进 Git、不打印、不写进代码。部署凭证只放在 GitHub 环境 `production`（只许 main 用），本机用 `~/.config/<服务>/` 下的 env 文件。
+- **注释和文档**：用中文，写"为什么"，不写显而易见的"做什么"；风格跟着所在文件走。
+
+## 5. Git 与发布
+
+- 只有一个远程仓库：`yyyu-star/arcade`，默认分支 `main`。**main 只接受 PR 合并**，流程、审阅要求和权限见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 每个克隆先执行 `git config core.hooksPath tools/git-hooks`：本机拦住直接推 main 和 force push。被拦了就改走 PR，不用 `--no-verify` 绕过。
+- 分支名 `<模块>/<简短说明>`；一个 PR 只改一个模块，标题以模块名开头（合并用 Squash，标题就是 main 上的提交信息）。
+- 提交：只暂存明确的路径，禁止 `git add -A` 或 `git add .`；提交信息以模块名开头；不 force push，不改写已推送的历史。
+- 合并前：模块里 `npm test` 和构建通过、PR 上 CI 全绿、审阅意见全部处理完。合并后由 CI 部署，再到线上实际打开验证（版本号、主流程、控制台零报错）。
+- 代理开的 PR：作者代理自查后，由主线亲自审阅（清单见 CONTRIBUTING.md 第 2 节第 6 步）、作者修复，主线用所有者账号在 CI 全绿后合并；协作者的 PR 由仓库所有者审阅，
+  协作者改 `.github/`、`tools/`、`CONTRIBUTING.md`、`AGENTS.md` 的必须所有者本人审阅（细则见 CONTRIBUTING.md 第 3 节）。
+- 带 D1 迁移的改动，发布顺序是：迁移 → 平台 → 游戏（分成几个 PR 依次合并）。
+- 线上出问题时，对出问题的 PR 开 revert PR，快速审阅后合并，CI 会重新部署上一版。不直接推 main 修线上。
+
+## 6. 多代理协作
+
+- 一个模块同一时间只由一个代理写；跨模块的改动（比如改共用包，或改平台接口同时改游戏）由主线统筹、按顺序做。
+- 开工前看一眼 `git status` 和最近的提交，不覆盖别人未提交的改动。
+- 长任务的进度和交接写在模块的文档或提交里，不留在会话里。

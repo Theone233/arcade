@@ -1,0 +1,29 @@
+// 只给 npm run test:room 用（vitest.room.config.ts）：部署用的入口 worker/main.ts，加上测试用的变量。不部署。
+// 没有静态资源（ASSETS）：这里只测房间的两个路由，首页闸门在 tests/gate.test.ts 里测。
+// 入口是 tests/room/main.ts（部署入口的全部导出 + 假钱包）：WALLET 绑到自己的 FakeWallet 入口，账在 BANK（tests/room/wallet.ts）。
+// 计量照正式环境绑上（房间会报写入、还名额），但名额放得很宽：机器人对打一个号要连开几百局；额度本身在 arcade-kit 的测试里测，
+// 页面上的三种提示在 npm run online-smoke 里测。
+{
+  "name": "guandan-room-test",
+  "main": "./main.ts",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "Room" },
+      { "name": "METER", "class_name": "RoomMeter" },
+      { "name": "BANK", "class_name": "WalletBank" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room"] },
+    { "tag": "v2", "new_sqlite_classes": ["RoomMeter"] },
+    { "tag": "v3", "new_sqlite_classes": ["WalletBank"] }
+  ],
+  "services": [{ "binding": "WALLET", "service": "guandan-room-test", "entrypoint": "FakeWallet", "props": { "game": "guandan" } }],
+  "vars": {
+    "SITE_ORIGIN": "https://game.test",
+    "ONLINE": "on",
+    "GATE": "off",
+    "KIT_QUOTA": { "roomsPerUser": 100000, "dailyRoomsPerUser": 100000, "dailyRooms": 100000, "busyWrites": 100000000, "stopWrites": 100000000 }
+  }
+}

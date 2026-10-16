@@ -1,0 +1,24 @@
+// 冒烟（scripts/smoke.ts）用：真的 Worker + 页面（npm run build:cf 的产物），平台和平台钱包换成 test/arcade.dev.ts。不部署。
+{
+  "name": "texas",
+  "main": "./dev-entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "../dist-cf",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": ["/games/texas", "/games/texas/", "/games/texas/index.html", "/games/texas/api/*", "/games/texas/rooms", "/games/texas/rooms/*", "/api/wallet", "/api/wallet/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "TexasRoom" },
+      { "name": "METER", "class_name": "RoomMeter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TexasRoom", "RoomMeter"] }],
+  "services": [
+    { "binding": "ARCADE", "service": "arcade" },
+    { "binding": "WALLET", "service": "arcade", "entrypoint": "WalletService", "props": { "game": "texas" } }
+  ],
+  "vars": { "GATE": "login", "SITE_ORIGIN": "http://localhost", "KIT_QUOTA": { "busyWrites": 15000, "stopWrites": 20000 } }
+}

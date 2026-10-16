@@ -1,0 +1,7 @@
+node_modules/
+dist/
+shots/
+*.log
+.vite/
+dist-cf/
+.wrangler/

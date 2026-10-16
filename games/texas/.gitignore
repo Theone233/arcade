@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-cf/
+shots/
+*.log
+.vite/
+.wrangler/
+
+# 本机试正式配置用（正式配置见 wrangler.jsonc）
+wrangler.local.jsonc
+.dev.vars

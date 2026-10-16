@@ -1,0 +1,111 @@
+/**
+ * 房间的两个路由接在真的入口上（worker/main.ts → index.ts → gate.ts 的 routeRoom），ONLINE 开关、Origin、登录、页面版本。
+ */
+import { CLIENT_VERSION } from '../../src/net/version.ts';
+import { exports } from 'cloudflare:workers';
+import { CLOSE } from 'arcade-kit/protocol';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { env } from 'cloudflare:workers';
+import worker from '../../worker/index.ts';
+import * as main from '../../worker/main.ts';
+import type { Env } from '../../worker/gate.ts';
+import { ROOMS, SITE, cookie, freezeClock, join, openRoom, refusedWith, truth, upgrade } from './helpers.ts';
+
+beforeEach(() => freezeClock());
+
+/** 直接调默认导出，换掉部分变量（ONLINE 关着、没配 SITE_ORIGIN） */
+function call(req: Request, vars: Partial<Env>): Promise<Response> {
+  return worker.fetch(req, { ...(env as unknown as Env), ...vars });
+}
+
+describe('部署入口 worker/main.ts', () => {
+  it('只有默认导出、房间类 Room 和计量 RoomMeter（运行时把每个具名导出都当成入口，多了会启动失败）', () => {
+    expect(Object.keys(main).sort()).toEqual(['Room', 'RoomMeter', 'default']);
+    expect(main.default).toBe(worker);
+  });
+});
+
+describe('开房', () => {
+  it('POST …/room/rooms：登录了 201 + 6 位房间码；房间里开房那一步写 4 行（建表 2 + 状态 1 + 闹钟 1）', async () => {
+    const res = await exports.default.fetch(ROOMS, { method: 'POST', headers: { origin: SITE, cookie: cookie('u1') } });
+    expect(res.status).toBe(201);
+    const { code } = (await res.json()) as { code: string };
+    expect(code).toMatch(/^[0-9]{6}$/);
+    const t = await truth(code);
+    expect(t.last).toBe(4);
+    expect(t.row?.status).toBe('waiting');
+    expect(t.row?.seats[0]).toMatchObject({ kind: 'human', userId: 'u1' });
+  });
+
+  it('没登录 401、平台不可用 503、别的网站 403、不是 POST 405', async () => {
+    const post = (headers: Record<string, string>) => exports.default.fetch(ROOMS, { method: 'POST', headers });
+    expect((await post({ origin: SITE })).status).toBe(401);
+    expect((await post({ origin: SITE, cookie: cookie('down') })).status).toBe(503);
+    expect((await post({ origin: 'https://evil.example', cookie: cookie('u1') })).status).toBe(403);
+    expect((await post({ cookie: cookie('u1') })).status).toBe(403);
+    expect((await exports.default.fetch(ROOMS, { headers: { origin: SITE, cookie: cookie('u1') } })).status).toBe(405);
+  });
+
+  it('不设 SITE_ORIGIN 时只认正式站 https://game.yyyu.org', async () => {
+    const req = (origin: string) => new Request(ROOMS, { method: 'POST', headers: { origin, cookie: cookie('u1') } });
+    expect((await call(req(SITE), { SITE_ORIGIN: undefined })).status).toBe(403);
+    expect((await call(req('https://game.yyyu.org'), { SITE_ORIGIN: undefined })).status).toBe(201);
+  });
+
+  it('房间路径下别的地址 404', async () => {
+    for (const p of ['/games/guandan/room', '/games/guandan/room/', '/games/guandan/room/rooms/123456', '/games/guandan/room/x']) {
+      expect((await exports.default.fetch(`${SITE}${p}`, { method: 'POST', headers: { origin: SITE, cookie: cookie('u1') } })).status).toBe(404);
+    }
+  });
+});
+
+describe('进房', () => {
+  it('GET …/rooms/<码>/ws：房主进来坐 0 号位，welcome 带 minClientVersion（CLIENT_VERSION）', async () => {
+    const code = await openRoom('u1');
+    const { welcome } = await join(code, 'u1');
+    expect(welcome.you.seat).toBe(0);
+    expect(welcome.minClientVersion).toBe(CLIENT_VERSION);
+    expect(welcome.room.code).toBe(code);
+    expect(welcome.room.status).toBe('waiting');
+  });
+
+  it('被拒的都是先接受升级再用关闭码关：页面太旧 4005、没登录 4401、别的网站 4403、码不对 4004、没有这个房间 4004、平台不可用 1013', async () => {
+    const code = await openRoom('u1');
+    expect(await refusedWith(await upgrade(code, 'u2', { cv: CLIENT_VERSION - 1 }))).toBe(CLOSE.tooOld);
+    expect(await refusedWith(await upgrade(code, null))).toBe(CLOSE.unauthorized);
+    expect(await refusedWith(await upgrade(code, 'u2', { origin: 'https://evil.example' }))).toBe(CLOSE.forbidden);
+    expect(await refusedWith(await upgrade('12ab', 'u2'))).toBe(CLOSE.noRoom);
+    expect(await refusedWith(await upgrade(code === '000000' ? '000001' : '000000', 'u2'))).toBe(CLOSE.noRoom);
+    expect(await refusedWith(await upgrade(code, 'down'))).toBe(CLOSE.tryLater);
+  });
+
+  it('不是 WebSocket 升级 426', async () => {
+    const code = await openRoom('u1');
+    const res = await exports.default.fetch(`${ROOMS}/${code}/ws?cv=${CLIENT_VERSION}`, { headers: { origin: SITE, cookie: cookie('u1') } });
+    expect(res.status).toBe(426);
+  });
+});
+
+describe('ONLINE 开关', () => {
+  it('不是 "on"（off、没配）：开房 404，进房接受后马上 4004，不碰房间', async () => {
+    const code = await openRoom('u1');
+    for (const ONLINE of ['off', undefined, 'ON', '']) {
+      const create = await call(new Request(ROOMS, { method: 'POST', headers: { origin: SITE, cookie: cookie('u1') } }), { ONLINE });
+      expect(create.status).toBe(404);
+      const ws = await call(
+        new Request(`${ROOMS}/${code}/ws?cv=${CLIENT_VERSION}`, { headers: { upgrade: 'websocket', origin: SITE, cookie: cookie('u1') } }),
+        { ONLINE },
+      );
+      expect(await refusedWith(ws)).toBe(CLOSE.noRoom);
+      const plain = await call(new Request(`${ROOMS}/${code}/ws?cv=${CLIENT_VERSION}`, { headers: { origin: SITE } }), { ONLINE });
+      expect(plain.status).toBe(426);
+    }
+    // 关着的时候没有人进过房间：房主还算掉线
+    expect((await truth(code)).row?.seats[0]?.awaySince).not.toBeNull();
+  });
+
+  it('没有 ROOM 绑定时按关着处理', async () => {
+    const res = await call(new Request(ROOMS, { method: 'POST', headers: { origin: SITE, cookie: cookie('u1') } }), { ROOM: undefined });
+    expect(res.status).toBe(404);
+  });
+});

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- 添加到主屏幕后全屏打开（没有地址栏挡着） -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="开盘" />
+    <title>开盘</title>
+    <meta name="description" content="《开盘》：散户的一年。看群聊里的小道消息、追题材、养股票小人，每个月底还上月供。" />
+    <meta name="theme-color" content="#f3e2c7" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #f3e2c7; overflow: hidden; }
+      /*
+       * 画布按看得见的区域铺（0.5.9）：iOS Safari 的 100vh / 100% 比带着工具栏时看得见的高，横屏时顶上一截被地址栏压住。
+       * 依次 100vh → 100dvh（iOS 15.4+）→ 脚本按 visualViewport 写的 --app-h；四边让出刘海和圆角（viewport-fit=cover）。
+       */
+      #app {
+        position: fixed;
+        top: env(safe-area-inset-top, 0px);
+        left: env(safe-area-inset-left, 0px);
+        width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+        height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+        height: calc(var(--app-h, 100vh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      }
+      /* 脚本加载前的占位，素材加载场景启动后移除 */
+      #boot {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        color: #6e5966; font: 16px/1.5 "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; pointer-events: none;
+      }
+      #boot b { color: #c4501a; font-size: 40px; letter-spacing: 6px; }
+      noscript { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #3a2634; font: 16px "Microsoft YaHei", sans-serif; background: #f3e2c7; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="boot"><b>开盘</b><span>正在载入…</span></div>
+    <noscript>《开盘》需要启用 JavaScript 才能运行，请在浏览器设置中开启后刷新页面。</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

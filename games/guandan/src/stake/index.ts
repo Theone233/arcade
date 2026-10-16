@@ -1,0 +1,192 @@
+/**
+ * 实盘的规则核心（docs/stake.md 第 1 节）：档位、每副的分、封顶、结回额、钱包 ref / op 的拼法、单机一场和好友房每个座位的账。
+ * 和 src/core 一样是纯函数：不碰 DOM、网络、时间、随机数（ref 里的随机数由调用方给）。Worker、页面、房间都从这里取数，
+ * 不各算一份。
+ */
+import type { Difficulty } from '../ai/index.ts';
+import { teamOf, type DealResult, type Phase, type Seat, type Team } from '../core/index.ts';
+
+/** 档位表（docs/economy.md 第 2 节，三个游戏共用）：一份多少 */
+export const TIERS = { small: 2_000, mid: 10_000, big: 50_000, lux: 200_000 } as const;
+export type TierId = keyof typeof TIERS;
+export const TIER_IDS: readonly TierId[] = ['small', 'mid', 'big', 'lux'];
+
+export function isTier(x: unknown): x is TierId {
+  return typeof x === 'string' && (TIER_IDS as readonly string[]).includes(x);
+}
+
+/** 每分 = 一份的 1/20，一场两头都封顶 20 分（1.2：模拟里没有一场碰到） */
+export const POINTS_PER_SHARE = 20;
+/** 一场打几副：单机 8 副，好友房几个真人轮流想、一副更慢，5 副（1.4） */
+export const SOLO_DEALS = 8;
+export const ROOM_DEALS = 5;
+/** 单机放着不打的最长时间：钱包里那一份的到期时间（钱包最长也只给 24 小时） */
+export const SOLO_HOURS = 24;
+/** 好友房：房间寿命 8 小时 + 关房收尾 1 小时 + 余量 */
+export const ROOM_HOURS = 10;
+
+/** 单机每档的电脑（1.3）：越往上越难。我是 0 号，搭档 2 号，对手 1、3 号 */
+export const SOLO_BOTS: Readonly<Record<TierId, { mate: Difficulty; opp: Difficulty }>> = {
+  small: { mate: 'normal', opp: 'easy' },
+  mid: { mate: 'normal', opp: 'normal' },
+  big: { mate: 'normal', opp: 'hard' },
+  lux: { mate: 'easy', opp: 'hard' },
+};
+/** 好友房的电脑座位一律最强（3.1）：电脑是庄家的，好友房不是来赢电脑的 */
+export const ROOM_BOT: Difficulty = 'hard';
+
+export function soloBot(tier: TierId, seat: Seat): Difficulty {
+  return seat === 2 ? SOLO_BOTS[tier].mate : SOLO_BOTS[tier].opp;
+}
+
+/** 每分多少筹码（各档都整除） */
+export function pointValue(tier: TierId): number {
+  return TIERS[tier] / POINTS_PER_SHARE;
+}
+
+/** 一副结束时 team 这一队得几分：头游那一队搭档第 2 名 3 分、第 3 名 2 分、末游 1 分，另一队扣同样的分 */
+export function dealPoints(r: DealResult, team: Team): number {
+  const head = r.order[0]!;
+  const matePlace = r.order.indexOf((head + 2) % 4);
+  const pts = matePlace === 1 ? 3 : matePlace === 2 ? 2 : 1;
+  return teamOf(head) === team ? pts : -pts;
+}
+
+export function capPoints(p: number): number {
+  return Math.max(-POINTS_PER_SHARE, Math.min(POINTS_PER_SHARE, p));
+}
+
+/** 结回额：带进去的一份加上输赢，在 0 到 2 份之间 */
+export function payout(tier: TierId, points: number): number {
+  return TIERS[tier] + capPoints(points) * pointValue(tier);
+}
+
+// ───────────── 钱包的 ref 和 op（平台 5.9：8–64 位的 [A-Za-z0-9_-]） ─────────────
+
+export const WALLET_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const SOLO_REF = /^solo-[0-9a-f]{32}$/;
+const ROOM_REF = /^gd-[0-9a-f]{16}$/;
+
+export function isSoloRef(x: unknown): x is string {
+  return typeof x === 'string' && SOLO_REF.test(x);
+}
+
+/** 单机：hex 是 128 位随机数（32 位十六进制） */
+export function soloRef(hex: string): string {
+  const ref = `solo-${hex}`;
+  if (!SOLO_REF.test(ref)) throw new Error(`单机 ref 要 32 位小写十六进制：${hex}`);
+  return ref;
+}
+
+export function soloOp(ref: string, kind: 'in' | 'out' | 'refund'): string {
+  return `${ref}-${kind}`;
+}
+
+/** 好友房：hex 是从这一场的密钥流里取的 64 位（16 位十六进制） */
+export function roomRef(hex: string): string {
+  const ref = `gd-${hex}`;
+  if (!ROOM_REF.test(ref)) throw new Error(`好友房 ref 要 16 位小写十六进制：${hex}`);
+  return ref;
+}
+
+export function seatOp(ref: string, seat: Seat, kind: 'in' | 'out'): string {
+  return `${ref}-s${seat}-${kind}`;
+}
+
+// ───────────── 单机一场（我是 0 号，我方 = 0 队） ─────────────
+
+export interface SoloMatch {
+  tier: TierId;
+  /** 每副我方的分（按副的先后），不封顶；合计在 soloPoints 里封顶 */
+  deals: number[];
+}
+
+/** 记一副。同一副（按 dealNo）只记一次：刷新、重放事件都不会重复加 */
+export function soloAddDeal(m: SoloMatch, r: DealResult): SoloMatch {
+  if (r.dealNo !== m.deals.length + 1 || soloOver(m)) return m;
+  return { ...m, deals: [...m.deals, dealPoints(r, 0)] };
+}
+
+/** 这一场到目前的净分（封顶） */
+export function soloPoints(m: SoloMatch): number {
+  return capPoints(m.deals.reduce((a, b) => a + b, 0));
+}
+
+/** 一场结束了没有：打满 8 副、碰到封顶，或者有一队过 A（牌局本身结束） */
+export function soloOver(m: SoloMatch, phase?: Phase): boolean {
+  return m.deals.length >= SOLO_DEALS || Math.abs(soloPoints(m)) >= POINTS_PER_SHARE || phase === 'gameOver';
+}
+
+/** Worker 收到的结算是不是规则允许的数（防的是自己的代码写错，不防作弊：economy.md 定了不防） */
+export function validSoloResult(points: unknown, deals: unknown): boolean {
+  return (
+    Number.isSafeInteger(points) &&
+    Number.isSafeInteger(deals) &&
+    Math.abs(points as number) <= POINTS_PER_SHARE &&
+    (deals as number) >= 0 &&
+    (deals as number) <= SOLO_DEALS &&
+    // 每副最多 ±3 分
+    Math.abs(points as number) <= 3 * (deals as number)
+  );
+}
+
+// ───────────── 好友房：每个座位一本账（3.2） ─────────────
+
+/**
+ * no：电脑座位或还没带入；pending：带入在办；yes：到账了，分算他的；refused：带入被拒，这一场不计输赢；
+ * left：中途点了"离开"，按当时的分结回了（0.6.0），之后的分归庄家
+ */
+export type Paid = 'no' | 'pending' | 'yes' | 'refused' | 'left';
+
+export interface SeatBook {
+  paid: Paid;
+  /** 到账以后的净分（封顶） */
+  points: number;
+}
+
+export interface RoomBook {
+  tier: TierId;
+  seats: SeatBook[];
+  /** 记过的副数 */
+  deals: number;
+  /** 庄家：不归任何到账座位的分，只用来日志和统计 */
+  house: number;
+  /** 离开时已经结回、后来又带入了新的一份的那些份的分（0.6.0）；庄家 + 这个 + 各座位的分恒为 0 */
+  settled?: number;
+}
+
+export function newRoomBook(tier: TierId): RoomBook {
+  return { tier, seats: [0, 1, 2, 3].map(() => ({ paid: 'no' as Paid, points: 0 })), deals: 0, house: 0 };
+}
+
+export function setPaid(b: RoomBook, seat: Seat, paid: Paid): RoomBook {
+  return { ...b, seats: b.seats.map((s, i) => (i === seat ? { ...s, paid } : s)) };
+}
+
+/**
+ * 记一副：只记到到账的座位上，各自封顶；其余座位（电脑、还没到账、被拒）的分归庄家。
+ * 同一副只记一次。
+ */
+export function roomAddDeal(b: RoomBook, r: DealResult): RoomBook {
+  if (r.dealNo !== b.deals + 1) return b;
+  let house = b.house;
+  const seats = b.seats.map((s, seat) => {
+    const d = dealPoints(r, teamOf(seat));
+    if (s.paid !== 'yes') {
+      house += d;
+      return s;
+    }
+    const points = capPoints(s.points + d);
+    // 封顶后多出来的那部分也归庄家，账才对得上
+    house += s.points + d - points;
+    return { ...s, points };
+  });
+  return { ...b, seats, deals: b.deals + 1, house };
+}
+
+/** 一场结束了没有：打满 5 副、有一队过 A，或者所有到账的座位都碰到了封顶 */
+export function roomOver(b: RoomBook, phase?: Phase): boolean {
+  if (b.deals >= ROOM_DEALS || phase === 'gameOver') return true;
+  const paid = b.seats.filter((s) => s.paid === 'yes');
+  return paid.length > 0 && paid.every((s) => Math.abs(s.points) >= POINTS_PER_SHARE);
+}

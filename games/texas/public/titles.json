@@ -1,0 +1,9 @@
+{
+  "bluff_king": { "name": "诈唬王", "desc": "摊牌时亮出来是诈唬：没牌也敢下注" },
+  "river_god": { "name": "天选之人", "desc": "转牌还落后，河牌一张翻盘" },
+  "quads": { "name": "炸弹手", "desc": "摊牌亮出四条或者同花顺" },
+  "call_station": { "name": "跟注站", "desc": "一份筹码里跟注 30 次以上，谁下注都想看看" },
+  "iron_man": { "name": "铁人", "desc": "一份筹码打满 300 手" },
+  "big_winner": { "name": "大赢家", "desc": "一份筹码净赢一整份买入" },
+  "money_boy": { "name": "送财童子", "desc": "一份筹码输掉一整份买入" }
+}

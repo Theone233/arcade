@@ -1,0 +1,49 @@
+# main 守卫：免费私有仓库在 GitHub 上开不了分支保护，所以每次 main 有推送都核对一遍——
+# force push，或从上次守卫通过以来有任何提交不是"经 PR、由所有者合并"的（tools/verify-main.sh），
+# 就开一个 issue 指派给仓库所有者，并让这次检查失败。部署流程自己也会用同一个脚本拒绝部署；这里负责"让人知道"。
+# 带 [skip ci] 的直接推送不会触发本流程，但下一次推送会从上次通过的位置核对，照样能发现。
+name: Main guard
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  issues: write
+concurrency:
+  group: main-guard
+  cancel-in-progress: false
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 核对 main 的推送
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+          FORCED: ${{ github.event.forced }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          problem=""
+          if [ "$FORCED" = "true" ]; then
+            problem="force push（改写了 main 的历史，推送前是 $BEFORE）"
+          elif ! bash tools/verify-main.sh "$SHA" > verify.log 2>&1; then
+            problem="出现不是经 PR、由所有者合并的提交"
+          fi
+          cat verify.log 2>/dev/null || true
+          [ -z "$problem" ] && { echo "main 的历史都经 PR、由所有者合并"; exit 0; }
+          details=$(grep '::error::' verify.log 2>/dev/null | sed 's/^::error::/- /' || true)
+          gh issue create -R "$REPO" --assignee "$OWNER" \
+            --title "main 守卫：$ACTOR 推送后发现问题 @ ${SHA:0:7}" \
+            --body "$(printf '推送人：@%s\n问题：%s\n%s\n对比：https://github.com/%s/compare/%s...%s\n\n这段历史不会被部署。处理：确认改动，必要时用 revert PR 撤回，并提醒按 CONTRIBUTING.md 走 PR。' "$ACTOR" "$problem" "$details" "$REPO" "$BEFORE" "$SHA")"
+          echo "::error::main 守卫：$problem"
+          exit 1

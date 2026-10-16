@@ -1,0 +1,23 @@
+// 只给 Worker 和好友房的测试用（vitest.worker.config.ts）。正式配置见 wrangler.jsonc（线上路由和平台绑定），
+// 这份是测试专用，不部署。
+// 平台钱包换成假的（arcade-kit/testing）：WALLET 绑回这个 Worker 自己导出的 WalletService，props 和正式配置一样写 game。
+{
+  "name": "texas-test",
+  "main": "./worker/entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./assets", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "TexasRoom" },
+      { "name": "METER", "class_name": "RoomMeter" },
+      { "name": "FAKE_BANK", "class_name": "FakeBank" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TexasRoom", "RoomMeter", "FakeBank"] }],
+  "services": [{ "binding": "WALLET", "service": "texas-test", "entrypoint": "WalletService", "props": { "game": "texas" } }],
+  "vars": {
+    "GATE": "login",
+    "SITE_ORIGIN": "https://game.yyyu.org",
+    "KIT_QUOTA": { "busyWrites": 15000, "stopWrites": 20000 }
+  }
+}

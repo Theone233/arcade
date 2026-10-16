@@ -1,0 +1,106 @@
+/**
+ * 好友房的等人页和牌桌上的小条（DESIGN.md 6、7）：房间号、规则、四个座位（点空位坐下）、叫朋友来、房主开打；
+ * 开打后牌桌顶上一条：等筹码到账、带入被拒（再带一次）、电脑先替你打。
+ */
+import type { RoomInfo, You } from 'arcade-kit/protocol';
+import type { XzOpts } from '../core/variants/sichuan-xuezhan/index.ts';
+import { stakesOf } from '../game/stakes.ts';
+import type { RoomOpts, RoomView } from '../room/rules.ts';
+import { avatarSvg } from './avatar.ts';
+import { button, el } from './dom.ts';
+import { num, STAKES_NAME, VARIANT_NAME, walletError } from './text.ts';
+
+export interface WaitingProps {
+  code: string;
+  room: RoomInfo;
+  you: You | null;
+  opts: RoomOpts | null;
+  /** 我是房主（我开的，或者坐在 0 号位：房主进房就坐 0 号） */
+  host: boolean;
+  /** 跟着"再来一场"过来、还没坐下：上一场我坐的那边（亮一下） */
+  suggest: number | null;
+  onSit(seat: number): void;
+  onStart(): void;
+  onShare(): void;
+  onLeave(): void;
+}
+
+/** 开房时定下的规则，一行字 */
+export function rulesLine(o: RoomOpts | null): string {
+  if (!o) return '';
+  const st = stakesOf(o.stakes);
+  const r = o.rules as XzOpts;
+  const stake = st?.wallet ? `实盘${STAKES_NAME[o.stakes]}档（一份 ${num(st.share)}）` : '娱乐';
+  return [VARIANT_NAME[o.variant] ?? o.variant, stake, `${r.rounds} 局`, `封顶 ${r.cap} 番`, r.swap ? '换三张' : '不换', r.zimo === 'fan' ? '自摸加番' : '自摸加底', r.transfer ? '呼叫转移' : ''].filter(Boolean).join(' · ');
+}
+
+export function renderWaiting(box: HTMLElement, p: WaitingProps): void {
+  box.replaceChildren();
+  const head = el('div', 'room-head', box);
+  el('div', 'room-label', head, '房间号');
+  el('div', 'room-code', head, p.code);
+  el('div', 'room-rules', head, rulesLine(p.opts));
+  button('act go big share', box, '叫朋友来', p.onShare);
+  const seats = el('div', 'room-seats', box);
+  p.room.seats.forEach((s, i) => {
+    const mine = p.you?.seat === i;
+    const card = el('div', `room-seat${mine ? ' me' : ''}${s.kind === 'empty' ? ' empty' : ''}${p.suggest === i && s.kind === 'empty' ? ' spot' : ''}`, seats);
+    if (s.kind === 'empty') {
+      el('div', 'avatar ghost', card, '＋');
+      el('div', 'name', card, '空位');
+      button('act soft', card, p.you?.seat === null || p.you?.seat === undefined ? '坐这里' : '换到这里', () => p.onSit(i));
+    } else {
+      el('div', 'avatar', card).innerHTML = avatarSvg(s.name ?? '电脑', s.kind === 'ai');
+      el('div', 'name', card, `${s.name ?? '电脑'}${mine ? '（我）' : ''}${i === 0 ? ' · 房主' : ''}`);
+      if (s.away) el('div', 'tag', card, '掉线了');
+    }
+  });
+  el('p', 'room-hint', box, '空着的座位开打时由电脑补上；开打以后朋友也能进来接管电脑的座位。');
+  if (stakesOf(p.opts?.stakes)?.wallet) el('p', 'room-hint', box, '实盘：坐下的人在房主开打时各从钱包带一份；不想带就别坐，看着也行。');
+  const row = el('div', 'go-row', box);
+  button('act soft', row, '离开房间', p.onLeave);
+  if (p.host) button('act go big', row, '开打', p.onStart);
+  else el('span', 'room-wait', row, '等房主开打');
+}
+
+/** 开打以后牌桌顶上的一条（没有要说的返回 null） */
+export function roomNotice(v: RoomView, seat: number | null, onRebuy: () => void): HTMLElement | null {
+  if (seat === null) return note('你在旁观，点空出来的电脑座位可以接手');
+  if (v.opening) return note('等大家的筹码到账……');
+  if (v.own[seat]) return null;
+  if (v.buying[seat]) return note('筹码正在到账，这个座位先由电脑替你打');
+  if (v.refused) {
+    const n = note(`${walletError(v.refused).text}。这个座位先由电脑替你打。`);
+    if (v.canRebuy) button('act go', n, '再带一次', onRebuy);
+    return n;
+  }
+  return null;
+}
+
+function note(text: string): HTMLElement {
+  const n = document.createElement('div');
+  n.className = 'room-note';
+  el('span', '', n, text);
+  return n;
+}
+
+/** 叫朋友来：手机上走系统分享，没有就复制链接。链接带房间号，朋友点开登录后直接进房 */
+export async function shareRoom(code: string, title: string): Promise<'shared' | 'copied' | 'failed'> {
+  const url = new URL(`?room=${code}`, location.href).toString();
+  const text = `来${title}打一把，房间号 ${code}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return 'shared';
+    } catch (e) {
+      // 用户取消了就不再复制
+      if ((e as { name?: string }).name === 'AbortError') return 'shared';
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
+}

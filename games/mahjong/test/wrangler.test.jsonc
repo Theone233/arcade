@@ -1,0 +1,22 @@
+// 只给 Worker 和好友房的测试用（vitest.worker.config.ts），不部署；正式配置在 ../wrangler.jsonc。
+// 平台钱包换成假的（test/fake-wallet.ts）：WALLET 绑回这个 Worker 自己导出的 WalletService，props 和正式配置一样写 game。
+{
+  "name": "mahjong-test",
+  "main": "./worker/entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./assets", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "MahjongRoom" },
+      { "name": "METER", "class_name": "RoomMeter" },
+      { "name": "FAKE_BANK", "class_name": "FakeBank" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MahjongRoom", "RoomMeter", "FakeBank"] }],
+  "services": [{ "binding": "WALLET", "service": "mahjong-test", "entrypoint": "WalletService", "props": { "game": "mahjong" } }],
+  "vars": {
+    "GATE": "login",
+    "SITE_ORIGIN": "https://game.yyyu.org",
+    "KIT_QUOTA": { "busyWrites": 8000, "stopWrites": 10000, "roomsPerUser": 5, "dailyRoomsPerUser": 100 }
+  }
+}

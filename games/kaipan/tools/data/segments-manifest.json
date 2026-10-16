@@ -1,0 +1,1217 @@
+[
+ {
+  "id": "seg_118683445d",
+  "key": "1996-01-bull",
+  "from": "1996-01-02",
+  "to": "1996-03-22",
+  "year": 1996,
+  "regime": "bull",
+  "title": "满屏飘红的日子"
+ },
+ {
+  "id": "seg_bea9d7405c",
+  "key": "1996-03-flat",
+  "from": "1996-03-01",
+  "to": "1996-05-22",
+  "year": 1996,
+  "regime": "flat",
+  "title": "心电图行情"
+ },
+ {
+  "id": "seg_a2b822e5af",
+  "key": "1996-05-flat",
+  "from": "1996-05-13",
+  "to": "1996-08-02",
+  "year": 1996,
+  "regime": "flat",
+  "title": "原地踏步小记"
+ },
+ {
+  "id": "seg_3406225ac6",
+  "key": "1996-07-bubble",
+  "from": "1996-07-17",
+  "to": "1996-10-07",
+  "year": 1996,
+  "regime": "bubble",
+  "title": "这次不一样"
+ },
+ {
+  "id": "seg_503ea2c0d0",
+  "key": "1996-09-bubble",
+  "from": "1996-09-11",
+  "to": "1996-12-02",
+  "year": 1996,
+  "regime": "bubble",
+  "title": "击鼓传花大联欢"
+ },
+ {
+  "id": "seg_1f3c87568b",
+  "key": "1996-11-bubble",
+  "from": "1996-11-05",
+  "to": "1997-01-28",
+  "year": 1996,
+  "regime": "bubble",
+  "title": "吹泡泡嘉年华"
+ },
+ {
+  "id": "seg_426e8efecc",
+  "key": "1997-01-bull",
+  "from": "1997-01-02",
+  "to": "1997-03-25",
+  "year": 1997,
+  "regime": "bull",
+  "title": "人人都是股神"
+ },
+ {
+  "id": "seg_2fd2afad3f",
+  "key": "1997-02-bull",
+  "from": "1997-02-27",
+  "to": "1997-05-20",
+  "year": 1997,
+  "regime": "bull",
+  "title": "红包雨进行曲"
+ },
+ {
+  "id": "seg_62e2bca898",
+  "key": "1997-04-bubble",
+  "from": "1997-04-24",
+  "to": "1997-07-16",
+  "year": 1997,
+  "regime": "bubble",
+  "title": "楼下大爷也入场了"
+ },
+ {
+  "id": "seg_435be7140d",
+  "key": "1997-06-bubble",
+  "from": "1997-06-19",
+  "to": "1997-09-10",
+  "year": 1997,
+  "regime": "bubble",
+  "title": "梦想按斤卖"
+ },
+ {
+  "id": "seg_188db92273",
+  "key": "1997-08-flat",
+  "from": "1997-08-14",
+  "to": "1997-11-04",
+  "year": 1997,
+  "regime": "flat",
+  "title": "钝刀子磨人"
+ },
+ {
+  "id": "seg_db858da5df",
+  "key": "1997-10-flat",
+  "from": "1997-10-09",
+  "to": "1997-12-31",
+  "year": 1997,
+  "regime": "flat",
+  "title": "行情在摸鱼"
+ },
+ {
+  "id": "seg_dcd5b6fac7",
+  "key": "1997-12-bull",
+  "from": "1997-12-04",
+  "to": "1998-02-27",
+  "year": 1997,
+  "regime": "bull",
+  "title": "闭眼都能赚"
+ },
+ {
+  "id": "seg_6dbd01d1ce",
+  "key": "1998-02-bull",
+  "from": "1998-02-02",
+  "to": "1998-04-24",
+  "year": 1998,
+  "regime": "bull",
+  "title": "营业部排长队"
+ },
+ {
+  "id": "seg_923a3f89bd",
+  "key": "1998-04-flat",
+  "from": "1998-04-01",
+  "to": "1998-06-23",
+  "year": 1998,
+  "regime": "flat",
+  "title": "来回拔河"
+ },
+ {
+  "id": "seg_e34a8b4435",
+  "key": "1998-05-bubble",
+  "from": "1998-05-28",
+  "to": "1998-08-18",
+  "year": 1998,
+  "regime": "bubble",
+  "title": "市梦率之夜"
+ },
+ {
+  "id": "seg_7b9d056818",
+  "key": "1998-07-crash",
+  "from": "1998-07-23",
+  "to": "1998-10-13",
+  "year": 1998,
+  "regime": "crash",
+  "title": "过山车没装刹车"
+ },
+ {
+  "id": "seg_2b876ce185",
+  "key": "1998-09-bubble",
+  "from": "1998-09-18",
+  "to": "1998-12-09",
+  "year": 1998,
+  "regime": "bubble",
+  "title": "泡泡越吹越圆"
+ },
+ {
+  "id": "seg_3fdb054fe1",
+  "key": "1998-11-bubble",
+  "from": "1998-11-12",
+  "to": "1999-02-05",
+  "year": 1998,
+  "regime": "bubble",
+  "title": "人均巴菲特"
+ },
+ {
+  "id": "seg_655883e4d0",
+  "key": "1999-01-bubble",
+  "from": "1999-01-15",
+  "to": "1999-04-09",
+  "year": 1999,
+  "regime": "bubble",
+  "title": "故事比业绩值钱"
+ },
+ {
+  "id": "seg_04025d30f3",
+  "key": "1999-03-bull",
+  "from": "1999-03-25",
+  "to": "1999-06-16",
+  "year": 1999,
+  "regime": "bull",
+  "title": "躺赢派对"
+ },
+ {
+  "id": "seg_2dd72eb974",
+  "key": "1999-06-bubble",
+  "from": "1999-06-04",
+  "to": "1999-08-25",
+  "year": 1999,
+  "regime": "bubble",
+  "title": "煎饼摊在聊风口"
+ },
+ {
+  "id": "seg_758d4d2cf7",
+  "key": "1999-08-bubble",
+  "from": "1999-08-05",
+  "to": "1999-10-26",
+  "year": 1999,
+  "regime": "bubble",
+  "title": "一路飞向月球"
+ },
+ {
+  "id": "seg_1cb0f5baaf",
+  "key": "1999-10-bubble",
+  "from": "1999-10-04",
+  "to": "1999-12-23",
+  "year": 1999,
+  "regime": "bubble",
+  "title": "谁也不想先下车"
+ },
+ {
+  "id": "seg_def6def30e",
+  "key": "1999-12-crash",
+  "from": "1999-12-06",
+  "to": "2000-02-28",
+  "year": 1999,
+  "regime": "crash",
+  "title": "大逃亡"
+ },
+ {
+  "id": "seg_d22e61588d",
+  "key": "2000-02-crash",
+  "from": "2000-02-04",
+  "to": "2000-04-27",
+  "year": 2000,
+  "regime": "crash",
+  "title": "电梯断了缆"
+ },
+ {
+  "id": "seg_bd9c3ca090",
+  "key": "2000-03-crash",
+  "from": "2000-03-31",
+  "to": "2000-06-22",
+  "year": 2000,
+  "regime": "crash",
+  "title": "一地鸡毛"
+ },
+ {
+  "id": "seg_943fcafbba",
+  "key": "2000-05-bubble",
+  "from": "2000-05-26",
+  "to": "2000-08-17",
+  "year": 2000,
+  "regime": "bubble",
+  "title": "空气都能卖钱"
+ },
+ {
+  "id": "seg_76141a5a68",
+  "key": "2000-07-bear",
+  "from": "2000-07-24",
+  "to": "2000-10-12",
+  "year": 2000,
+  "regime": "bear",
+  "title": "一路向下的楼梯"
+ },
+ {
+  "id": "seg_4613aac355",
+  "key": "2000-09-crash",
+  "from": "2000-09-19",
+  "to": "2000-12-08",
+  "year": 2000,
+  "regime": "crash",
+  "title": "跳水比赛"
+ },
+ {
+  "id": "seg_2c1c80524e",
+  "key": "2000-11-crash",
+  "from": "2000-11-13",
+  "to": "2001-02-06",
+  "year": 2000,
+  "regime": "crash",
+  "title": "滑梯惊魂记"
+ },
+ {
+  "id": "seg_338a414526",
+  "key": "2001-01-crash",
+  "from": "2001-01-10",
+  "to": "2001-04-03",
+  "year": 2001,
+  "regime": "crash",
+  "title": "恐慌大甩卖"
+ },
+ {
+  "id": "seg_f5aa21f612",
+  "key": "2001-03-crash",
+  "from": "2001-03-08",
+  "to": "2001-05-30",
+  "year": 2001,
+  "regime": "crash",
+  "title": "黑色好几天"
+ },
+ {
+  "id": "seg_25e2bcb094",
+  "key": "2001-05-bear",
+  "from": "2001-05-03",
+  "to": "2001-07-25",
+  "year": 2001,
+  "regime": "bear",
+  "title": "抄底抄在半山腰"
+ },
+ {
+  "id": "seg_8480d8e3c0",
+  "key": "2001-06-crash",
+  "from": "2001-06-29",
+  "to": "2001-09-26",
+  "year": 2001,
+  "regime": "crash",
+  "title": "谁在裸泳"
+ },
+ {
+  "id": "seg_7988d655a8",
+  "key": "2001-08-crash",
+  "from": "2001-08-27",
+  "to": "2001-11-21",
+  "year": 2001,
+  "regime": "crash",
+  "title": "跌停板开会"
+ },
+ {
+  "id": "seg_ca2d6fd6fc",
+  "key": "2001-12-bear",
+  "from": "2001-12-05",
+  "to": "2002-02-28",
+  "year": 2001,
+  "regime": "bear",
+  "title": "绿油油的季节"
+ },
+ {
+  "id": "seg_cd44f3e18d",
+  "key": "2002-02-bear",
+  "from": "2002-02-12",
+  "to": "2002-05-06",
+  "year": 2002,
+  "regime": "bear",
+  "title": "稳住别慌"
+ },
+ {
+  "id": "seg_309a09ba3b",
+  "key": "2002-04-crash",
+  "from": "2002-04-22",
+  "to": "2002-07-12",
+  "year": 2002,
+  "regime": "crash",
+  "title": "心脏不好别看行情"
+ },
+ {
+  "id": "seg_25dce90ff4",
+  "key": "2002-06-crash",
+  "from": "2002-06-17",
+  "to": "2002-09-06",
+  "year": 2002,
+  "regime": "crash",
+  "title": "账户冰河期"
+ },
+ {
+  "id": "seg_cd24d077cc",
+  "key": "2002-08-crash",
+  "from": "2002-08-12",
+  "to": "2002-10-31",
+  "year": 2002,
+  "regime": "crash",
+  "title": "夺路狂奔"
+ },
+ {
+  "id": "seg_dd0dee071c",
+  "key": "2002-10-bubble",
+  "from": "2002-10-07",
+  "to": "2002-12-27",
+  "year": 2002,
+  "regime": "bubble",
+  "title": "起飞前的广播"
+ },
+ {
+  "id": "seg_ff25469029",
+  "key": "2002-12-bear",
+  "from": "2002-12-17",
+  "to": "2003-03-12",
+  "year": 2002,
+  "regime": "bear",
+  "title": "阴跌往事"
+ },
+ {
+  "id": "seg_babddf96a2",
+  "key": "2003-02-bull",
+  "from": "2003-02-13",
+  "to": "2003-05-07",
+  "year": 2003,
+  "regime": "bull",
+  "title": "大妈都在问代码"
+ },
+ {
+  "id": "seg_634d0c2877",
+  "key": "2003-04-bubble",
+  "from": "2003-04-14",
+  "to": "2003-07-07",
+  "year": 2003,
+  "regime": "bubble",
+  "title": "热气球越飘越高"
+ },
+ {
+  "id": "seg_3c14ae5087",
+  "key": "2003-06-flat",
+  "from": "2003-06-11",
+  "to": "2003-09-02",
+  "year": 2003,
+  "regime": "flat",
+  "title": "不咸不淡的日子"
+ },
+ {
+  "id": "seg_65c0bdebf8",
+  "key": "2003-08-bubble",
+  "from": "2003-08-08",
+  "to": "2003-10-29",
+  "year": 2003,
+  "regime": "bubble",
+  "title": "人人都有新故事"
+ },
+ {
+  "id": "seg_da57885794",
+  "key": "2003-10-bull",
+  "from": "2003-10-03",
+  "to": "2003-12-24",
+  "year": 2003,
+  "regime": "bull",
+  "title": "地铁上全在看行情"
+ },
+ {
+  "id": "seg_aceb555daf",
+  "key": "2003-11-bull",
+  "from": "2003-11-28",
+  "to": "2004-02-23",
+  "year": 2003,
+  "regime": "bull",
+  "title": "牛气冲天小记"
+ },
+ {
+  "id": "seg_bb3b3777b9",
+  "key": "2004-02-bear",
+  "from": "2004-02-18",
+  "to": "2004-05-10",
+  "year": 2004,
+  "regime": "bear",
+  "title": "每天跌一点点"
+ },
+ {
+  "id": "seg_440855e0fd",
+  "key": "2004-04-flat",
+  "from": "2004-04-23",
+  "to": "2004-07-16",
+  "year": 2004,
+  "regime": "flat",
+  "title": "磨洋工进行时"
+ },
+ {
+  "id": "seg_3a6c9194fc",
+  "key": "2004-06-flat",
+  "from": "2004-06-21",
+  "to": "2004-09-10",
+  "year": 2004,
+  "regime": "flat",
+  "title": "横着走的螃蟹"
+ },
+ {
+  "id": "seg_31508e7e93",
+  "key": "2004-08-flat",
+  "from": "2004-08-16",
+  "to": "2004-11-04",
+  "year": 2004,
+  "regime": "flat",
+  "title": "中午吃啥比行情重要"
+ },
+ {
+  "id": "seg_efbf89dcec",
+  "key": "2004-10-bull",
+  "from": "2004-10-11",
+  "to": "2004-12-31",
+  "year": 2004,
+  "regime": "bull",
+  "title": "群里天天放鞭炮"
+ },
+ {
+  "id": "seg_3307a68e6d",
+  "key": "2004-12-flat",
+  "from": "2004-12-13",
+  "to": "2005-03-07",
+  "year": 2004,
+  "regime": "flat",
+  "title": "涨一天跌一天"
+ },
+ {
+  "id": "seg_95dc976491",
+  "key": "2005-02-bear",
+  "from": "2005-02-16",
+  "to": "2005-05-10",
+  "year": 2005,
+  "regime": "bear",
+  "title": "底下还有底"
+ },
+ {
+  "id": "seg_1fc332bcd7",
+  "key": "2005-04-flat",
+  "from": "2005-04-14",
+  "to": "2005-07-06",
+  "year": 2005,
+  "regime": "flat",
+  "title": "温水泡韭菜"
+ },
+ {
+  "id": "seg_e21e73727a",
+  "key": "2005-06-flat",
+  "from": "2005-06-09",
+  "to": "2005-08-30",
+  "year": 2005,
+  "regime": "flat",
+  "title": "平平无奇的季节"
+ },
+ {
+  "id": "seg_5a19480cb6",
+  "key": "2005-08-flat",
+  "from": "2005-08-04",
+  "to": "2005-10-25",
+  "year": 2005,
+  "regime": "flat",
+  "title": "打着哈欠盯行情"
+ },
+ {
+  "id": "seg_0bc43a9ab6",
+  "key": "2005-09-flat",
+  "from": "2005-09-29",
+  "to": "2005-12-20",
+  "year": 2005,
+  "regime": "flat",
+  "title": "来回画圈圈"
+ },
+ {
+  "id": "seg_da902cd185",
+  "key": "2005-11-flat",
+  "from": "2005-11-23",
+  "to": "2006-02-16",
+  "year": 2005,
+  "regime": "flat",
+  "title": "原地转圈的陀螺"
+ },
+ {
+  "id": "seg_d6f48b3056",
+  "key": "2006-01-flat",
+  "from": "2006-01-25",
+  "to": "2006-04-18",
+  "year": 2006,
+  "regime": "flat",
+  "title": "涨不动也跌不动"
+ },
+ {
+  "id": "seg_abb12682c3",
+  "key": "2006-03-bear",
+  "from": "2006-03-22",
+  "to": "2006-06-13",
+  "year": 2006,
+  "regime": "bear",
+  "title": "卖还是装死"
+ },
+ {
+  "id": "seg_ff5d97b294",
+  "key": "2006-05-flat",
+  "from": "2006-05-17",
+  "to": "2006-08-08",
+  "year": 2006,
+  "regime": "flat",
+  "title": "行情在睡午觉"
+ },
+ {
+  "id": "seg_0204fc7298",
+  "key": "2006-07-bull",
+  "from": "2006-07-17",
+  "to": "2006-10-05",
+  "year": 2006,
+  "regime": "bull",
+  "title": "韭菜的春天"
+ },
+ {
+  "id": "seg_a0b8ee7f27",
+  "key": "2006-09-bull",
+  "from": "2006-09-11",
+  "to": "2006-11-30",
+  "year": 2006,
+  "regime": "bull",
+  "title": "涨停板开会"
+ },
+ {
+  "id": "seg_6a25320dc7",
+  "key": "2006-11-flat",
+  "from": "2006-11-06",
+  "to": "2007-01-31",
+  "year": 2006,
+  "regime": "flat",
+  "title": "等风来"
+ },
+ {
+  "id": "seg_e44db292e4",
+  "key": "2007-01-flat",
+  "from": "2007-01-04",
+  "to": "2007-03-28",
+  "year": 2007,
+  "regime": "flat",
+  "title": "一杯茶一张报纸"
+ },
+ {
+  "id": "seg_e9258f8930",
+  "key": "2007-03-bull",
+  "from": "2007-03-06",
+  "to": "2007-05-25",
+  "year": 2007,
+  "regime": "bull",
+  "title": "开盘就想笑"
+ },
+ {
+  "id": "seg_f082ee99f3",
+  "key": "2007-05-bull",
+  "from": "2007-05-01",
+  "to": "2007-07-23",
+  "year": 2007,
+  "regime": "bull",
+  "title": "账户天天过年"
+ },
+ {
+  "id": "seg_9816bf0c92",
+  "key": "2007-07-flat",
+  "from": "2007-07-11",
+  "to": "2007-10-01",
+  "year": 2007,
+  "regime": "flat",
+  "title": "慢悠悠的散步"
+ },
+ {
+  "id": "seg_bbb3f4be6c",
+  "key": "2007-09-bear",
+  "from": "2007-09-05",
+  "to": "2007-11-26",
+  "year": 2007,
+  "regime": "bear",
+  "title": "熊出没注意"
+ },
+ {
+  "id": "seg_b6b58172a8",
+  "key": "2007-11-bear",
+  "from": "2007-11-05",
+  "to": "2008-01-29",
+  "year": 2007,
+  "regime": "bear",
+  "title": "群里静悄悄"
+ },
+ {
+  "id": "seg_1eb326014c",
+  "key": "2008-01-bear",
+  "from": "2008-01-02",
+  "to": "2008-03-26",
+  "year": 2008,
+  "regime": "bear",
+  "title": "绿色壁纸禁令"
+ },
+ {
+  "id": "seg_def0f596da",
+  "key": "2008-02-flat",
+  "from": "2008-02-28",
+  "to": "2008-05-20",
+  "year": 2008,
+  "regime": "flat",
+  "title": "左脚绊右脚"
+ },
+ {
+  "id": "seg_728ace7944",
+  "key": "2008-04-crash",
+  "from": "2008-04-24",
+  "to": "2008-07-16",
+  "year": 2008,
+  "regime": "crash",
+  "title": "断崖式下跌"
+ },
+ {
+  "id": "seg_ead7e4f6f0",
+  "key": "2008-06-bear",
+  "from": "2008-06-19",
+  "to": "2008-09-10",
+  "year": 2008,
+  "regime": "bear",
+  "title": "慢慢往下滑"
+ },
+ {
+  "id": "seg_b6ac8d6987",
+  "key": "2008-08-crash",
+  "from": "2008-08-14",
+  "to": "2008-11-04",
+  "year": 2008,
+  "regime": "crash",
+  "title": "大雪崩"
+ },
+ {
+  "id": "seg_3b37f95ee9",
+  "key": "2008-10-crash",
+  "from": "2008-10-09",
+  "to": "2008-12-31",
+  "year": 2008,
+  "regime": "crash",
+  "title": "全线溃退"
+ },
+ {
+  "id": "seg_dda1ec935f",
+  "key": "2008-12-crash",
+  "from": "2008-12-11",
+  "to": "2009-03-06",
+  "year": 2008,
+  "regime": "crash",
+  "title": "踩踏现场"
+ },
+ {
+  "id": "seg_82fced5703",
+  "key": "2009-02-crash",
+  "from": "2009-02-11",
+  "to": "2009-05-05",
+  "year": 2009,
+  "regime": "crash",
+  "title": "暴风雨中的小船"
+ },
+ {
+  "id": "seg_99f42d8816",
+  "key": "2009-04-bull",
+  "from": "2009-04-08",
+  "to": "2009-06-30",
+  "year": 2009,
+  "regime": "bull",
+  "title": "手慢就踏空"
+ },
+ {
+  "id": "seg_2cb161b2a6",
+  "key": "2009-06-bull",
+  "from": "2009-06-04",
+  "to": "2009-08-25",
+  "year": 2009,
+  "regime": "bull",
+  "title": "追涨的快乐"
+ },
+ {
+  "id": "seg_88275e65cc",
+  "key": "2009-07-bull",
+  "from": "2009-07-30",
+  "to": "2009-10-20",
+  "year": 2009,
+  "regime": "bull",
+  "title": "全场都在加仓"
+ },
+ {
+  "id": "seg_9a9ac9b8fd",
+  "key": "2009-10-bull",
+  "from": "2009-10-05",
+  "to": "2009-12-24",
+  "year": 2009,
+  "regime": "bull",
+  "title": "行情坐上了火箭"
+ },
+ {
+  "id": "seg_1f4bcac893",
+  "key": "2009-12-flat",
+  "from": "2009-12-02",
+  "to": "2010-02-25",
+  "year": 2009,
+  "regime": "flat",
+  "title": "钓鱼行情"
+ },
+ {
+  "id": "seg_4dfb09075b",
+  "key": "2010-02-bull",
+  "from": "2010-02-01",
+  "to": "2010-04-23",
+  "year": 2010,
+  "regime": "bull",
+  "title": "人人晒收益"
+ },
+ {
+  "id": "seg_ba540ef282",
+  "key": "2010-03-bear",
+  "from": "2010-03-31",
+  "to": "2010-06-22",
+  "year": 2010,
+  "regime": "bear",
+  "title": "下楼梯的脚步声"
+ },
+ {
+  "id": "seg_db8500881c",
+  "key": "2010-05-flat",
+  "from": "2010-05-26",
+  "to": "2010-08-17",
+  "year": 2010,
+  "regime": "flat",
+  "title": "你推我搡"
+ },
+ {
+  "id": "seg_16bfe54492",
+  "key": "2010-07-bull",
+  "from": "2010-07-22",
+  "to": "2010-10-12",
+  "year": 2010,
+  "regime": "bull",
+  "title": "早上醒来先看账户"
+ },
+ {
+  "id": "seg_f8dc5bb25a",
+  "key": "2010-09-bull",
+  "from": "2010-09-16",
+  "to": "2010-12-07",
+  "year": 2010,
+  "regime": "bull",
+  "title": "卖了就后悔"
+ },
+ {
+  "id": "seg_b4cb115eb7",
+  "key": "2010-11-bull",
+  "from": "2010-11-16",
+  "to": "2011-02-08",
+  "year": 2010,
+  "regime": "bull",
+  "title": "红得发烫"
+ },
+ {
+  "id": "seg_734bdae7f9",
+  "key": "2011-01-bull",
+  "from": "2011-01-12",
+  "to": "2011-04-05",
+  "year": 2011,
+  "regime": "bull",
+  "title": "连涨也不累"
+ },
+ {
+  "id": "seg_2b0f716902",
+  "key": "2011-03-flat",
+  "from": "2011-03-17",
+  "to": "2011-06-08",
+  "year": 2011,
+  "regime": "flat",
+  "title": "发呆的行情"
+ },
+ {
+  "id": "seg_facc40b740",
+  "key": "2011-05-crash",
+  "from": "2011-05-17",
+  "to": "2011-08-08",
+  "year": 2011,
+  "regime": "crash",
+  "title": "一夜回到解放前"
+ },
+ {
+  "id": "seg_7dae4bb657",
+  "key": "2011-07-crash",
+  "from": "2011-07-13",
+  "to": "2011-10-03",
+  "year": 2011,
+  "regime": "crash",
+  "title": "满屏飘绿的周末"
+ },
+ {
+  "id": "seg_70350a0c32",
+  "key": "2011-09-bull",
+  "from": "2011-09-12",
+  "to": "2011-12-01",
+  "year": 2011,
+  "regime": "bull",
+  "title": "捂股捂出了花"
+ },
+ {
+  "id": "seg_f0561c354b",
+  "key": "2011-11-flat",
+  "from": "2011-11-04",
+  "to": "2012-01-30",
+  "year": 2011,
+  "regime": "flat",
+  "title": "三天打鱼两天晒网"
+ },
+ {
+  "id": "seg_81030f19e7",
+  "key": "2012-01-bubble",
+  "from": "2012-01-03",
+  "to": "2012-03-26",
+  "year": 2012,
+  "regime": "bubble",
+  "title": "明天会更贵"
+ },
+ {
+  "id": "seg_80e2463761",
+  "key": "2012-03-flat",
+  "from": "2012-03-06",
+  "to": "2012-05-25",
+  "year": 2012,
+  "regime": "flat",
+  "title": "翻来覆去的烙饼"
+ },
+ {
+  "id": "seg_43f51ed12a",
+  "key": "2012-05-bear",
+  "from": "2012-05-02",
+  "to": "2012-07-24",
+  "year": 2012,
+  "regime": "bear",
+  "title": "越抄越深"
+ },
+ {
+  "id": "seg_23fe0a85a9",
+  "key": "2012-06-bull",
+  "from": "2012-06-27",
+  "to": "2012-09-18",
+  "year": 2012,
+  "regime": "bull",
+  "title": "奶茶店都在聊行情"
+ },
+ {
+  "id": "seg_5ea5fb7c77",
+  "key": "2012-08-bear",
+  "from": "2012-08-23",
+  "to": "2012-11-15",
+  "year": 2012,
+  "regime": "bear",
+  "title": "秋风扫落叶"
+ },
+ {
+  "id": "seg_9ed5130e70",
+  "key": "2012-11-bull",
+  "from": "2012-11-05",
+  "to": "2013-01-29",
+  "year": 2012,
+  "regime": "bull",
+  "title": "天天都是好日子"
+ },
+ {
+  "id": "seg_125fe8910e",
+  "key": "2013-01-bull",
+  "from": "2013-01-02",
+  "to": "2013-03-26",
+  "year": 2013,
+  "regime": "bull",
+  "title": "牛蹄声声"
+ },
+ {
+  "id": "seg_e4ebe7cec5",
+  "key": "2013-02-bull",
+  "from": "2013-02-28",
+  "to": "2013-05-21",
+  "year": 2013,
+  "regime": "bull",
+  "title": "打工不如炒股"
+ },
+ {
+  "id": "seg_e2fb4b5bf8",
+  "key": "2013-04-flat",
+  "from": "2013-04-26",
+  "to": "2013-07-18",
+  "year": 2013,
+  "regime": "flat",
+  "title": "走走停停"
+ },
+ {
+  "id": "seg_4bede8089a",
+  "key": "2013-07-bear",
+  "from": "2013-07-19",
+  "to": "2013-10-09",
+  "year": 2013,
+  "regime": "bear",
+  "title": "慢慢放气的气球"
+ },
+ {
+  "id": "seg_b30d588bbe",
+  "key": "2013-10-bull",
+  "from": "2013-10-09",
+  "to": "2013-12-31",
+  "year": 2013,
+  "regime": "bull",
+  "title": "赚钱比花钱快"
+ },
+ {
+  "id": "seg_c5e74c681b",
+  "key": "2013-12-flat",
+  "from": "2013-12-05",
+  "to": "2014-02-28",
+  "year": 2013,
+  "regime": "flat",
+  "title": "慢火炖汤"
+ },
+ {
+  "id": "seg_8e92dc8a3d",
+  "key": "2014-02-bull",
+  "from": "2014-02-04",
+  "to": "2014-04-28",
+  "year": 2014,
+  "regime": "bull",
+  "title": "钞票自己会长"
+ },
+ {
+  "id": "seg_cce998284d",
+  "key": "2014-04-flat",
+  "from": "2014-04-01",
+  "to": "2014-06-23",
+  "year": 2014,
+  "regime": "flat",
+  "title": "不温不火"
+ },
+ {
+  "id": "seg_27b25e5358",
+  "key": "2014-05-flat",
+  "from": "2014-05-29",
+  "to": "2014-08-19",
+  "year": 2014,
+  "regime": "flat",
+  "title": "荡秋千"
+ },
+ {
+  "id": "seg_7b04af091b",
+  "key": "2014-07-bear",
+  "from": "2014-07-25",
+  "to": "2014-10-15",
+  "year": 2014,
+  "regime": "bear",
+  "title": "阴天连着阴天"
+ },
+ {
+  "id": "seg_1210f89a3b",
+  "key": "2014-10-bull",
+  "from": "2014-10-03",
+  "to": "2014-12-24",
+  "year": 2014,
+  "regime": "bull",
+  "title": "满屏飘红的日子 第二季"
+ },
+ {
+  "id": "seg_97df6f0194",
+  "key": "2014-12-flat",
+  "from": "2014-12-02",
+  "to": "2015-02-25",
+  "year": 2014,
+  "regime": "flat",
+  "title": "心电图行情 第二季"
+ },
+ {
+  "id": "seg_d3c4ca1e0f",
+  "key": "2015-01-flat",
+  "from": "2015-01-29",
+  "to": "2015-04-22",
+  "year": 2015,
+  "regime": "flat",
+  "title": "原地踏步小记 第二季"
+ },
+ {
+  "id": "seg_f4a717fc59",
+  "key": "2015-03-flat",
+  "from": "2015-03-27",
+  "to": "2015-06-18",
+  "year": 2015,
+  "regime": "flat",
+  "title": "钝刀子磨人 第二季"
+ },
+ {
+  "id": "seg_07ec320ac3",
+  "key": "2015-05-bear",
+  "from": "2015-05-22",
+  "to": "2015-08-13",
+  "year": 2015,
+  "regime": "bear",
+  "title": "每天都在下小雨"
+ },
+ {
+  "id": "seg_693e78af8e",
+  "key": "2015-07-bear",
+  "from": "2015-07-20",
+  "to": "2015-10-08",
+  "year": 2015,
+  "regime": "bear",
+  "title": "卖还是扛着"
+ },
+ {
+  "id": "seg_f7a18867cf",
+  "key": "2015-09-bull",
+  "from": "2015-09-15",
+  "to": "2015-12-04",
+  "year": 2015,
+  "regime": "bull",
+  "title": "人人都是股神 第二季"
+ },
+ {
+  "id": "seg_7df378d46a",
+  "key": "2015-11-bear",
+  "from": "2015-11-18",
+  "to": "2016-02-11",
+  "year": 2015,
+  "regime": "bear",
+  "title": "腰斩再腰斩"
+ },
+ {
+  "id": "seg_73bc184761",
+  "key": "2016-01-bull",
+  "from": "2016-01-21",
+  "to": "2016-04-13",
+  "year": 2016,
+  "regime": "bull",
+  "title": "红包雨进行曲 第二季"
+ },
+ {
+  "id": "seg_8d5a59581b",
+  "key": "2016-03-flat",
+  "from": "2016-03-17",
+  "to": "2016-06-08",
+  "year": 2016,
+  "regime": "flat",
+  "title": "行情在摸鱼 第二季"
+ },
+ {
+  "id": "seg_7a8c3acabd",
+  "key": "2016-05-bull",
+  "from": "2016-05-20",
+  "to": "2016-08-11",
+  "year": 2016,
+  "regime": "bull",
+  "title": "闭眼都能赚 第二季"
+ },
+ {
+  "id": "seg_046422299d",
+  "key": "2016-07-flat",
+  "from": "2016-07-25",
+  "to": "2016-10-13",
+  "year": 2016,
+  "regime": "flat",
+  "title": "来回拔河 第二季"
+ },
+ {
+  "id": "seg_f277f1ff5e",
+  "key": "2016-09-bull",
+  "from": "2016-09-27",
+  "to": "2016-12-16",
+  "year": 2016,
+  "regime": "bull",
+  "title": "营业部排长队 第二季"
+ },
+ {
+  "id": "seg_9ca2f98ffd",
+  "key": "2016-11-bull",
+  "from": "2016-11-22",
+  "to": "2017-02-15",
+  "year": 2016,
+  "regime": "bull",
+  "title": "躺赢派对 第二季"
+ },
+ {
+  "id": "seg_1ba8683384",
+  "key": "2017-01-flat",
+  "from": "2017-01-24",
+  "to": "2017-04-17",
+  "year": 2017,
+  "regime": "flat",
+  "title": "不咸不淡的日子 第二季"
+ },
+ {
+  "id": "seg_943cfb5208",
+  "key": "2017-03-flat",
+  "from": "2017-03-23",
+  "to": "2017-06-14",
+  "year": 2017,
+  "regime": "flat",
+  "title": "磨洋工进行时 第二季"
+ },
+ {
+  "id": "seg_4cc74f2b7d",
+  "key": "2017-05-bull",
+  "from": "2017-05-18",
+  "to": "2017-08-09",
+  "year": 2017,
+  "regime": "bull",
+  "title": "大妈都在问代码 第二季"
+ },
+ {
+  "id": "seg_e6a3bc5e35",
+  "key": "2017-07-flat",
+  "from": "2017-07-14",
+  "to": "2017-10-04",
+  "year": 2017,
+  "regime": "flat",
+  "title": "横着走的螃蟹 第二季"
+ },
+ {
+  "id": "seg_38a08baeb0",
+  "key": "2017-09-bull",
+  "from": "2017-09-08",
+  "to": "2017-11-30",
+  "year": 2017,
+  "regime": "bull",
+  "title": "地铁上全在看行情 第二季"
+ },
+ {
+  "id": "seg_19961418f4",
+  "key": "2017-11-bull",
+  "from": "2017-11-02",
+  "to": "2018-01-29",
+  "year": 2017,
+  "regime": "bull",
+  "title": "牛气冲天小记 第二季"
+ },
+ {
+  "id": "seg_6e83483077",
+  "key": "2018-01-flat",
+  "from": "2018-01-03",
+  "to": "2018-03-27",
+  "year": 2018,
+  "regime": "flat",
+  "title": "中午吃啥比行情重要 第二季"
+ }
+]

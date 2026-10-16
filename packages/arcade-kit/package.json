@@ -1,0 +1,30 @@
+{
+  "name": "arcade-kit",
+  "private": true,
+  "version": "0.8.0",
+  "type": "module",
+  "description": "小游戏共用的联机底座：Durable Object 房间基类、每日额度计量、ChaCha20 随机数、经平台 /api/me 认身份、浏览器连接器、消息协议",
+  "exports": {
+    "./room": "./src/room.ts",
+    "./worker": "./src/worker.ts",
+    "./game": "./src/game.ts",
+    "./client": "./src/client.ts",
+    "./protocol": "./src/protocol.ts",
+    "./meter": "./src/meter.ts",
+    "./rng": "./src/rng.ts",
+    "./auth": "./src/auth.ts",
+    "./fun": "./src/fun.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "test": "npm run typecheck && vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.1",
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4",
+    "wrangler": "^4.150.0"
+  }
+}

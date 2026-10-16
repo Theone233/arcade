@@ -1,0 +1,95 @@
+/**
+ * 好友房的等人页（开打前）和连接提示条。开打以后用的是牌桌（table.ts），这里只管"等大家坐好"那一屏。
+ */
+import { stakesOf } from '../core/stakes.ts';
+import type { OnlineState } from '../online.ts';
+import { SEATS } from '../room/rules.ts';
+import { el, setText, toggle } from './dom.ts';
+import { chips } from './text.ts';
+
+export interface WaitHandlers {
+  sit(seat: number): void;
+  start(): void;
+  invite(): void;
+  leave(): void;
+  retry(): void;
+}
+
+export class RoomPanel {
+  readonly root: HTMLDivElement;
+  private readonly code: HTMLDivElement;
+  private readonly info: HTMLDivElement;
+  private readonly seats: { box: HTMLDivElement; name: HTMLSpanElement; sit: HTMLButtonElement }[] = [];
+  private readonly startBtn: HTMLButtonElement;
+  private readonly waitNote: HTMLDivElement;
+  private readonly banner: HTMLDivElement;
+  private readonly bannerText: HTMLSpanElement;
+  private readonly retryBtn: HTMLButtonElement;
+
+  constructor(stage: HTMLElement, h: WaitHandlers) {
+    this.root = el('div', 'room-wait', stage);
+    const head = el('div', 'rw-head', this.root);
+    el('span', 'rw-label', head, '房间码');
+    this.code = el('div', 'rw-code', head);
+    // 叫朋友来（0.3.0）：手机上弹系统分享，别的复制链接
+    button(head, 'pill go rw-invite', '叫朋友来', () => h.invite());
+    this.info = el('div', 'rw-info', this.root);
+    const grid = el('div', 'rw-seats', this.root);
+    for (let i = 0; i < SEATS; i++) {
+      const box = el('div', 'rw-seat', grid);
+      el('span', 'rw-no', box, `${i + 1} 号`);
+      const name = el('span', 'rw-name', box);
+      const sit = button(box, 'pill rw-sit', '坐这里', () => h.sit(i));
+      this.seats.push({ box, name, sit });
+    }
+    const go = el('div', 'rw-go', this.root);
+    button(go, 'pill', '离开房间', () => h.leave());
+    this.startBtn = button(go, 'start', '开打', () => h.start());
+    this.waitNote = el('div', 'rw-wait', go, '等房主开打');
+
+    this.banner = el('div', 'room-banner hidden', stage);
+    this.bannerText = el('span', '', this.banner);
+    this.retryBtn = button(this.banner, 'pill', '重试', () => h.retry());
+  }
+
+  draw(s: OnlineState | null): void {
+    const waiting = !!s && s.room?.status === 'waiting';
+    toggle(this.root, 'hidden', !waiting);
+    // 连接提示：重连中、连不上
+    const conn = s?.status === 'reconnecting' ? '网络断了，正在重连…' : s?.status === 'failed' ? '连不上房间' : s?.status === 'connecting' ? '正在进房间…' : '';
+    setText(this.bannerText, conn);
+    toggle(this.banner, 'hidden', conn === '');
+    toggle(this.retryBtn, 'hidden', s?.status !== 'failed');
+    if (!s || !waiting) return;
+
+    setText(this.code, `${s.code.slice(0, 3)} ${s.code.slice(3)}`);
+    // 档位和人数开房时就定了（房间发来的），进房的人一眼知道要带多少
+    const o = s.opts;
+    const st = o ? stakesOf(o.stakes) : null;
+    setText(
+      this.info,
+      o && st ? `${st.name} · 盲注 ${chips(st.sb)}/${chips(st.bb)} · ${o.size} 人。开打时每个坐下的人从钱包带 ${chips(st.max)} 上桌，离桌或房间关掉时结回去；空位由电脑补` : '',
+    );
+    const size = o?.size ?? SEATS;
+    const mine = s.you?.seat ?? null;
+    this.seats.forEach((x, i) => {
+      const info = s.room!.seats[i]!;
+      const used = i < size;
+      toggle(x.box, 'hidden', !used && info.kind === 'empty');
+      toggle(x.box, 'me', i === mine);
+      toggle(x.box, 'taken', info.kind !== 'empty');
+      setText(x.name, info.kind === 'empty' ? '空位' : (info.name ?? '玩家'));
+      toggle(x.sit, 'hidden', info.kind !== 'empty' || !used);
+    });
+    toggle(this.startBtn, 'hidden', !s.host);
+    this.startBtn.disabled = mine === null || s.status !== 'open';
+    toggle(this.waitNote, 'hidden', s.host);
+  }
+}
+
+function button(parent: HTMLElement, cls: string, text: string, onClick: () => void): HTMLButtonElement {
+  const b = el('button', cls, parent, text);
+  b.type = 'button';
+  b.addEventListener('click', onClick);
+  return b;
+}
