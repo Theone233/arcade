@@ -7,7 +7,9 @@ import type { SeatKind } from 'arcade-kit/protocol';
 import { describe, expect, test } from 'vitest';
 import type { XzState, XzView } from '../src/core/variants/sichuan-xuezhan/index.ts';
 import { STRONGEST } from '../src/ai/personas.ts';
+import { VENUES } from '../src/ai/venues.ts';
 import { EMOTES } from '../src/game/emotes.ts';
+import { RoomTalk } from '../src/room/talk.ts';
 import { mahjongRoom as G, OPENING_MS, REMATCH_MS, type RoomAction, type RoomState, type WalletEffect } from '../src/room/rules.ts';
 import { KEY } from './helpers.ts';
 import { RON, tileIn } from './xz-table.ts';
@@ -178,11 +180,17 @@ describe('实盘至少两个真人', () => {
     expect(t.own[2]).toBe(true);
   });
 
-  test('实盘桌的电脑一律用最强的性格；娱乐还按档位挑', () => {
+  test('电脑按场地挑：实盘各档用 room:<档> 的组合，娱乐和不计输赢的按 room:fun；每个座位都有这一场的状态', () => {
+    const allowed = (venue: string, s: RoomState) => (s.g as XzState).personas.every((p) => VENUES[venue]!.weights[p]! > 0);
     for (const st of ['small', 'mid', 'big', 'lux']) {
-      expect(g(begin(['human', 'human', 'ai', 'ai'], st), 0).seats.map((x) => x.persona)).toEqual([STRONGEST, STRONGEST, STRONGEST, STRONGEST]);
+      const s = begin(['human', 'human', 'ai', 'ai'], st);
+      expect(allowed(`room:${st}`, s)).toBe(true);
+      expect((s.g as XzState).tunes!.every((t) => t.mood !== 0 && t.soft === VENUES[`room:${st}`]!.soft)).toBe(true);
     }
-    expect(new Set(g(begin(['human', 'human', 'ai', 'ai'], 'fun'), 0).seats.map((x) => x.persona)).size).toBe(4);
+    // 实盘桌一律最强
+    expect((begin(['human', 'human', 'ai', 'ai'], 'big').g as XzState).personas).toEqual([STRONGEST, STRONGEST, STRONGEST, STRONGEST]);
+    expect(allowed('room:fun', begin(['human', 'human', 'ai', 'ai'], 'fun'))).toBe(true);
+    expect((begin(['human', 'ai', 'ai', 'ai'], 'lux').g as XzState).tunes![1]!.soft).toBe(VENUES['room:fun']!.soft);
   });
 
   test('开打以后只剩一个真人在下注：这一场当场结束，所有人桌上的筹码按那一刻结回', () => {
@@ -398,5 +406,39 @@ describe('再来一场', () => {
   test('部署前存下的房间（没有 next、ended）照常打', () => {
     const { next: _n, ended: _e, ...old } = settleAll(begin(['human', 'human', 'ai', 'ai']));
     expect(G.over(old as RoomState)).toBe(false);
+  });
+});
+
+describe('好友房里电脑的互动（src/room/talk.ts）', () => {
+  test('电脑连着出手推好几步也不漏胡；只有电脑座位发，编号合法', () => {
+    // 一个只认事，一个认了再让电脑发（同一步只认一次）
+    const eye = new RoomTalk(9);
+    const talk = new RoomTalk(9);
+    let s = begin(['human', 'ai', 'ai', 'ai'], 'fun');
+    let hus = 0;
+    let kans = 0;
+    let acts = 0;
+    let now = 0;
+    // 每 5 步看一次（像 kit 一批推好几步，onStep 只看到最后一步）
+    for (let k = 0; !G.over(s) && k < 100_000; k++) {
+      s = drive(s, 5);
+      now += 10_000;
+      const ms = eye.watch(s);
+      hus += ms.filter((m) => m.k === 'hu').length;
+      kans += ms.filter((m) => m.k === 'kan').length;
+      for (const a of talk.step(s, now)) {
+        acts++;
+        expect(s.kinds[a.seat]).toBe('ai');
+        expect(a.id >= 0 && a.id < EMOTES).toBe(true);
+      }
+    }
+    const st = (s.g as XzState).history;
+    expect(hus).toBe(st.reduce((n, h) => n + h.wins.length, 0));
+    expect(kans).toBeGreaterThan(0);
+    expect(eye.watch(s)).toEqual([]);
+    // 真人冲电脑扔了东西：只有被冲着的电脑可能回
+    const r = talk.reply(0, EMOTES - 4, 1, now + 60_000);
+    if (r) expect(r.seat).toBe(1);
+    expect(acts).toBeGreaterThan(0);
   });
 });

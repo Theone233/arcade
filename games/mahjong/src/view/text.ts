@@ -3,6 +3,7 @@
  */
 import type { RoomTexts } from 'arcade-kit/client';
 import type { FanId } from '../core/variants/sichuan-xuezhan/index.ts';
+import type { HighlightId } from '../game/banter.ts';
 import type { StakesId } from '../game/stakes.ts';
 
 export const GAME_NAME = '雀馆';
@@ -69,6 +70,21 @@ export const TITLE_NAME: Record<string, string> = {
   xz_last_stand: '血战到底',
 };
 
+/** 名场面（game/banter.ts 的 highlightsOf） */
+export const HIGHLIGHT_NAME: Record<HighlightId, string> = {
+  multi2: '一炮双响',
+  multi3: '一炮三响',
+  gangkai: '杠上开花',
+  qianggang: '抢杠胡',
+  tianhu: '天胡',
+  dihu: '地胡',
+  haidi: '海底捞月',
+  longqidui: '龙七对',
+  qing: '清一色',
+  jingou: '金钩钓',
+  capped: '封顶',
+};
+
 export const STAKES_NAME: Record<StakesId, string> = { fun: '娱乐', small: '小', mid: '中', big: '大', lux: '豪华' };
 
 /** 换三张的方向 */
@@ -130,6 +146,19 @@ export const ROOM_TEXTS: RoomTexts = {
   roomClosed: '房间关了，桌上的筹码已经结回钱包',
   quota: '今天联机的人太多了，这一局打完先散了，桌上的筹码结回钱包，单机照常玩',
   noRoom: '没有这个房间：码不对，或者房间已经散了',
+};
+
+/**
+ * 单机里电脑的台词（DESIGN.md 第 5 节），按性格的口吻：只由公开的事触发（胡了、点炮、杠、碰），和手牌无关；
+ * 只说牌局不说人。没列的性格用 PHRASES 里的通用话
+ */
+export const VOICES: Readonly<Record<string, { hu: string[]; pao: string[]; kan: string[]; pon: string[] }>> = {
+  幺妹儿: { hu: ['胡了，快得很！', '见胡就胡，不等', '又是我嘛'], pao: ['哎呀，打快了', '下把注意'], kan: ['杠一个'], pon: ['碰！', '碰了碰了'] },
+  熊猫哥: { hu: ['看嘛，大牌！', '清一色才安逸', '这把值了'], pao: ['手气背哦', '等我做个大的'], kan: ['杠起走！'], pon: ['碰，凑对对胡'] },
+  盖碗儿: { hu: ['稳起，胡了', '慢慢来，不慌'], pao: ['失误失误', '这张没算到'], kan: ['杠'], pon: ['碰'] },
+  兔头哥: { hu: ['巴适得板！', '杠上开花才安逸'], pao: ['气人！下把杠回来', '又点炮了哇'], kan: ['杠起走！', '再来一个杠', '杠杠杠！'], pon: ['碰！'] },
+  火锅婆婆: { hu: ['学到起哦', '手还没生'], pao: ['嗯，这张该收着'], kan: ['杠了'], pon: ['碰'] },
+  板凳儿: { hu: ['我、我胡了？', '运气运气'], pao: ['啊？这张也有人要', '我打错了吗'], kan: ['这个能杠吧？'], pon: ['碰……是这样碰吧？'] },
 };
 
 /**
