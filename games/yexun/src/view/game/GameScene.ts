@@ -11,14 +11,14 @@ import { ENEMIES, HOP_AIR, HOP_PERIOD, WATER } from '../../content/enemies.ts';
 import { ARENA, DROPS, xpNeed } from '../../content/player.ts';
 import { BEAST, DAWN_RED, DAWN_WARN, GATE, RAID_DAWN } from '../../content/explore.ts';
 import { TIERS, TIER_INFO, TREASURES } from '../../content/treasures.ts';
-import { edgeArrow } from '../../explore/view/guide-hud.ts';
+import { edgeArrow, walkSecs } from '../../explore/view/guide-hud.ts';
 import { guide, newGuide } from '../../explore/guide.ts';
 import type { Raid } from '../../explore/raid.ts';
 import { DAWN_TICK } from '../../content/waves.ts';
 import { MERGES, PASSIVE_IDS, PASSIVES, WEAPON_IDS, WEAPONS } from '../../content/weapons.ts';
 import { Drop, Ev, MAX_DROPS, MAX_ENEMIES, MAX_SHOTS, MERGE_CODE, Shot, step, type World } from '../../core/index.ts';
 import { COS, SIN } from '../../core/dirs.ts';
-import { RAID_TEX, type Atlas, type Frame } from '../art/atlas.ts';
+import { RAID_TEX, makeIcons, type Atlas, type Frame } from '../art/atlas.ts';
 import { artRng } from '../art/draw.ts';
 import { treasureIconKey } from '../art/sprites8.ts';
 import { MOB_COLOR } from '../art/sprites.ts';
@@ -27,21 +27,17 @@ import { sfx, type SfxName } from '../audio/sfx.ts';
 import type { Banners } from '../ui/banner.ts';
 import { Cards, describe } from '../ui/cards.ts';
 import type { Hud, HudSlot } from '../ui/hud.ts';
+import { RaidHud } from '../ui/raidhud.ts';
 import { LOW_MEMORY } from '../viewport.ts';
 import { DamageNumbers, Fx } from './fx.ts';
+import { Items } from './items.ts';
 import { weaponLook } from './look.ts';
+import { Town } from './town.ts';
 import type { Input } from './input.ts';
 
 const TICK_MS = 1000 / 30;
-
-/** 夜探院子的铺地：颜色和透明度（盖在雪地上，深度在雪地和点缀之间） */
-const YARD_FLOOR: Record<string, [number, number]> = {
-  yard: [0xc9bfa8, 0.42],
-  plaza: [0xd4c8ae, 0.45],
-  ruin: [0xd8dde6, 0.22],
-  temple: [0xe0c27a, 0.45],
-  vault: [0x8d9bb5, 0.5],
-};
+/** 只在 dev 构建里认 ?slowmo=N（截图预览用），正式构建恒为 1 */
+const SLOWMO = import.meta.env.DEV ? Math.max(1, Number(new URLSearchParams(location.search).get('slowmo') ?? 1) || 1) : 1;
 
 /** 怪种类编号 → 图集帧（没画好的先借相近的） */
 const MOB_FRAME = ENEMIES.map((e) => e.kind as string);
@@ -133,6 +129,10 @@ export class GameScene extends Phaser.Scene {
   private fx!: Fx;
   private ground!: Fx;
   private nums!: DamageNumbers;
+  /** 摆设、符咒炸弹、开箱光效、铜钱袋飘字（items.ts） */
+  private items!: Items;
+  /** 上次看到的铜钱袋累计铜钱：铜钱袋的数额在核心里现掷，事件里没有，靠累计差值得到 */
+  private purseSeen = 0;
   private gfx!: Phaser.GameObjects.Graphics;
   private bolts: { pts: number[]; life: number }[] = [];
   /** 这一帧要画的光波：x, y, 半径, 最大半径 */
@@ -145,6 +145,9 @@ export class GameScene extends Phaser.Scene {
   private telegraphs: { x: number; y: number; r: number; life: number; max: number; round?: boolean; color?: number }[] = [];
   // ───── 夜探 ─────
   private raid: Raid | null = null;
+  private town: Town | null = null;
+  private rhud: RaidHud | null = null;
+  private guardXY: number[] = [];
   private arenaW = ARENA.w;
   private arenaH = ARENA.h;
   /** 地面层的圈（门圈）：画在影子下面，站在圈里的主角和怪盖在它上面 */
@@ -154,6 +157,8 @@ export class GameScene extends Phaser.Scene {
   private gd = newGuide();
   private gdAt = -99;
   private gdMask = -1;
+  private trailG: Phaser.GameObjects.Graphics | null = null;
+  private trailHinted = false;
   /** 守卫头上的"!"：跟着那只怪走 */
   private alerts: { slot: number; gen: number; life: number; img: Phaser.GameObjects.Image }[] = [];
   /** 捡到宝物的飘字（图标 + 名字） */
@@ -220,9 +225,23 @@ export class GameScene extends Phaser.Scene {
 
     // 雪地：一张可平铺的贴图铺满场地，四周一圈压暗当边界
     const gtex = this.textures.get('ground').getSourceImage() as HTMLCanvasElement;
-    this.add.tileSprite(this.arenaW / 2, this.arenaH / 2, this.arenaW + 400, this.arenaH + 400, 'ground').setTileScale(512 / gtex.width).setDepth(-1000).setTint(0xd6e0f6);
+    // 夜探的街和院子全由 Town 铺满，不再多铺一层雪地（少一次全屏绘制，镇子外圈露出背景的雪色）
+    if (!this.raid) this.add.tileSprite(this.arenaW / 2, this.arenaH / 2, this.arenaW + 400, this.arenaH + 400, 'ground').setTileScale(512 / gtex.width).setDepth(-1000).setTint(0xd6e0f6);
     this.rg = this.add.graphics().setDepth(-500);
-    if (this.raid) this.setupRaid(this.raid);
+    if (this.raid) {
+      this.setupRaid(this.raid);
+      this.rhud = new RaidHud(this.d.hud.root, this.d.hud.bagBox, makeIcons(this.d.raidAtlas ?? this.d.atlas), this.raid.map);
+      this.events.once(Phaser.Scenes.Events.DESTROY, () => {
+        this.rhud?.destroy();
+        this.town?.destroy();
+      });
+      // 第一次夜探（教学镇）：开局一句话说清要干什么，几秒后自己收起
+      if (this.raid.teach) {
+        // 先说清这是练手的小镇子（所有者试玩时觉得夜探太小），再说玩法
+        setTimeout(() => this.d.banners.say('教学镇', 'gold', 3000, '小镇子练手，下一局是 6,400 见方的大镇子'), 500);
+        setTimeout(() => this.d.banners.say('搜宝箱 · 躲巡夜将 · 天亮前走门撤离', 'gold', 7000, '没撤出去背包全丢（教学镇例外：不丢）'), 3900);
+      }
+    }
     this.scatterDecor();
     this.drawBlocks();
 
@@ -230,6 +249,19 @@ export class GameScene extends Phaser.Scene {
     this.fx = new Fx(this, this.d.atlas, LOW_MEMORY ? 180 : 420);
     this.nums = new DamageNumbers(this, this.d.atlas, 30);
     this.gfx = this.add.graphics().setDepth(8000);
+    this.items = new Items({
+      scene: this,
+      frame: (k) => this.frame(k),
+      fx: this.fx,
+      ground: this.ground,
+      shake: (ms, k) => this.shake(ms, k),
+      whiteFlash: () => this.d.banners.whiteFlash(),
+      freeze: (ms) => {
+        this.freeze = Math.max(this.freeze, ms);
+      },
+    });
+    this.purseSeen = this.w.coinBy.purse;
+    if (import.meta.env.DEV) this.debugItems();
 
     this.aura = this.img('aura', 0, 0, 1).setAlpha(0.9);
     this.heroShadow = this.img('shadow', 0, 0, 1.1).setAlpha(0.9);
@@ -248,8 +280,51 @@ export class GameScene extends Phaser.Scene {
     music.setIntensity(0);
   }
 
+  /**
+   * 开发预览（只在 dev 构建里有，截图 / 调试用）：?debugitems=row 在主角旁摆一排新图标；
+   * =bomb / purse / prop0 / prop1 / chest1 / chest3 / chest5 在开局 1.5 秒后触发对应演出（不动核心状态，只放画面）。
+   */
+  private debugItems(): void {
+    const what = new URLSearchParams(location.search).get('debugitems');
+    if (!what) return;
+    const { x, y } = this.w;
+    if (what === 'row') {
+      const put = (key: string, dx: number, dy: number, sc = 1): void => {
+        this.img(key, x + dx, y + dy, sc).setDepth(y + dy);
+      };
+      put('drop_bomb', -120, -80);
+      put('drop_purse', -60, -80);
+      put('prop_lantern', 40, -80, 0.85);
+      put('prop_paper', 120, -80, 0.85);
+      put('chest', -90, 40, 1.2);
+      put('coin', -40, 40);
+      put('bun', 0, 40);
+      return;
+    }
+    // &debugat=毫秒：等多久再放（默认 1.5 秒；截图脚本在开局约 3.5 秒后截，机器慢时可以调）
+    this.time.delayedCall(Number(new URLSearchParams(location.search).get('debugat') ?? 1500), () => {
+      if (what === 'bomb') this.items.bombBlast(x, y, 520);
+      else if (what === 'purse') {
+        sfx.play('purse');
+        this.items.floatText(x, y - 74, '+19 铜钱', '#ffd23a');
+        this.burst(x, y - 30, 0xffc928, 1.3);
+      } else if (what === 'prop0' || what === 'prop1') this.items.propBreak(x + 60, y - 30, what === 'prop0' ? 0 : 1, 3);
+      else if (what.startsWith('chest')) {
+        const n = Number(what.slice(5));
+        this.items.chestBig(x, y, n);
+        const codes = n >= 5 ? [0, 1, 100, 101, 2] : n >= 3 ? [0, 100, 2] : [0];
+        this.onChests(codes, n);
+      }
+    });
+  }
+
   /** 地图上挡路的东西（义庄的墙、棺材、正堂）：墙按段拼，最后一段压缩到刚好对齐；深度按脚底 */
   private drawBlocks(): void {
+    // 夜探的院墙、房子、台阶墙、摊子由 Town 按样式画（town.ts）
+    if (this.town) {
+      this.town.drawBlocks();
+      return;
+    }
     for (const b of this.w.blocks) {
       if (b.look === 'wall_h') {
         const n = Math.max(1, Math.round(b.w / 80));
@@ -260,7 +335,6 @@ export class GameScene extends Phaser.Scene {
         const step = b.h / n;
         for (let k = 0; k < n; k++) this.img('wall_v', b.x + b.w / 2, b.y + step * (k + 1)).setScale(1 / this.frame('wall_v').res, step / 80 / this.frame('wall_v').res).setDepth(b.y + step * (k + 1));
       } else if (b.look === 'coffin') this.img('coffin', b.x + b.w / 2, b.y + b.h + 4).setDepth(b.y + b.h);
-      else if (b.look === 'house' || (b.look === 'hall' && this.raid)) this.drawHouse(b, b.look === 'hall');
       else if (b.look === 'stall') this.img('stall', b.x + b.w / 2, b.y + b.h + 4).setDepth(b.y + b.h);
       else if (b.look === 'terrace') {
         const n = Math.max(1, Math.round(b.w / 80));
@@ -272,33 +346,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 夜探的房子：长边上一段段拼（横的画正面，竖的画俯视的瓦顶）；庙和石兽院的正房换红墙青瓦，横的中间再立一座门楼 */
-  private drawHouse(b: { x: number; y: number; w: number; h: number }, hall: boolean): void {
-    if (b.w >= b.h) {
-      const n = Math.max(1, Math.round(b.w / 80));
-      const step = b.w / n;
-      const key = hall ? 'hall_h' : 'house_h';
-      const f = this.frame(key);
-      for (let k = 0; k < n; k++) this.img(key, b.x + step * (k + 0.5), b.y + b.h).setScale(step / 80 / f.res, 1 / f.res).setDepth(b.y + b.h);
-      if (hall && b.w >= 300) this.img('hall', b.x + b.w / 2, b.y + b.h).setDepth(b.y + b.h + 0.1);
-    } else {
-      const n = Math.max(1, Math.round(b.h / 80));
-      const step = b.h / n;
-      const key = hall ? 'hall_v' : 'house_v';
-      const f = this.frame(key);
-      for (let k = 0; k < n; k++) this.img(key, b.x + b.w / 2, b.y + step * (k + 1)).setScale(b.w / 110 / f.res, step / 80 / f.res).setDepth(b.y + step * (k + 1));
-    }
-  }
-
-  /** 夜探场地的地面：院子的铺地、河（含桥）、宝箱、门 */
+  /** 夜探场地的地面：街和院子的铺地、河、桥由 Town 分块预渲染；这里摆宝箱和门 */
   private setupRaid(raid: Raid): void {
-    const floor = this.add.graphics().setDepth(-980);
-    for (const y of raid.map.yards) {
-      const [color, a] = YARD_FLOOR[y.kind] ?? [0xc9bfa8, 0.4];
-      floor.fillStyle(color, a);
-      floor.fillRect(y.x, y.y, y.w, y.h);
-    }
-    this.drawRiver(raid);
+    this.town = new Town(this, raid, { img: (key, x, y, scale) => this.img(key, x, y, scale), res: (key) => this.frame(key).res, lowMem: LOW_MEMORY });
+    this.town.prepare(this.w.x, this.w.y);
     const sh = this.frame('shadow');
     for (const c of raid.map.chests) {
       this.add.image(c.x, c.y + 14, 'atlas', 'shadow').setScale(0.8 / sh.res).setDepth(-400).setAlpha(0.8);
@@ -319,66 +370,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 渡口的河：深蓝的水加浅色水纹和浮冰，上下两道雪岸；相邻两段河之间的空当是桥 */
-  private drawRiver(raid: Raid): void {
-    const rivers = raid.map.blocks.filter((b) => b.look === 'river').sort((a, b) => a.x - b.x);
-    if (rivers.length === 0) return;
-    const g = this.add.graphics().setDepth(-970);
-    const r = artRng(raid.setup.seed ^ 0x51ed);
-    const y0 = rivers[0]!.y;
-    const h = rivers[0]!.h;
-    for (const b of rivers) {
-      g.fillStyle(0x2f5f86, 1);
-      g.fillRect(b.x, b.y, b.w, b.h);
-      g.lineStyle(3, 0x8cc0e0, 0.55);
-      for (let i = 0, n = Math.round((b.w * b.h) / 9000); i < n; i++) {
-        const x = b.x + r() * b.w;
-        const y = b.y + 20 + r() * (b.h - 40);
-        const len = 40 + r() * 70;
-        g.lineBetween(x, y, x + len, y + (r() - 0.5) * 6);
-      }
-      g.fillStyle(0xe8f1fa, 0.92);
-      g.lineStyle(2.5, 0x17131c, 0.6);
-      for (let i = 0, n = Math.round((b.w * b.h) / 60000); i < n; i++) {
-        const x = b.x + 40 + r() * (b.w - 80);
-        const y = b.y + 40 + r() * (b.h - 80);
-        const ew = 60 + r() * 60;
-        const eh = 26 + r() * 20;
-        g.fillEllipse(x, y, ew, eh);
-        g.strokeEllipse(x, y, ew, eh);
-      }
-      for (const yy of [b.y, b.y + b.h - 12]) {
-        g.fillStyle(0xf6f9fd, 1);
-        g.fillRect(b.x, yy, b.w, 12);
-      }
-      g.lineStyle(4, 0x17131c, 0.85);
-      g.lineBetween(b.x, b.y + 12, b.x + b.w, b.y + 12);
-      g.lineBetween(b.x, b.y + b.h - 12, b.x + b.w, b.y + b.h - 12);
-    }
-    // 桥：相邻河段之间、最左和最右的空当
-    const gaps: [number, number][] = [];
-    if (rivers[0]!.x > 0) gaps.push([0, rivers[0]!.x]);
-    for (let i = 0; i + 1 < rivers.length; i++) gaps.push([rivers[i]!.x + rivers[i]!.w, rivers[i + 1]!.x]);
-    const last = rivers[rivers.length - 1]!;
-    if (last.x + last.w < raid.map.size) gaps.push([last.x + last.w, raid.map.size]);
-    const br = this.add.graphics().setDepth(-960);
-    for (const [x0, x1] of gaps) {
-      if (x1 - x0 < 20) continue;
-      br.fillStyle(0xa8743f, 1);
-      br.fillRect(x0, y0 - 6, x1 - x0, h + 12);
-      br.lineStyle(2, 0x5e3b20, 0.8);
-      for (let y = y0; y < y0 + h; y += 24) br.lineBetween(x0, y, x1, y);
-      for (const x of [x0, x1 - 12]) {
-        br.fillStyle(0x6a4a38, 1);
-        br.fillRect(x, y0 - 6, 12, h + 12);
-        br.lineStyle(3, 0x17131c, 0.9);
-        br.strokeRect(x, y0 - 6, 12, h + 12);
-        br.fillStyle(0xf6f9fd, 0.9);
-        br.fillRect(x + 2, y0 - 6, 8, h + 12);
-      }
-    }
-  }
-
   /** 点缀：按种子撒在整个场地上（只装饰，不挡路）；枯树、残碑、石灯、石头、青石板、冰面、雪堆、枯草；义庄另撒白灯笼、稻草 */
   private scatterDecor(): void {
     const r = artRng(this.w.setup.seed);
@@ -392,6 +383,8 @@ export class GameScene extends Phaser.Scene {
         const y = 100 + r() * (this.arenaH - 200);
         // 出生点附近留空，开场看得清（夜探的出生点在角上，不在中心）
         if (Math.abs(x - spawnX) < 220 && Math.abs(y - spawnY) < 160) continue;
+        // 夜探的街面是石板路：不撒枯树、石头、草，只留雪堆
+        if (this.town?.onStreet(x, y) && key !== 'drift') continue;
         // 不压在墙、棺材上（立着的东西离远一点）
         const pad = ground ? 10 : 50;
         if (blocks.some((b) => x > b.x - pad && x < b.x + b.w + pad && y > b.y - pad && y < b.y + b.h + pad * 2)) continue;
@@ -405,9 +398,10 @@ export class GameScene extends Phaser.Scene {
     put('drift', Math.round(60 * dense), true);
     put('puddle', Math.round(26 * dense), true);
     put('slabs', Math.round(30 * dense), true);
-    put('grass', Math.round(220 * dense), true);
+    put('grass', Math.round(220 * (this.raid ? dense / 2 : dense)), true);
     const yz = !this.raid && blocks.length > 0;
-    put('tree', Math.round((yz ? 26 : 46) * dense), false);
+    // 山寺的树都是古松（Town 里摆），不再撒枯树
+    if (this.raid?.setup.template !== 'shansi') put('tree', Math.round((yz ? 26 : 46) * dense), false);
     put('rock', Math.round(60 * dense), false);
     put('stele', Math.round(18 * dense), false);
     put('stonelamp', Math.round(22 * dense), false);
@@ -432,7 +426,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private frameUpdate(delta: number): void {
-    const dt = Math.min(delta, 100);
+    // dev 预览：&slowmo=N 把画面时间放慢 N 倍，机器慢、截图间隔长时能截到特效的各个阶段
+    const dt = Math.min(delta, 100) / SLOWMO;
     this.now += dt;
     if (this.d.drive) {
       if (!this.paused && this.w.phase !== 'over') this.d.drive(dt, () => this.readEvents());
@@ -504,7 +499,8 @@ export class GameScene extends Phaser.Scene {
   private readEvents(): void {
     const ev = this.w.ev;
     let hits = 0;
-    let chests = 0;
+    const chestCodes: number[] = [];
+    let bigN = 0;
     for (let i = 0; i < ev.n; i++) {
       const x = ev.x[i]!;
       const y = ev.y[i]!;
@@ -598,10 +594,19 @@ export class GameScene extends Phaser.Scene {
           this.hero.setTint(0xff5a4a);
           this.time.delayedCall(90, () => this.hero.clearTint());
           break;
+        case Ev.ChestBig:
+          // 先放光（档位由件数决定），升了什么由紧跟着的 Chest 事件收齐，循环结束后一起演
+          bigN = ev.a[i]!;
+          this.items.chestBig(x, y, bigN);
+          break;
         case Ev.Chest:
-          // 黄历让一个宝箱多升一件：第二件只给一行横幅，不再弹第二次演出
-          if (chests++ === 0) this.onChest(ev.a[i]!);
-          else this.d.banners.say(`另外 ${this.chestTitle(ev.a[i]!)} 也升了`, 'gold', 1600);
+          chestCodes.push(ev.a[i]!);
+          break;
+        case Ev.Prop:
+          this.items.propBreak(x, y, ev.a[i]!, ev.b[i]!);
+          break;
+        case Ev.Bomb:
+          this.items.bombBlast(x, y, ev.b[i]!);
           break;
         case Ev.Evolve:
           break;
@@ -660,6 +665,7 @@ export class GameScene extends Phaser.Scene {
           break;
       }
     }
+    if (chestCodes.length > 0) this.onChests(chestCodes, bigN);
     // 命中音：一拍最多一个（几百只同时挨打也不吵），暴击单独
     if (hits > 0 && this.now - this.hitSfxAt > 45) {
       sfx.play('hit', { volume: Math.min(1, 0.4 + hits * 0.05) });
@@ -727,6 +733,16 @@ export class GameScene extends Phaser.Scene {
       sfx.play('heal');
       // 回血数字飘在主角头上（绿色），不占屏幕中间的横幅
       this.nums.show(this.w.x, this.w.y - 70, DROPS.bunHeal, false, 0x5fd38a);
+    } else if (kind === Drop.Purse) {
+      // 一串叮当 + 头上飘"+N 铜钱"；N 是核心现掷的，靠铜钱袋累计的差值得到
+      sfx.play('purse');
+      const got = this.w.coinBy.purse - this.purseSeen;
+      this.purseSeen = this.w.coinBy.purse;
+      if (got > 0) this.items.floatText(this.w.x, this.w.y - 74, `+${got} 铜钱`, '#ffd23a');
+      this.burst(this.w.x, this.w.y - 30, 0xffc928, 1.3);
+    } else if (kind === Drop.Bomb) {
+      // 爆炸的音效、冲击圈、白闪、震屏都跟着同一拍的 Ev.Bomb 放，这里只给捡起一下的小反馈
+      this.spark(this.w.x, this.w.y - 30, 0xff7a2a, 1.4);
     } else if (kind === Drop.Scroll) {
       sfx.play('pickup', { pitch: 1.6 });
       this.fx.spawn({ frame: 'ring', x: this.w.x, y: this.w.y, life: 600, s0: 0.5, s1: 8, a0: 0.8, a1: 0, tint: 0x8ff0c8, depth: 6000 });
@@ -740,52 +756,143 @@ export class GameScene extends Phaser.Scene {
     return '铜钱';
   }
 
-  private onChest(code: number): void {
-    sfx.play('chest');
+  /** 一件升级的展示内容：图标、名字、说明；evolve 表示进化 / 合成（更隆重） */
+  private chestInfo(code: number): { icon: string; title: string; sub: string; evolve: boolean } {
     const w = this.w;
-    let icon = 'coin';
-    let title = '铜钱一袋';
-    let sub = '铜钱 +40，回 30 点血';
-    let evolve = false;
     if (code >= MERGE_CODE) {
-      // 合成：比进化更隆重（白闪 + 进化音），空出一个法器格
       const m = MERGES[code - MERGE_CODE]!;
-      evolve = true;
-      icon = m.icon;
-      title = m.name;
-      sub = `合成！${m.desc}。空出一个法器格`;
-      sfx.play('evolve');
-      this.d.banners.whiteFlash();
-    } else if (code >= 100) {
+      return { icon: m.icon, title: m.name, sub: `合成！${m.desc}。空出一个法器格`, evolve: true };
+    }
+    if (code >= 100) {
       const p = PASSIVES[PASSIVE_IDS[code - 100]!];
-      icon = p.icon;
-      title = p.name;
-      sub = `Lv ${w.passives[p.id] ?? 0} · ${p.text}`;
-    } else if (code >= 0) {
+      return { icon: p.icon, title: p.name, sub: `Lv ${w.passives[p.id] ?? 0} · ${p.text}`, evolve: false };
+    }
+    if (code >= 0) {
       const id = WEAPON_IDS[code]!;
       const o = w.weapons.find((x) => x.id === id);
       const def = WEAPONS[id];
-      if (o?.evolved && def.evolve) {
-        evolve = true;
-        icon = def.evolve.icon;
-        title = def.evolve.name;
-        sub = `进化！${def.evolve.desc}`;
-        sfx.play('evolve');
-      } else {
-        icon = def.icon;
-        title = def.name;
-        sub = `升到 Lv ${o?.level ?? 1}`;
-      }
+      if (o?.evolved && def.evolve) return { icon: def.evolve.icon, title: def.evolve.name, sub: `进化！${def.evolve.desc}`, evolve: true };
+      return { icon: def.icon, title: def.name, sub: `升到 Lv ${o?.level ?? 1}`, evolve: false };
     }
-    if (this.d.autopilot) return;
-    this.hold = 1e9;
-    this.d.banners.reveal(this.d.icon(icon), title, sub, evolve, () => {
-      this.hold = 0;
-      this.d.onChest?.();
+    return { icon: 'coin', title: '铜钱一袋', sub: '铜钱 +40，回 30 点血', evolve: false };
+  }
+
+  /**
+   * 精英宝箱升了几件。一件：原来的整屏演出（点一下或 1.3 秒结束，期间不送拍）；
+   * 三 / 五件：几件依次弹出排一排，不拦点击，只停一小会儿给光柱让位，之后玩家接着走位（核心不暂停）。
+   */
+  private onChests(codes: number[], big: number): void {
+    const infos = codes.map((c) => this.chestInfo(c));
+    const tier = codes.length >= 5 ? 5 : codes.length >= 3 ? 3 : 1;
+    if (tier === 1) {
+      sfx.play('chest');
+      const it = infos[0]!;
+      if (it.evolve) {
+        sfx.play('evolve');
+        this.d.banners.whiteFlash();
+      }
+      // 黄历让一个宝箱多升一件：多出来的只给一行横幅
+      for (let k = 1; k < codes.length; k++) this.d.banners.say(`另外 ${this.chestTitle(codes[k]!)} 也升了`, 'gold', 1600);
+      if (this.d.autopilot) return;
+      this.hold = 1e9;
+      this.d.banners.reveal(this.d.icon(it.icon), it.title, it.sub, it.evolve, () => {
+        this.hold = 0;
+        this.d.onChest?.();
+      });
+      return;
+    }
+    // 光效按核心说的件数（big），列表按实际收到的件数；两者一致，不一致以实际为准
+    const n = Math.max(codes.length, big);
+    this.d.banners.chestRow(
+      infos.map((it) => ({ icon: this.d.icon(it.icon), name: it.title, evolve: it.evolve })),
+      n >= 5 ? '五连宝箱！' : '三连宝箱',
+      tier,
+    );
+    // 每弹出一件叮一声，音调逐件升高；进化 / 合成那件再加一下
+    infos.forEach((it, k) => {
+      this.time.delayedCall(k * (tier === 5 ? 190 : 230) + 120, () => {
+        sfx.play('pickup', { volume: 0.7, pitch: 1.2 + k * 0.14 });
+        if (it.evolve) {
+          sfx.play('evolve', { volume: 0.7 });
+          this.d.banners.whiteFlash();
+        }
+      });
     });
+    // 光柱出来的头一会儿停一停（五件更久），再放开；演出本身继续留在屏幕上方
+    if (!this.d.autopilot) this.hold = Math.max(this.hold, tier === 5 ? 520 : 300);
+    this.d.onChest?.();
   }
 
   // ───────────────────────── 夜探的事件 ─────────────────────────
+
+  /** 撤离指引：主角前方一段小箭头沿路线往门流动。画在地面层（depth −200，在屋顶、墙顶之下），点往离墙远的一侧推开 44px（墙的画面比碰撞脚印宽） */
+  private drawTrail(raid: Raid, gd: ReturnType<typeof newGuide>): void {
+    const g = (this.trailG ??= this.add.graphics().setDepth(-200));
+    g.clear();
+    const lit = this.town?.trail;
+    if (lit) lit.length = 0;
+    if (gd.gate < 0 || gd.trailN < 2) return;
+    if (!this.trailHinted) {
+      this.trailHinted = true;
+      this.d.banners.say(`跟着箭头去${raid.map.gates[gd.gate]!.name}撤离`, 'gold', 3200);
+    }
+    const tr = gd.trail;
+    const near = Math.max(0.85, Math.min(1, 1.3 - gd.dist / 1600));
+    // 脚印点隔得远（约 3 格），沿折线每 STEP 单位摆一个箭头；相位按 dt 累加的时间走，朝门流动
+    const STEP = LOW_MEMORY ? 110 : 80;
+    const span = LOW_MEMORY ? 480 : 760;
+    const phase = ((this.now * 0.05) % STEP) / STEP;
+    const blocks = raid.map.blocks;
+    // 折线从主角脚下开始，接上第一个脚印点
+    let px0 = this.renderX, py0 = this.renderY;
+    let walked = 0;
+    let next = phase * STEP;
+    for (let i = 0; i < gd.trailN && walked < span; i++) {
+      const x1 = tr[i * 2]!, y1 = tr[i * 2 + 1]!;
+      const dx = x1 - px0, dy = y1 - py0;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const ux = dx / len, uy = dy / len;
+      for (; next < len && walked + next < span; next += STEP) {
+        let x = px0 + ux * next, y = py0 + uy * next;
+        const dist = walked + next;
+        for (const b of blocks) {
+          if (x < b.x - 50 || x > b.x + b.w + 50 || y < b.y - 50 || y > b.y + b.h + 50) continue;
+          const cx = Math.max(b.x, Math.min(x, b.x + b.w)), cy = Math.max(b.y, Math.min(y, b.y + b.h));
+          let ox = x - cx, oy = y - cy;
+          const d = Math.hypot(ox, oy);
+          if (d >= 44) continue;
+          if (d < 0.5) { ox = x - (b.x + b.w / 2); oy = y - (b.y + b.h / 2); }
+          const m = Math.hypot(ox, oy) || 1;
+          const base = d < 0.5 ? 0 : d;
+          x += (ox / m) * (44 - base);
+          y += (oy / m) * (44 - base);
+        }
+        // 头尾淡入淡出，越靠近门越亮越大
+        const fade = Math.min(1, dist / 60, (span - dist) / 160);
+        // 填色不打折（打折后压在石板上发灰，和门牌的亮黄对不上），只在头尾淡出；越近门越大
+        const a = Math.max(0, fade);
+        const sz = (LOW_MEMORY ? 16 : 14 + 6 * (1 - dist / span)) * near;
+        const px = -uy, py = ux;
+        lit?.push(x, y, a);
+        for (const [col, grow, al] of [[0x17131c, 3, 0.9], [0xffd23a, 0, 1]] as const) {
+          const s2 = sz + grow;
+          g.fillStyle(col, al * a);
+          // 飞镖形：尖、左后角、尾凹、右后角
+          const tx = x + ux * s2, ty = y + uy * s2;
+          const lx = x - ux * s2 * 0.8 + px * s2 * 0.85, ly = y - uy * s2 * 0.8 + py * s2 * 0.85;
+          const rx = x - ux * s2 * 0.8 - px * s2 * 0.85, ry = y - uy * s2 * 0.8 - py * s2 * 0.85;
+          const nx = x - ux * s2 * 0.2, ny = y - uy * s2 * 0.2;
+          g.fillTriangle(tx, ty, lx, ly, nx, ny);
+          g.fillTriangle(tx, ty, nx, ny, rx, ry);
+        }
+      }
+      next -= len;
+      walked += len;
+      px0 = x1;
+      py0 = y1;
+    }
+  }
 
   private onGateOpen(x: number, y: number, k: number): void {
     sfx.play('gateOpen');
@@ -1032,7 +1139,8 @@ export class GameScene extends Phaser.Scene {
     }
     // 镜头：紧跟主角（幸存者类的标准做法）。以前每帧追 15% 并朝面向方向前瞻 40px：追的快慢跟帧率有关，
     // 转向时前瞻点一跳镜头就荡一下；主角本身已经按拍插值，镜头直接钉在他身上，屏幕上主角就不会晃
-    this.cameras.main.centerOn(hx, hy - 20);
+    const cam = this.cameras.main;
+    cam.centerOn(hx, hy - 20);
 
     this.gfx.clear();
     this.waves.length = 0;
@@ -1040,11 +1148,16 @@ export class GameScene extends Phaser.Scene {
     this.drawMobs(inter, dt);
     this.drawShots(inter);
     this.drawDrops(inter);
-    if (this.raid) this.drawRaid(dt);
+    this.items.drawProps(w, dt);
+    if (this.raid) {
+      this.drawRaid(dt);
+      this.town?.update(cam, this.renderX, this.renderY);
+    }
     this.drawGfx(dt);
     this.fx.update(dt);
     this.ground.update(dt);
     this.nums.update(dt);
+    this.items.update(dt);
     this.drawHud();
   }
 
@@ -1220,10 +1333,10 @@ export class GameScene extends Phaser.Scene {
       }
       const kind = w.dKind[i]!;
       const v = w.dVal[i]!;
-      const key = kind === Drop.Soul ? (v >= 5 ? 'bead3' : v >= 2 ? 'bead2' : 'bead1') : kind === Drop.Coin ? 'coin' : kind === Drop.Bun ? 'bun' : kind === Drop.Scroll ? 'scroll' : 'chest';
+      const key = kind === Drop.Soul ? (v >= 5 ? 'bead3' : v >= 2 ? 'bead2' : 'bead1') : kind === Drop.Coin ? 'coin' : kind === Drop.Bun ? 'bun' : kind === Drop.Scroll ? 'scroll' : kind === Drop.Bomb ? 'drop_bomb' : kind === Drop.Purse ? 'drop_purse' : 'chest';
       // 魂珠比怪小一号、颜色淡，不抢眼；超过上限并成的大珠（经验 ≥ 20）放大、一闪一闪，看得出值得去捡
       const big = kind === Drop.Soul && v >= 20;
-      const sc = kind === Drop.Chest ? 1.2 : kind === Drop.Soul ? (big ? 1.5 : 0.75) : 1;
+      const sc = kind === Drop.Chest ? 1.2 : kind === Drop.Soul ? (big ? 1.5 : 0.75) : kind === Drop.Bomb || kind === Drop.Purse ? 1.2 : 1;
       if (!d || d.gen !== w.dGen[i] || d.kind !== kind || d.key !== key || d.big !== big) {
         const f = this.frame(key);
         const img = d?.img ?? this.add.image(0, 0, 'atlas', f.key);
@@ -1233,7 +1346,10 @@ export class GameScene extends Phaser.Scene {
       if (big) d.img.setScale((sc + Math.sin(this.now * 0.008 + i) * 0.12) / this.frame(key).res);
       const x = inter(w.dPX[i]!, w.dX[i]!);
       const y = inter(w.dPY[i]!, w.dY[i]!);
-      d.img.setPosition(x, y + (kind === Drop.Chest ? 0 : Math.sin(this.now * 0.006 + i) * 2)).setDepth(kind === Drop.Chest ? y : -300 + y * 0.0001);
+      // 炸弹和钱袋比别的掉落更值得捡：浮得高一点、跟着呼吸一胀一缩，带着自己的光晕，远远就认得
+      const special = kind === Drop.Bomb || kind === Drop.Purse;
+      if (special) d.img.setScale((sc + Math.sin(this.now * 0.008 + i) * 0.08) / this.frame(key).res);
+      d.img.setPosition(x, y + (kind === Drop.Chest ? 0 : special ? -4 + Math.sin(this.now * 0.006 + i) * 4 : Math.sin(this.now * 0.006 + i) * 2)).setDepth(kind === Drop.Chest ? y : -300 + y * 0.0001);
     }
   }
 
@@ -1309,13 +1425,7 @@ export class GameScene extends Phaser.Scene {
         guide(raid, w.x, w.y, this.gd);
       }
       const gd = this.gd;
-      for (let i = 0; i < gd.trailN; i++) {
-        const t = 1 - i / (gd.trailN + 2);
-        g.fillStyle(0x17131c, 0.55 * t);
-        g.fillCircle(gd.trail[i * 2]!, gd.trail[i * 2 + 1]!, 8);
-        g.fillStyle(0xffd23a, 0.95 * t);
-        g.fillCircle(gd.trail[i * 2]!, gd.trail[i * 2 + 1]!, 5);
-      }
+      this.drawTrail(raid, gd);
       const cam = this.cameras.main;
       const cssW = this.scale.displaySize.width;
       const cssH = this.scale.displaySize.height;
@@ -1323,6 +1433,7 @@ export class GameScene extends Phaser.Scene {
       const gate = gd.gate >= 0 ? raid.map.gates[gd.gate]! : null;
       const arrow = gate ? edgeArrow(raid, gd, (gate.x - cam.midPoint.x) * k, (gate.y - cam.midPoint.y) * k, cssW, cssH, 84) : null;
       this.d.hud.setArrow(arrow && !arrow.onScreen ? arrow : null);
+      this.feedRaidHud(raid, gate ? { name: gate.name, secs: walkSecs(gd.dist) } : null);
     } else this.d.hud.setArrow(null);
     // 守卫头上的"!"
     for (const a of this.alerts) {
@@ -1352,6 +1463,35 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.floats = this.floats.filter((fl) => fl.life > 0);
+  }
+
+  /** 夜探 HUD 的数据：目标条（最近的门、下一批门）、背包、小地图 */
+  private feedRaidHud(raid: Raid, gate: { name: string; secs: number } | null): void {
+    if (!this.rhud) return;
+    const w = this.w;
+    let next: { names: string; secs: number } | null = null;
+    if (!gate) {
+      const win = raid.windows.find((x) => x.from > w.tick);
+      if (win) next = { names: win.gates.length > 2 ? `${win.gates.length} 座门` : win.gates.map((g) => raid.map.gates[g]!.name).join('、'), secs: Math.ceil((win.from - w.tick) / 30) };
+    }
+    const xy = this.guardXY;
+    xy.length = 0;
+    for (let g = 0; g < raid.gUsed; g++) {
+      const i = raid.gSlot[g]!;
+      if (i >= 0 && w.eAlive[i] && w.eGen[i] === raid.gGen[g]) xy.push(w.eX[i]!, w.eY[i]!);
+    }
+    this.rhud.update({
+      gate,
+      next,
+      level: w.tick >= DAWN_RED ? 2 : w.tick >= DAWN_WARN ? 1 : 0,
+      teach: raid.teach,
+      bag: raid.bag,
+      hx: this.renderX,
+      hy: this.renderY,
+      chestOpen: raid.chestOpen,
+      gateOpen: raid.gateOpen,
+      guards: xy,
+    });
   }
 
   /** 头上或箱子上的读条：深色边、金色（或档色）填充 */
@@ -1460,9 +1600,9 @@ export class GameScene extends Phaser.Scene {
       shield: w.shield,
       shieldMax: w.shieldMax,
       level: w.level,
-      xp: w.xp / xpNeed(w.level),
+      xp: w.xp / xpNeed(w.level, !!w.raid),
       left: ((raid ? RAID_DAWN : DAWN_TICK) - w.tick) / 30,
-      raid: raid ? { label: w.tick >= DAWN_WARN ? '天亮' : '离天亮', level: w.tick >= DAWN_RED ? 2 : w.tick >= DAWN_WARN ? 1 : 0, bag: raid.bag.length } : undefined,
+      raid: raid ? { label: w.tick >= DAWN_WARN ? '天亮' : '离天亮', level: w.tick >= DAWN_RED ? 2 : w.tick >= DAWN_WARN ? 1 : 0, bag: raid.bag.length, value: raid.bag.reduce((a, id) => a + TREASURES[id]!.value, 0) } : undefined,
       kills: w.kills,
       coins: w.coins,
       slots,

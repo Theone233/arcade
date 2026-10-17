@@ -456,16 +456,18 @@ async function boot(): Promise<void> {
     }
     if (w.raid) return finishRaid(w, quit, seconds);
     // 认输的局算一局、铜钱照拿，但不算纪录
-    const got = finishRun(save, { id: `${w.setup.seed.toString(36)}-${nonce()}`, danger: w.setup.danger, won: dawned(w), quit, ticks: Math.min(w.tick, DAWN_TICK), kills: w.kills, coins: w.coins, curses: w.setup.curses?.length ?? 0 });
+    const got = finishRun(save, { id: `${w.setup.seed.toString(36)}-${nonce()}`, danger: w.setup.danger, won: dawned(w), quit, ticks: Math.min(w.tick, DAWN_TICK), kills: w.kills, coins: w.coins, curses: w.setup.curses?.length ?? 0, boss: w.bossKilled, coinBy: w.coinBy, day: beijingDate(Date.now()) });
     // 成就：解锁的奖励铜钱另记一条流水（id 带成就 id，两台设备各解锁一次也只记一次）
     const ach = applyRun(records, summarize(w, tally, quit));
     records = ach.records;
     saveRecords(records);
     for (const id of ach.unlocked) grantCoins(save, `ach:${id}`, rewardCoins([id]));
+    const achCoins = rewardCoins(ach.unlocked);
+    const sources = achCoins > 0 ? [...got.sources, { label: `成就 ${ach.unlocked.length} 个`, coins: achCoins }] : got.sources;
     toast.show(ach.unlocked);
     showPlay(false);
     const label = `${dailyDate ? '每日挑战 · ' : ''}${w.setup.endless ? '无尽 · ' : ''}${DANGERS[w.setup.danger].name}${w.setup.curses?.length ? ` · 咒印 ${w.setup.curses.length}` : ''}${w.setup.assist ? ' · 降低伤害' : ''}`;
-    result.show({ won: w.won, quit, bossKilled: w.bossKilled, seconds, kills: w.kills, level: w.level, coins: got.coins, coinsTotal: coins(save), label, record: got.record, build: buildRows(w) });
+    result.show({ won: w.won, quit, bossKilled: w.bossKilled, seconds, kills: w.kills, level: w.level, coins: got.coins + achCoins, coinsTotal: coins(save), sources, label, record: got.record, build: buildRows(w) });
     if (got.askAssist)
       confirm.ask('连着倒下好几局了。要不要把挨打的伤害降低 30%？开着时成绩不进总榜，设置里随时能关。', '降低伤害', '不用', (ok) => {
         save.assist = ok;
@@ -700,6 +702,7 @@ async function boot(): Promise<void> {
     wantEndless = !!world?.setup.endless;
     void startRun(world?.setup.danger ?? save.danger, world?.setup.map ?? save.map);
   };
+  result.onBigTown = () => menu.onRaid('guzhen', save.danger);
   result.onMenu = () => {
     result.hide();
     menu.show(menuState());
@@ -708,6 +711,29 @@ async function boot(): Promise<void> {
   game.events.once(Phaser.Core.Events.READY, () => {
     game.textures.addCanvas('ground', ground);
     document.getElementById('boot')?.remove();
+    // ?fps：左下角显示每秒帧数和这一秒里最长的一帧（真机验收用；只在带参数时出现，不写存储）
+    if (q.has('fps')) {
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;left:max(6px,env(safe-area-inset-left,0px));bottom:max(6px,env(safe-area-inset-bottom,0px));z-index:99999;padding:2px 6px;font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;pointer-events:none';
+      document.body.appendChild(el);
+      let frames = 0;
+      let worst = 0;
+      let last = performance.now();
+      let from = last;
+      const tick = (now: number): void => {
+        worst = Math.max(worst, now - last);
+        last = now;
+        frames++;
+        if (now - from >= 1000) {
+          el.textContent = `${Math.round((frames * 1000) / (now - from))} 帧/秒 · 最长 ${Math.round(worst)} ms · 怪 ${world ? world.eCount : 0}`;
+          frames = 0;
+          worst = 0;
+          from = now;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
     // 冒烟、机器人代打不挂 social（它会去问平台）
     if (hasLoginHint() && !q.has('auto')) void social.start();
     (window as unknown as { __yx: unknown }).__yx = { game, world: null, lowmem: LOW_MEMORY, res, zoom, r, music, save };
