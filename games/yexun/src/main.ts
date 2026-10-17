@@ -4,10 +4,16 @@
  * 调试参数：?seed=123 固定种子，?diff=easy|normal|hard，?play 跳过菜单直接开局，?auto 让机器人代打、?warp=9000 先快进到第 9000 拍、&choose 停在选卡、?give=mirror:8,gourd:8 开局换法器（这几个只在开发服务器里有，冒烟截图用），?sheet 看图集。
  */
 import Phaser from 'phaser';
-import { DAWN_TICK, DIFFICULTIES, type Difficulty } from './content/waves.ts';
+import { DANGERS, DAWN_TICK, type Danger } from './content/waves.ts';
+import { CHARACTER_IDS, CURSE_IDS, MAX_CURSES, type CharacterId } from './content/meta.ts';
 import { ELEMENT_SET, PASSIVE_IDS, PASSIVES, TYPE_SETS, WEAPONS, type WeaponId } from './content/weapons.ts';
 import { createWorld, grantWeapon, openChestNow, step, type OwnedWeapon, type World } from './core/index.ts';
-import { loadSave, recordRun, settings, writeSave, yizhuangOpen } from './platform/save.ts';
+import { buyChar, buyPerk, CHAR_PRICE, charOpen, coins, dangerOpen, finishRun, grantCoins, loadSave, refundPerks, saveHooks, settings, writeSave, yizhuangOpen } from './platform/save.ts';
+import { startCloud } from './platform/cloud.ts';
+import { applyRun, loadRecords, RunTally, saveRecords, summarize } from './meta/records.ts';
+import { rewardCoins } from './content/achievements.ts';
+import { AchievementToast, Codex } from './view/ui/codex.ts';
+import { Prep, type PrepState } from './view/ui/prep.ts';
 import type { MapId } from './content/maps.ts';
 import { buildAtlas, buildGround, type Atlas } from './view/art/atlas.ts';
 import { music } from './view/audio/music.ts';
@@ -80,11 +86,21 @@ async function boot(): Promise<void> {
   window.addEventListener('keydown', unlock);
 
   const save = loadSave();
+  // 云存档（DESIGN.md 5.5）：没登录、单独部署时它自己不调接口；云端的进度并进本机后，内存里这份按新存档重读，菜单开着就重画
+  const cloud = startCloud({
+    onApplied: () => {
+      Object.assign(save, loadSave());
+      if (menu.root.style.display !== 'none') menu.show(menuState());
+    },
+  });
+  saveHooks.onWrite = () => cloud.touch('profile');
   const toggles: Toggle[] = [
     { key: 'sfx', label: '音效', get: () => sfx.enabled, set: (on) => sfx.setEnabled(on) },
     { key: 'music', label: '音乐', get: () => music.enabled, set: (on) => music.setEnabled(on) },
     { key: 'shake', label: '震屏', get: () => settings.shake, set: (on) => (settings.shake = on) },
   ];
+  // 连死以后开的"降低伤害"（13.2）：设置里随时能关，开着时成绩不进总榜
+  toggles.push({ key: 'assist', label: '降低伤害', get: () => save.assist, set: (on) => { save.assist = on; writeSave(save); } });
   if (TOUCH) toggles.push({ key: 'stick', label: '固定摇杆', get: () => settings.fixedStick, set: (on) => { settings.fixedStick = on; input.setFixed(on); } });
   input.setFixed(TOUCH && settings.fixedStick);
   const menu = new Menu(stage, toggles);
@@ -92,6 +108,71 @@ async function boot(): Promise<void> {
   const result = new Result(stage, (k) => icon(k));
   const confirm = new Confirm(stage);
   const tips = new Tips(stage);
+  const prep = new Prep(stage, (k) => icon(k));
+  // 成就和图鉴（5c）：累计统计存 yexun.records；每局按事件计数，结算时一起算解锁
+  let records = loadRecords();
+  let tally = new RunTally();
+  const codex = new Codex(stage, (k) => icon(k), () => records);
+  const toast = new AchievementToast(stage);
+  codex.onClose = () => {
+    codex.hide();
+    menu.show(menuState());
+  };
+  /** 流水 id 的随机后缀：两台设备同时买同一样东西也不会撞成一条（画面层，不进规则核心） */
+  const nonce = (): string => Math.random().toString(36).slice(2, 10);
+  const prepState = (): PrepState => ({
+    coins: coins(save),
+    character: save.character,
+    chars: Object.fromEntries(CHARACTER_IDS.map((c) => [c, { open: charOpen(save, c), price: CHAR_PRICE[c] }])) as PrepState['chars'],
+    curses: save.curses,
+    cursesOpen: save.cleared >= 0,
+    perks: save.perks,
+  });
+  const menuState = (firstTime = false) => ({
+    firstTime,
+    danger: save.danger,
+    dangerOpen: dangerOpen(save),
+    best: save.bestD,
+    map: save.map,
+    yizhuang: yizhuangOpen(save),
+    coins: coins(save),
+    character: charOpen(save, save.character) ? save.character : ('xiaodao' as CharacterId),
+    curses: save.cleared >= 0 ? save.curses : [],
+    cursesOpen: save.cleared >= 0,
+  });
+  const refreshPrep = (): void => {
+    writeSave(save);
+    prep.update(prepState());
+  };
+  prep.onPickChar = (c) => {
+    save.character = c;
+    refreshPrep();
+  };
+  prep.onBuyChar = (c) => {
+    if (buyChar(save, c, nonce())) sfx.play('click');
+    refreshPrep();
+  };
+  prep.onToggleCurse = (c) => {
+    save.curses = save.curses.includes(c) ? save.curses.filter((x) => x !== c) : CURSE_IDS.filter((x) => x === c || save.curses.includes(x)).slice(0, MAX_CURSES);
+    refreshPrep();
+  };
+  prep.onBuyPerk = (id) => {
+    if (buyPerk(save, id, nonce())) sfx.play('click');
+    refreshPrep();
+  };
+  prep.onRefund = () => {
+    refundPerks(save, nonce());
+    refreshPrep();
+  };
+  prep.onClose = () => {
+    prep.hide();
+    menu.show(menuState());
+  };
+  menu.onPrep = (tab) => prep.show(tab, prepState());
+  menu.onCodex = () => {
+    menu.hide();
+    codex.show();
+  };
   menu.onClick = () => sfx.play('click');
 
   const game = new Phaser.Game({
@@ -189,25 +270,41 @@ async function boot(): Promise<void> {
     tips.hide();
     banners.clear();
     const seconds = Math.min(w.tick, DAWN_TICK) / 30;
-    // 认输的局算一局，但不算纪录
-    const record = recordRun(save, w.setup.difficulty, { ticks: w.won ? DAWN_TICK : w.tick, kills: w.kills, won: w.won }, !quit);
+    // 认输的局算一局、铜钱照拿，但不算纪录
+    const got = finishRun(save, { id: `${w.setup.seed.toString(36)}-${nonce()}`, danger: w.setup.danger, won: w.won, quit, ticks: w.won ? DAWN_TICK : w.tick, kills: w.kills, coins: w.coins, curses: w.setup.curses?.length ?? 0 });
+    // 成就：解锁的奖励铜钱另记一条流水（id 带成就 id，两台设备各解锁一次也只记一次）
+    const ach = applyRun(records, summarize(w, tally, quit));
+    records = ach.records;
+    saveRecords(records);
+    for (const id of ach.unlocked) grantCoins(save, `ach:${id}`, rewardCoins([id]));
+    toast.show(ach.unlocked);
     showPlay(false);
-    result.show({ won: w.won, quit, bossKilled: w.bossKilled, seconds, kills: w.kills, level: w.level, coins: w.coins, difficulty: w.setup.difficulty, record, build: buildRows(w) });
+    const label = `${DANGERS[w.setup.danger].name}${w.setup.curses?.length ? ` · 咒印 ${w.setup.curses.length}` : ''}${w.setup.assist ? ' · 降低伤害' : ''}`;
+    result.show({ won: w.won, quit, bossKilled: w.bossKilled, seconds, kills: w.kills, level: w.level, coins: got.coins, coinsTotal: coins(save), label, record: got.record, build: buildRows(w) });
+    if (got.askAssist)
+      confirm.ask('连着倒下好几局了。要不要把挨打的伤害降低 30%？开着时成绩不进总榜，设置里随时能关。', '降低伤害', '不用', (ok) => {
+        save.assist = ok;
+        writeSave(save);
+      });
   };
 
-  const startRun = async (difficulty: Difficulty, map: MapId = save.map): Promise<void> => {
-    save.difficulty = difficulty;
+  const startRun = async (picked: Danger, map: MapId = save.map, debug = false): Promise<void> => {
+    // 第一局锁危险 0；没解锁的档、角色不让选（存档被改过、链接参数）。调试参数直接开局的不卡
+    const danger = (debug ? picked : Math.min(picked, dangerOpen(save))) as Danger;
+    save.danger = danger;
     save.map = map;
     writeSave(save);
     menu.hide();
     result.hide();
     ended = false;
+    tally = new RunTally();
     if (scene) game.scene.remove('game');
     banners.clear();
     input.reset();
     const seed = q.has('seed') ? Number(q.get('seed')) >>> 0 : (Math.random() * 0x100000000) >>> 0;
     // 这台设备上的第一局：3 分钟前不会死（DESIGN.md 13.2）
-    const w = createWorld({ seed, mode: 'vigil', difficulty, map, firstRun: save.runs === 0 });
+    const ms = menuState();
+    const w = createWorld({ seed, mode: 'vigil', danger, map, firstRun: save.runs === 0, character: ms.character, curses: ms.curses, perks: save.perks, assist: save.assist });
     world = w;
     autopilot = undefined;
     if (import.meta.env.DEV && q.has('give')) {
@@ -232,6 +329,7 @@ async function boot(): Promise<void> {
         if (w.tick >= warp && (!stopAtCards || w.phase === 'choose')) break;
         const a = bot.act(w);
         step(w, a.dir, w.phase === 'choose' ? a.choice : -1);
+        tally.feed(w);
       }
     }
     const firstRun = save.runs === 0;
@@ -256,6 +354,7 @@ async function boot(): Promise<void> {
         tips.show('法器<b>满级</b> + 对应的<b>被动</b>，宝箱里会开出<b>进化</b>', 6000);
       },
       onEnd: (x: World) => finish(x, false),
+      afterStep: (x: World) => tally.feed(x),
     });
     scene = game.scene.getScene('game') as unknown as GameScene;
     // 引导第 1 条：开局"拖动走位"，一动就收起（0–10 秒）
@@ -278,10 +377,10 @@ async function boot(): Promise<void> {
   };
 
   menu.onStart = (d, m) => void startRun(d, m);
-  result.onAgain = () => void startRun(world?.setup.difficulty ?? save.difficulty, world?.setup.map ?? save.map);
+  result.onAgain = () => void startRun(world?.setup.danger ?? save.danger, world?.setup.map ?? save.map);
   result.onMenu = () => {
     result.hide();
-    menu.show({ firstTime: false, difficulty: save.difficulty, best: save.best, map: save.map, yizhuang: yizhuangOpen(save) });
+    menu.show(menuState());
   };
 
   game.events.once(Phaser.Core.Events.READY, () => {
@@ -289,12 +388,18 @@ async function boot(): Promise<void> {
     document.getElementById('boot')?.remove();
     (window as unknown as { __yx: unknown }).__yx = { game, world: null, lowmem: LOW_MEMORY, res, zoom, r, music, save };
     // 调试参数直接开局（冒烟截图、机器人代打）；?diff 指定难度
-    const diffQ = q.get('diff');
-    const qd = diffQ && diffQ in DIFFICULTIES ? (diffQ as Difficulty) : null;
+    // ?danger=0–5（老的 ?diff=easy|normal|hard 照认：危险 0 / 2 / 4）
+    const legacy: Record<string, Danger> = { easy: 0, normal: 2, hard: 4 };
+    const dq = q.get('danger');
+    const qd: Danger | null = dq && /^[0-5]$/.test(dq) ? (Number(dq) as Danger) : (legacy[q.get('diff') ?? ''] ?? null);
     // ?map=yizhuang 指定地图（冒烟截图用）
     const qm = q.get('map') === 'yizhuang' ? 'yizhuang' : q.has('map') ? 'snow' : null;
-    if (q.has('auto') || q.has('warp') || q.has('play') || q.has('give')) void startRun(qd ?? 'normal', qm ?? 'snow');
-    else menu.show({ firstTime: save.runs === 0, difficulty: qd ?? save.difficulty, best: save.best, map: qm ?? save.map, yizhuang: yizhuangOpen(save) });
+    if (q.has('auto') || q.has('warp') || q.has('play') || q.has('give')) void startRun(qd ?? 2, qm ?? 'snow', true);
+    else {
+      if (qd !== null) save.danger = qd;
+      if (qm) save.map = qm;
+      menu.show(menuState(save.runs === 0));
+    }
   });
   fitViewport(() => {
     const s = css();

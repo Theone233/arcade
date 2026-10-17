@@ -3,7 +3,7 @@ import { ENEMY_BY_KIND } from '../src/content/enemies.ts';
 import { MAPS, pushOut } from '../src/content/maps.ts';
 import { ARENA, PLAYER } from '../src/content/player.ts';
 import { createWorld, spawnNow, step } from '../src/core/index.ts';
-import { yizhuangOpen, type Save } from '../src/platform/save.ts';
+import { fresh, yizhuangOpen, type Save } from '../src/platform/save.ts';
 
 const inside = (x: number, y: number, r: number): boolean =>
   MAPS.yizhuang.blocks.some((b) => x + r > b.x && x - r < b.x + b.w && y + r > b.y && y - r < b.y + b.h && (Math.max(b.x, Math.min(x, b.x + b.w)) - x) ** 2 + (Math.max(b.y, Math.min(y, b.y + b.h)) - y) ** 2 < r * r - 1e-6);
@@ -31,7 +31,7 @@ describe('义庄', () => {
   });
 
   it('主角走不进院墙；怪也推不进棺材', () => {
-    const w = createWorld({ seed: 2, mode: 'vigil', difficulty: 'easy', map: 'yizhuang' });
+    const w = createWorld({ seed: 2, mode: 'vigil', danger: 0, map: 'yizhuang' });
     w.nextEvent = 1 << 30;
     // 一直往上走（方向 25 = 正上），会撞上正堂
     for (let t = 0; t < 400 && w.phase !== 'over'; t++) {
@@ -48,7 +48,7 @@ describe('义庄', () => {
 
   it('义庄跳尸多；雪原没有挡路的东西', () => {
     const count = (map: 'snow' | 'yizhuang'): number => {
-      const w = createWorld({ seed: 4, mode: 'vigil', difficulty: 'easy', map });
+      const w = createWorld({ seed: 4, mode: 'vigil', danger: 0, map });
       w.weapons.length = 0;
       w.wstats.length = 0;
       let n = 0;
@@ -63,11 +63,13 @@ describe('义庄', () => {
       return n / w.eCount;
     };
     expect(count('yizhuang')).toBeGreaterThan(count('snow'));
-    expect(createWorld({ seed: 1, mode: 'vigil', difficulty: 'easy' }).blocks.length).toBe(0);
+    expect(createWorld({ seed: 1, mode: 'vigil', danger: 0 }).blocks.length).toBe(0);
   });
 
-  it('普通档以上撑到过天亮才开', () => {
-    const s = (best: Save['best']): Save => ({ v: 1, runs: 3, wins: 1, tips: [], tipsOff: false, difficulty: 'easy', map: 'snow', best });
+  it('雪原危险 1 撑到过天亮才开（老存档里普通档以上赢过也算）', () => {
+    const s = (best: Save['best'], cleared = -1): Save => ({ ...fresh(), runs: 3, wins: 1, best, cleared });
+    expect(yizhuangOpen(s({}, 0))).toBe(false);
+    expect(yizhuangOpen(s({}, 1))).toBe(true);
     expect(yizhuangOpen(s({ easy: { ticks: 27000, kills: 1, won: true } }))).toBe(false);
     expect(yizhuangOpen(s({ normal: { ticks: 27000, kills: 1, won: true } }))).toBe(true);
     expect(yizhuangOpen(s({ hard: { ticks: 9000, kills: 1, won: false } }))).toBe(false);
