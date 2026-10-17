@@ -97,6 +97,10 @@ export const DEFAULT_LIMITS = {
   feedPerDay: 10,
   feedKeepMs: 7 * 86_400_000,
   feedReactPerDay: 100,
+  /** 异步挑战（0.18.0，15.18）：有效期、每人每天发起几个、每个挑战最多几个人交 */
+  challengeTtlMs: 30 * 86_400_000,
+  challengesPerDay: 20,
+  challengeMaxResults: 100,
 
   // Cron 清理（7.3）
   cleanupMaxRows: 3_000,

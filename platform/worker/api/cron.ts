@@ -3,6 +3,7 @@
  * 清理前先记一行昨天的全站筹码统计（5.9）。
  * 写入记在"系统"类；每次最多删 cleanupMaxRows 行，删不完留到第二天，系统类预算用完就当天不清。
  */
+import { timeIdPrefix } from './crypto';
 import { feedCleanupCutoff } from './feed';
 import type { Env } from '../env';
 import { limitsOf } from './config';
@@ -80,6 +81,20 @@ export async function runCleanup(env: Env, now: number): Promise<{ rowsWritten: 
       await db.run(
         db.stmt(
           'DELETE FROM feed_reactions WHERE (item_id, user_id) IN (SELECT item_id, user_id FROM feed_reactions WHERE item_id < ?1 LIMIT ?2)',
+          cutoff, budget(),
+        ),
+      );
+    }
+    // 异步挑战：按创建时间过期（challengeTtlMs）；id 带时间前缀，挑战和结果都按主键范围删
+    if (budget() > 0) {
+      const cutoff = timeIdPrefix(now - limits.challengeTtlMs);
+      await db.run(db.stmt('DELETE FROM challenges WHERE id IN (SELECT id FROM challenges WHERE id < ?1 LIMIT ?2)', cutoff, budget()));
+    }
+    if (budget() > 0) {
+      const cutoff = timeIdPrefix(now - limits.challengeTtlMs);
+      await db.run(
+        db.stmt(
+          'DELETE FROM challenge_results WHERE (challenge_id, user_id) IN (SELECT challenge_id, user_id FROM challenge_results WHERE challenge_id < ?1 LIMIT ?2)',
           cutoff, budget(),
         ),
       );

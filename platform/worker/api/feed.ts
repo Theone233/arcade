@@ -9,7 +9,7 @@
  */
 import { GAME_IDS } from '../../src/games';
 import type { Ctx } from './context';
-import { feedIdPrefix, newFeedId } from './crypto';
+import { newTimeId, timeIdPrefix } from './crypto';
 import type { Db } from './db';
 import { ApiError, json, noContent } from './http';
 import type { Limits } from './config';
@@ -34,7 +34,7 @@ async function insert(db: Db, userId: string, game: string, kind: 'settle' | 'mo
        SELECT ?1, ?2, ?3, ?4, ?5, ?6
        WHERE EXISTS (SELECT 1 FROM users WHERE id = ?2 AND show_feed = 1)
          AND (SELECT COUNT(*) FROM feed WHERE user_id = ?2 AND created_at >= ?7) < ?8`,
-      newFeedId(now), userId, game, kind, JSON.stringify(data), now, dayStart, limits.feedPerDay,
+      newTimeId(now), userId, game, kind, JSON.stringify(data), now, dayStart, limits.feedPerDay,
     ),
   );
   return (meta.changes ?? 0) > 0;
@@ -145,5 +145,5 @@ export async function react(c: Ctx): Promise<Response> {
 
 /** Cron：删 keepMs 以前的动态和它们的赞，按 id 的时间前缀走主键范围 */
 export function feedCleanupCutoff(now: number, limits: Limits): string {
-  return feedIdPrefix(now - limits.feedKeepMs);
+  return timeIdPrefix(now - limits.feedKeepMs);
 }
