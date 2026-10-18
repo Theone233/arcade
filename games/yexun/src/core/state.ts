@@ -128,7 +128,7 @@ export interface Setup {
   firstRun?: boolean;
   /** 地图（缺省雪原） */
   map?: MapId;
-  /** 角色（缺省小道士；实盘固定小道士） */
+  /** 角色（缺省小道士；实盘可选已解锁的，结回乘角色系数） */
   character?: CharacterId;
   /** 咒印，最多 MAX_CURSES 条（实盘为空） */
   curses?: readonly CurseId[];
@@ -366,7 +366,7 @@ export class World {
     this.rerolls = setup.curses?.includes('noreroll') ? 0 : 2 + perk('shuaxin') * PERK_FX.shuaxin;
     this.revives = perk('fuhuo') * PERK_FX.fuhuo;
     this.cardCount = 3 + perk('kapian') * PERK_FX.kapian;
-    this.raid = setup.mode === 'raid' && setup.raid ? new Raid({ ...setup.raid, seed: setup.seed, danger: setup.danger }) : null;
+    this.raid = setup.mode === 'raid' && setup.raid ? new Raid({ ...setup.raid, seed: setup.seed, danger: setup.danger, character: setup.character }) : null;
     this.arenaW = this.raid ? this.raid.map.size : ARENA.w;
     this.arenaH = this.raid ? this.raid.map.size : ARENA.h;
     const def = MAPS[setup.map ?? 'snow'];
