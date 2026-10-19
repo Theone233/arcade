@@ -15,7 +15,7 @@
 - **好友房**：开房给六位房间码或邀请链接，空位电脑补；服务端说了算，不下发别人的手牌和牌堆；掉线托管、中途接管电脑、跑完"再来一场"。
 - **互动**（单机和好友房都有）："聊"面板里说一句（可以点名）、表情包、扔道具；电脑按性格主动说话（打滑、吸尾流、超车、冲线），被点名、被扔东西会回，单机里你想太久它会催；设置里有总开关和按人屏蔽。电脑开车读不到任何互动。
 - **登录闸门**：本站首页要先在平台登录，平台有问题时回本游戏自己的 503 页；单独部署时没有平台，游客直接玩（见"部署"）。
-- **赛道镜头**：拖动平移、双指或滚轮缩放，一键"跟车"或看全图。
+- **赛道镜头**：手机上默认跟着自己的车，出牌时自动缩放看清落点和要过的弯，画面外的车在屏幕边上标出来；拖动平移、双指或滚轮缩放，一键"跟车"或看全图。
 
 ### 地址参数
 | 参数 | 做什么 |
@@ -28,7 +28,7 @@
 四边用 `env(safe-area-inset-*, 0px)` 让出刘海；横屏、竖屏各有一套布局。赛道和牌是 DOM + SVG，没有画布和 WebGL，"画布倍数封顶 2""WebGL 上下文丢失"不适用。
 
 ### 素材
-全部由本模块的代码生成，没有第三方素材：画面是程序画的 SVG，写实的纹理（草坪、沥青、砂石、水面等）由 `scripts/art.ts` 生成成 `public/art/*.webp`；没有音频和字体文件。见 [ASSETS.md](ASSETS.md)。
+全部由本模块的代码生成，没有第三方素材：画面（桌游风格的地图板、棋子、卡牌）是程序画的 SVG，木桌、卡纸、纸纹几张平铺纹理由 `scripts/art.ts` 生成成 `public/art/*.webp`；没有音频和字体文件。见 [ASSETS.md](ASSETS.md)。
 
 ## 本地开发
 ```bash
@@ -42,7 +42,7 @@ npm run smoke         # 冒烟：起 vite、无头 Chromium 横屏竖屏各跑�
 npm run sim 200       # 模拟器：电脑对跑，量回合数、打滑、各性格名次（DESIGN.md 5.3）
 node scripts/track.ts --png   # 赛道自查：按形状找弯、和弯道线对一对，截图到 shots/
 node scripts/shots.ts         # PR 用的截图（电脑 1280×720、手机横屏）到 shots/pr-*.png
-node scripts/art.ts           # 重新生成 public/art/ 的写实纹理（ASSETS.md），总览截图在 shots/art.png
+node scripts/art.ts           # 重新生成 public/art/ 的纹理（ASSETS.md），总览截图在 shots/art.png
 node scripts/tune.ts 40       # 调电脑参数（网格搜索，开发用）
 ```
 
@@ -88,7 +88,7 @@ node scripts/tune.ts 40       # 调电脑参数（网格搜索，开发用）
 | `src/room/` | 好友房的规则：把规则接到 kit 的 `RoomGame` 上（纯函数，房间和页面共用） |
 | `src/game/` | 交流编号（`emotes.ts`）、电脑的互动（`banter.ts`，单机和好友房共用） |
 | `src/solo.ts`、`src/online.ts`、`src/main.ts` | 单机控制器、好友房连接、页面入口 |
-| `src/view/` | 画面（DOM + SVG）：`board.ts` 镜头和走车动画、`scenery.ts` 写实的赛道场景和车、`dash.ts` 驾驶台、`side.ts` 名次栏、`cards.ts` 卡面、`lobby.ts` 选桌页、`room.ts` 等人页、`comms.ts` 交流，其余见目录 |
+| `src/view/` | 画面（DOM + SVG）：`board.ts` 镜头和走车动画、`mapart.ts` 地图板和标注、`scenes.ts` 三条赛道的场景、`mapkit.ts` 色板和画法工具、`piece.ts` 棋子、`dash.ts` 驾驶台、`side.ts` 名次栏、`cards.ts` 卡面、`lobby.ts` 选桌页、`room.ts` 等人页、`comms.ts` 交流，其余见目录 |
 | `worker/` | racing Worker：`main.ts` 路由、登录闸门和独立模式、`room.ts` 好友房 DO（电脑的互动在这里发） |
 | `test/` | vitest；`test/worker/` 跑在 workerd 里 |
 | `scripts/` | `sim.ts` 模拟器、`smoke.ts` 冒烟、`drive.ts` 冒烟和截图共用的开车、`track.ts` 赛道自查、`shots.ts` 截图、`art.ts` 生成纹理、`tune.ts` 调电脑、`browser.ts` 无头浏览器 |

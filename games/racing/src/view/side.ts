@@ -7,7 +7,7 @@ import type { View } from '../core/view.ts';
 import { getTrack } from '../track/index.ts';
 import { el } from './dom.ts';
 import { flameSvg } from './cards.ts';
-import { carMarkup } from './scenery.ts';
+import { pieceIcon } from './piece.ts';
 
 export interface SeatName {
   name: string;
@@ -46,9 +46,9 @@ export function renderSide(parent: HTMLElement, v: View, names: SeatName[], thin
     if (ready) li.title = '这回合出好了';
     li.dataset.seat = String(seat);
     el('span', 'place', li, String(i + 1));
-    // 车的颜色：一辆小赛车（渐变定义在赛道的 SVG 里，同一个页面能引用到）
+    // 车的颜色和号码：一枚小棋子（高光渐变定义在赛道的 SVG 里，同一个页面能引用到）
     const dot = el('span', 'dot car-icon', li);
-    dot.innerHTML = `<svg viewBox="-18 -10 36 20" aria-hidden="true">${carMarkup(seat)}</svg>`;
+    dot.innerHTML = pieceIcon(seat);
     const who = el('span', 'who', li);
     el('span', 'nm', who, n.name);
     const meta: string[] = [];
