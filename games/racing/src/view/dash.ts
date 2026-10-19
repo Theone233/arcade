@@ -1,7 +1,7 @@
 /**
  * 驾驶台（DESIGN.md 2.2、2.7、第 8 节）：照一回合的顺序排，玩家一眼看出现在该做哪一步。
  * - 最上面一条步骤条：① 挂挡 → ② 出牌 → ③ 亮牌移动 → ④ 冲刺 / 拼劲 → ⑤ 尾流 → ⑥ 过弯 → ⑦ 弃牌、补牌，亮着的是现在这一步；
- * - 左边是自己的车台：H 形挡位箱（1、2 挡标着散热，跳两挡标着要 1 张热量）、引擎热量表、牌堆和弃牌堆；
+ * - 左边是自己的玩家板：半圆的挡位盘（现在的挡上放一枚标记；1、2 挡标着散热，跳两挡标着要 1 张热量）、引擎热量（一个火苗 × 张数）；
  * - 中间是出牌区（挂几挡就有几个空位）和手牌：点手牌放进出牌区，点出牌区的牌拿回来；
  * - 右边只放这一步要做的事：① 先挂挡，挂好了才去出牌；② 出牌时预览落点、过弯、热量，交之前可以预设后面几步；
  *   亮牌以后轮到自己时，换成那一步的问题（冲刺？多走 1 格？吸尾流？弃哪几张？）。
@@ -37,8 +37,9 @@ export interface DashHooks {
 /** 步骤条的七步；问题对应到第几步 */
 const STEPS = ['挂挡', '出牌', '亮牌移动', '冲刺·拼劲', '尾流', '过弯', '弃牌·补牌'] as const;
 const ASK_STEP: Record<Ask, number> = { boost: 3, adren: 3, slip: 4, discard: 6 };
-/** H 形挡位箱里每一挡的位置（viewBox 0 0 120 104） */
-const GATE: Record<number, [number, number]> = { 1: [26, 20], 2: [26, 84], 3: [94, 20], 4: [94, 84] };
+/** 挡位盘上每一挡的位置（viewBox 0 0 120 104）：圆心 (60, 90)、半径 48 的半圆上，从左往右 1–4 挡 */
+const GATE: Record<number, [number, number]> = { 1: [15.7, 71.6], 2: [41.6, 45.7], 3: [78.4, 45.7], 4: [104.3, 71.6] };
+const INK = '#2b2622';
 const COOL: Record<number, string> = { 1: '散热 3', 2: '散热 1', 3: '', 4: '' };
 
 interface Preview {
@@ -184,15 +185,19 @@ export class Dash {
 
   // ---------- 车台 ----------
 
-  /** H 形挡位箱。choose 不是 null 时能点（能挂的挡），否则只显示 */
+  /** 挡位盘：印在玩家板上的半圆，现在的挡上放一枚塑料标记。choose 不是 null 时能点（能挂的挡），否则只显示 */
   private gearbox(parent: HTMLElement, gear: number, choose: number[] | null, from: number): void {
     const box = el('div', `gearbox${choose ? ' live' : ''}`, parent);
     const [kx, ky] = GATE[gear] ?? GATE[1]!;
-    // 开放式金属挡位板和黑色球头挡把都是 public/art/ 的图（scripts/art.ts 生成），挡把底下一块影子
+    const nums = [1, 2, 3, 4].map((g) => `<text x="${GATE[g]![0]}" y="${GATE[g]![1] + 4.5}" font-size="13" font-weight="900" text-anchor="middle" fill="${INK}">${g}</text>`).join('');
     box.innerHTML = `<svg viewBox="0 0 120 104" aria-hidden="true">
-<image href="art/gate.webp" width="120" height="104"/>
-<ellipse cx="${kx + 2.5}" cy="${ky + 4}" rx="13" ry="11.5" fill="#000" opacity=".45"/>
-<image href="art/knob.webp" x="${kx - 13.5}" y="${ky - 13.5}" width="27" height="27"/></svg>`;
+<path d="M12 90A48 48 0 0 1 108 90" fill="none" stroke="${INK}" stroke-width="24" stroke-linecap="round"/>
+<path d="M12 90A48 48 0 0 1 108 90" fill="none" stroke="#e7dcc0" stroke-width="20" stroke-linecap="round"/>
+${nums}<text x="60" y="86" font-size="11" font-weight="800" text-anchor="middle" fill="${INK}">挡位</text>
+<circle cx="${kx + 1.5}" cy="${ky + 2.5}" r="11" fill="#000" opacity=".35"/>
+<circle cx="${kx}" cy="${ky}" r="11" fill="#e0483f" stroke="#8c1d22" stroke-width="1.2"/>
+<circle cx="${kx}" cy="${ky}" r="11" fill="url(#rb-plast)"/>
+<text x="${kx}" y="${ky + 4.5}" font-size="13" font-weight="900" text-anchor="middle" fill="#fff">${gear}</text></svg>`;
     for (let g = 1; g <= 4; g++) {
       const [x, y] = GATE[g]!;
       const ok = choose?.includes(g) ?? false;
@@ -212,15 +217,14 @@ export class Dash {
     }
   }
 
-  /** 引擎热量表：一簇火苗一张热量，亮着的是还能用的，用掉的是灰的 */
+  /** 引擎热量：一个火苗 × 张数（用光了火苗是灰的） */
   private engine(parent: HTMLElement, engine: number): void {
-    const t = getTrack(this.v!.opts.track);
-    const cap = Math.max(engine, (t?.heat ?? 6) + 1);
     const box = el('div', 'engine', parent);
     el('span', 'lbl', box, '引擎热量');
-    const bar = el('div', 'gauge', box);
-    for (let i = 0; i < cap; i++) el('i', i < engine ? 'on' : '', bar).innerHTML = flameSvg(i < engine);
-    el('b', engine <= 1 ? 'low' : '', box, String(engine));
+    const count = el('div', `count${engine <= 1 ? ' low' : ''}`, box);
+    el('i', '', count).innerHTML = flameSvg(engine > 0);
+    el('span', 'x', count, '×');
+    el('b', '', count, String(engine));
     box.title = `引擎里还有 ${engine} 张热量：跳挡、冲刺、过弯超速都从这里付`;
   }
 

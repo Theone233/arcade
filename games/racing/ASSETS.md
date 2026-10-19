@@ -4,13 +4,13 @@
 
 | 素材 | 来源 |
 |---|---|
-| 纹理和图片 `public/art/*.webp`（草坪、沥青、砂石、水面、混凝土、碳纤维、拉丝铝、卡纸；热量牌的燃烧引擎 `heat-card`、挡位板 `gate`、挡把 `knob`） | `scripts/art.ts` 写的 SVG（分形噪声 `feTurbulence`、光照滤镜、渐变），用无头浏览器光栅化成 webp（纹理能无缝平铺；三张图按 2 倍尺寸画）；噪声种子写死，重新跑生成的一样。`node scripts/art.ts` 重新生成 |
-| 赛道和场景（路面、白边线、红白路肩、砂石区、轮胎墙、发车框、起终点、看台、湖和船、楼、集装箱、树） | `src/view/scenery.ts` 运行时画的 SVG，铺上面的纹理；开局在浏览器里烘焙成一张位图（`src/view/board.ts`） |
-| 车 | `src/view/scenery.ts` 画的俯视方程式赛车，按座位配色 |
-| 卡面（速度牌、改装牌、热量、手抖、牌背）和火焰图标 | `src/view/cards.ts` 运行时画的 SVG：速度表、条纹、火焰、轮胎拖痕都是手写的路径，卡纸和碳纤维用上面的纹理；数字用系统字体 |
-| 驾驶台（挡位箱、引擎热量表、牌堆） | `src/view/dash.ts` 画的 SVG 和 CSS，拉丝铝、碳纤维用上面的纹理 |
+| 纹理 `public/art/*.webp`（木桌面 wood、卡纸 paper，地图板的纸纹 grain 和斑驳 mottle） | `scripts/art.ts` 写的 SVG（分形噪声 `feTurbulence`），用无头浏览器光栅化成能无缝平铺的 webp；噪声种子写死，重新跑生成的一样。`node scripts/art.ts` 重新生成 |
+| 地图板（边框、地面、赛道、缓冲区、维修区、林子、看台、湖和亭、山和塔、街坊、海港和船）、标注（限速盾牌、弯名、格号、制动牌） | `src/view/mapart.ts`、`src/view/scenes.ts` 运行时画的 SVG；开局在浏览器里烘焙成一张位图（`src/view/board.ts`） |
+| 棋子 | `src/view/piece.ts` 画的塑料小车，按座位配色，车顶写座位号 |
+| 卡面（速度牌、改装牌、热量、手抖、牌背）和火焰图标 | `src/view/cards.ts` 运行时画的 SVG：速度表、线描的引擎、火焰、轮胎拖痕都是手写的路径，卡纸用上面的纹理；数字用系统字体 |
+| 玩家板（挡位盘、引擎热量、牌堆） | `src/view/dash.ts` 画的 SVG 和 CSS |
 | 封面 `public/cover.svg` | 手写的 SVG |
 | 音效 | WebAudio 现合成（`src/view/sound.ts`） |
 | 表情包、扔的道具 | `arcade-kit/fun`（kit 自己程序画的，见 kit 的说明） |
 
-赛道、名字、术语、卡面、规则文字都是原创的。
+赛道、弯名、名字、术语、卡面、规则文字都是原创的，地名是虚构的。

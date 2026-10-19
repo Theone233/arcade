@@ -3,8 +3,7 @@
  */
 import { LEVELS, type Level, type Opts } from '../core/types.ts';
 import { FIXED } from '../track/fixed.ts';
-import { geometry } from '../track/shape.ts';
-import { drawDefs, drawWorld } from './scenery.ts';
+import { MAP_DEFS, mapArt } from './mapart.ts';
 import { button, el } from './dom.ts';
 import { GAME_NAME, LEVEL_NAME } from './text.ts';
 
@@ -22,23 +21,17 @@ export interface LobbyHooks {
   onRules(): void;
 }
 
-/** 赛道小图：和比赛里同一套写实画法（地面、路面、路肩、砂石区、场景），框住整条赛道 */
+/** 赛道小图：和比赛里同一块地图板（不画细节），框住整块板子 */
 function miniMap(parent: HTMLElement, id: string): void {
   const t = FIXED.find((x) => x.id === id)!;
-  const g = geometry(t);
+  const art = mapArt(t);
+  const b = art.board;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  const xs = g.cells.map((c) => c.c.x);
-  const ys = g.cells.map((c) => c.c.y);
-  const pad = g.width + 50;
-  const x0 = Math.min(...xs) - pad;
-  const y0 = Math.min(...ys) - pad;
-  svg.setAttribute('viewBox', `${x0} ${y0} ${Math.max(...xs) + pad - x0} ${Math.max(...ys) + pad - y0}`);
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  svg.setAttribute('viewBox', `${b.x - 12} ${b.y - 12} ${b.w + 32} ${b.h + 36}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.setAttribute('aria-hidden', 'true');
-  drawDefs(svg);
-  const world = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  svg.appendChild(world);
-  drawWorld(world, t, g);
+  // 小图只有一百多像素宽：盾牌按全图的大小画
+  svg.innerHTML = `<defs>${MAP_DEFS}</defs>${art.draw({ detail: false, rot: false })}${art.labels({ k: 0.45, rot: false, next: -1 })}`;
   parent.appendChild(svg);
 }
 

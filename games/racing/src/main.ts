@@ -104,7 +104,7 @@ function toast(text: string): void {
 
 watchViewport(app, stage, () => {});
 // 纹理（public/art/，scripts/art.ts 生成）给 CSS 用：写成绝对地址的变量，开发时和打包后（base './'）都对
-for (const t of ['carbon', 'metal', 'paper', 'asphalt']) document.documentElement.style.setProperty(`--tex-${t}`, `url("${new URL(`art/${t}.webp`, document.baseURI).href}")`);
+for (const t of ['paper', 'wood']) document.documentElement.style.setProperty(`--tex-${t}`, `url("${new URL(`art/${t}.webp`, document.baseURI).href}")`);
 document.addEventListener('pointerdown', unlockAudio, { capture: true });
 
 let myName = '我';
@@ -215,6 +215,7 @@ class RaceUi {
       v.cars.map((c) => ({ seat: c.seat, pos: c.pos, lane: c.lane, out: c.rank !== null })),
       v.me?.seat ?? null,
     );
+    this.board.newRound(v.round);
     renderSide(this.side, v, names, o.thinking);
     this.dash.render(v, names.map((n) => n.name));
     this.dash.setTimer(o.until);
