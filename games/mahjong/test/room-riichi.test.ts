@@ -7,6 +7,7 @@ import type { SeatKind } from 'arcade-kit/protocol';
 import { describe, expect, test } from 'vitest';
 import { riichi as RC, type RcState, type RcView } from '../src/core/variants/riichi/index.ts';
 import { mahjongRoom as G, type RoomAction, type RoomState, type WalletEffect } from '../src/room/rules.ts';
+import { RoomTalk } from '../src/room/talk.ts';
 import { KEY } from './helpers.ts';
 
 const SHARE = 2_000;
@@ -158,5 +159,44 @@ describe('隐藏信息和公平', () => {
       s = act(s, seats[0]!, G.timeout!(s, seats[0]!));
     }
     expect(found).toBe(true);
+  });
+});
+
+describe('立直房里电脑起哄', () => {
+  test('一批推好几步也不漏：每次自摸、跳满以上的和都认得出；只有电脑座位发；同一步再看一次是空的', () => {
+    const eye = new RoomTalk(9);
+    const talk = new RoomTalk(10);
+    let s = begin(['human', 'ai', 'ai', 'ai'], 'fun');
+    let seen = 0;
+    let now = 0;
+    for (let k = 0; !G.over(s) && k < 100_000; k++) {
+      s = drive(s, 5);
+      now += 10_000;
+      seen += eye.watchRc(s).filter((m) => m.kind === 'moment' && m.moment !== 'kong').length;
+      for (const a of talk.step(s, now)) expect(s.kinds[a.seat]).toBe('ai');
+    }
+    const loud = (s.g as RcState).history.flatMap((h) => h.wins).filter((w) => w.from === null || w.score.yakuman > 0 || ['haneman', 'baiman', 'sanbaiman'].includes(w.score.limit) || w.score.yaku.some((y) => y.id === 'rinshan'));
+    expect(loud.length).toBeGreaterThan(0);
+    expect(seen).toBe(loud.length);
+    expect(eye.watchRc(s)).toEqual([]);
+  });
+
+  test('同一局先开杠再和：两个名场面算同一手（kit 的"每手电脑主动最多 2 次"按它数）', () => {
+    const talk = new RoomTalk(9);
+    let s = begin(['human', 'ai', 'ai', 'ai'], 'fun');
+    s = drive(s, 1);
+    expect(talk.watchRc(s)).toEqual([]);
+    const rc = structuredClone(s.g as RcState);
+    const hand = rc.history.length;
+    rc.players[1]!.melds.push({ kind: 'kan', tiles: [0, 1, 2, 3], from: null, kan: 'concealed' });
+    s = { ...s, n: s.n + 1, g: rc };
+    const kan = talk.watchRc(s);
+    const won = structuredClone(rc);
+    const score = { yaku: [{ id: 'tsumo' as const, han: 1 }], yakuman: 0, kazoe: false, han: 1, fu: 30, dora: 0, aka: 0, ura: 0, base: 240, limit: 'none' as const };
+    won.history.push({ wind: 0, hand: 0, honba: 0, dealer: 0, end: 'tsumo', delta: [0, 0, 0, 0], wins: [{ seat: 1, from: null, tile: 4, score, hand: [], melds: [], gain: 0, pao: null }], tenpai: null, dora: [], ura: [] });
+    s = { ...s, n: s.n + 1, g: won };
+    const tsumo = talk.watchRc(s);
+    expect(kan.map((m) => m.kind === 'moment' && [m.moment, m.hand])).toEqual([['kong', hand]]);
+    expect(tsumo.map((m) => m.kind === 'moment' && [m.moment, m.hand])).toEqual([['self-draw', hand]]);
   });
 });
