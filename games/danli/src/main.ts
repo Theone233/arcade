@@ -4,6 +4,7 @@
  * 独立部署（kit 的 detectPlatform 说没有平台）时"大厅"改成回游戏首页。M1 没有接平台的云存档。
  */
 import { detectPlatform } from 'arcade-kit/client';
+import { reportErrors } from 'arcade-kit/report';
 import { PERSONAS } from './ai/personas.ts';
 import { plan, type Plan } from './ai/index.ts';
 import { BOOST_COST, FORK_SPREAD as FORK, loadoutCost, MODES, PLAIN, SPECIALS, type Boost, type Loadout, type ShotMode } from './core/items.ts';
@@ -18,6 +19,10 @@ import { TEAM_NAME } from './view/palette.ts';
 import { Scene } from './view/scene.ts';
 import { watchViewport, type Size } from './view/viewport.ts';
 import './view/style.css';
+
+// 页面里没人接住的报错发给平台（kit 0.22，docs/platform-backend.md 第 16 节）：只带报错、调用栈、路径、游戏和版本；
+// 单独部署没有平台时发不出去，吞掉，不影响玩
+reportErrors({ game: 'danli', version: __DANLI_VERSION__ });
 
 const query = new URLSearchParams(location.search);
 /** 冒烟用：?turbo 让动画和电脑几乎不停顿 */

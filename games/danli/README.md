@@ -29,8 +29,8 @@ src/ai/        电脑：personas 电脑人物（名字要登记进平台的保�
 src/view/      画面：scene 战场（镜头、动画、角度盘、画面外小牌）、terrainArt 地形分块烘焙、backdrop 远景和纸边、chars 角色和名牌、hud 对局界面（道具栏的按钮和四种状态）、itemIcons 道具图标、lobby 选桌页
 src/solo.ts    单机存档（danli.solo：种子 + 开局设置 + 操作序列，读档时重放）
 src/main.ts    页面入口：选桌页 → 对局 → 结算
-worker/        Worker：独立部署时站点根转到 /games/danli/，首页过 kit 的登录闸门（本站登录、独立部署游客）
-test/          vitest：确定性、角度表、地形和挖坑、物理、爬和体力、掉落出局、伤害、道具（体力、组合、次数、倍率、连发、三岔、锅盖、纸飞机）、回合和胜负、电脑、架构约束
+worker/        Worker（入口 main.ts，路由 route.ts）：/games/danli/health 给平台巡检；独立部署时站点根转到 /games/danli/，首页过 kit 的登录闸门（本站登录、独立部署游客）
+test/          vitest：Worker 的 health、确定性、角度表、地形和挖坑、物理、爬和体力、掉落出局、伤害、道具（体力、组合、次数、倍率、连发、三岔、锅盖、纸飞机）、回合和胜负、电脑、架构约束
 scripts/       冒烟、截图、性能、模拟器
 ```
 
@@ -82,6 +82,13 @@ scripts/       冒烟、截图、性能、模拟器
 - 实测（`npm run perf`，无头 Chrome、关 GPU 的软件渲染，手机横屏 844×390）：不降速时跟随、拖动、跟炮弹都是一帧 16.7 ms；
   CPU 降速 4 倍、像素比 3（画布按 2 画）时一帧约 50 ms（p95 约 67 ms），像素比 1.5 时约 33 ms，像素比 1 时中位 16.7 ms；
   每帧 JS 只花 1–2 ms，其余是软件合成整屏透明画布的时间（把上面那张画布或下面那一层任意藏掉一张，降速 4 倍也是 16.7 ms）。真机由 GPU 合成，还要在手机上实测确认。
+
+## 监控
+
+照 docs/platform-backend.md 第 16 节接平台的监控：
+- `GET /games/danli/health` 回 `{"ok":true,"version":"<package.json 的 version>"}`（不缓存）：排在 Worker 路由最前面，不过登录闸门、不读存储、不问平台，单独部署也能访问；版本号从 `package.json` 导入，打包时内联；
+- `wrangler.jsonc` 开着 `observability`（Workers Logs）；
+- 页面入口调一次 kit 的 `reportErrors`（`arcade-kit/report`），没人接住的报错报给平台的 `/api/client-error`：只带报错、调用栈、路径、游戏和版本。
 
 ## 部署
 

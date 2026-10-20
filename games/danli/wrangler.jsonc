@@ -8,11 +8,13 @@
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": false,
+  // 线上日志和调用记录（Workers Logs），出问题时在 Cloudflare 后台查；前端报错也是在这里按签名找原文（docs/platform-backend.md 第 16 节）
+  "observability": { "enabled": true },
   "assets": {
     "directory": "./dist-cf",
     "binding": "ASSETS",
     "not_found_handling": "none",
-    // 只有这些先过 Worker：站点根和 /api/me（单独部署时）、首页三种写法（登录闸门）；其余静态资源直接回
-    "run_worker_first": ["/", "/api/me", "/games/danli", "/games/danli/", "/games/danli/index.html"]
+    // 只有这些先过 Worker：站点根和 /api/me（单独部署时）、首页三种写法（登录闸门）、巡检的 health；其余静态资源直接回
+    "run_worker_first": ["/", "/api/me", "/games/danli", "/games/danli/", "/games/danli/index.html", "/games/danli/health"]
   }
 }
