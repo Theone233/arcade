@@ -437,9 +437,10 @@ class Game {
 // ---------- 道具栏的按钮 ----------
 
 const ITEMS: readonly { key: ItemKey; label: string; title: string }[] = [
-  { key: 'double', label: '连发+1', title: '连扔 2 发，每发伤害 70%' },
-  { key: 'triple', label: '连发+2', title: '连扔 3 发，每发伤害 55%' },
-  { key: 'fork', label: '三岔', title: '一发分成三颗，角度各差 6°，每颗伤害 50%' },
+  // 提示里的数从规则核心取，调数值时不会漏改
+  { key: 'double', label: '连发+1', title: `连扔 ${MODES.double.count} 发，每发伤害 ${MODES.double.pct}%` },
+  { key: 'triple', label: '连发+2', title: `连扔 ${MODES.triple.count} 发，每发伤害 ${MODES.triple.pct}%` },
+  { key: 'fork', label: '三岔', title: `一发分成三颗，角度各差 ${FORK}°，每颗伤害 ${MODES.fork.pct}%` },
   { key: 'b10', label: '加力10%', title: '这回合伤害 +10%' },
   { key: 'b20', label: '加力20%', title: '这回合伤害 +20%' },
   { key: 'b50', label: '加力50%', title: '这回合伤害 +50%' },
