@@ -1,11 +1,13 @@
 /**
  * 电脑（DESIGN.md 第 5 节）：只读公开状态，用同一个物理引擎在心里试"角度 × 力度"，挑最好的一发；会爬到更好的位置；会用道具。
- * 一档（三档、性格 M2 再做）：
+ * 电脑可以是队友也可以是对手：只朝对手那边打，伤到自己扣分，伤到队友扣得更多（不打自己人）。
+ * 一档（三档强弱以后做；性格这一版只体现在挑武器上，见 personas.ts）：
  * 1. 锅盖：风大（3 级以上）、还有次数，就先留出锅盖的 30 点，按"不受风"去瞄；
  * 2. 候选站位：原地，和往左、往右各爬 8、16 步（爬的体力要给锅盖留够）；
  * 3. 每个站位朝对手那边，角度每 5°、力度每 4 点试一遍（只模拟炮弹，不改地形），按落点粗算得分；最好的几发细调（角度 ±2°、力度 ±2）；
  * 4. 最好的几发，每一发把剩下的体力能买的"发射方式 × 加力"组合都在副本上真打一遍（规则核心的 apply，连发、三岔、坑、掉落都是真的），
- *    挑总分最高的：打掉对方的血、把对方炸出画本加很多分，伤到自己和队友扣分，赢下这局加很多分，省下来的体力不值钱（回合末就清零）。
+ *    挑总分最高的：打掉对方的血、把对方炸出画本加很多分，伤到自己扣 1.5 倍、伤到队友扣 2 倍（炸出局再多扣），赢下这局加很多分，
+ *    省下来的体力不值钱（回合末就清零）。
  *    所以离得远时爬得少、体力留给加力和连发；对手站得近、挤在一起时三岔的分自然高；
  * 5. 纸飞机：脚下太薄、能踩的地不到 2 个身位、旁边就是洞，或者被困在坑里爬不出去时：这回合打不出像样的伤害就一定飞，打得出也有 35% 的机会先飞走；
  *    挑一个地厚、离对手不远不近的落点；
@@ -52,8 +54,9 @@ const WALKS = [8, 16];
 const ANGLE_STEP = 5;
 const POWER_STEP = 4;
 const KEEP = 5;
-/** 伤到自己人比打到对方多扣一半 */
-const OWN_K = 1.5;
+/** 伤到自己比打到对方多扣一半；伤到队友扣两倍（电脑不打自己人） */
+const SELF_K = 1.5;
+const MATE_K = 2;
 /** 风多大用锅盖 */
 const LID_WIND = 3;
 /** 这回合打不出这么多分，危险时一定用纸飞机飞走 */
@@ -98,7 +101,7 @@ function quick(s: State, angle: number, power: number, facing: Dir, lid: boolean
     const d = isqrt(dx * dx + dy * dy);
     const dd = shot.hit === c.id ? 0 : Math.max(0, d - BODY_R);
     const dmg = blastDamage(sw, weapon(c.weapon), sw.radius, dd);
-    if (c.team === me.team) score -= OWN_K * dmg;
+    if (c.team === me.team) score -= (c.id === me.id ? SELF_K : MATE_K) * dmg;
     else {
       score += dmg;
       if (d < near) near = d;
@@ -119,7 +122,7 @@ function exact(s: State, angle: number, power: number, facing: Dir, l: Loadout):
     if (c.out) continue;
     const after = r.state.chars[c.id]!;
     const lost = c.hp - after.hp + (after.out ? 120 : 0);
-    if (c.team === me.team) score -= OWN_K * lost + (after.out ? 200 : 0);
+    if (c.team === me.team) score -= (c.id === me.id ? SELF_K : MATE_K) * lost + (after.out ? 200 : 0);
     else {
       score += lost;
       // 炸薄了对方脚下也算一点分（下一发更容易把他轰出画本）

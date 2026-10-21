@@ -1,18 +1,17 @@
 /**
- * 验收截图（真实运行，正常速度，不开 ?turbo）：电脑 1280×720、手机竖屏 390×844，存到 shots/v010-<屏>-<场景>.png。
- * "我"照电脑的建议出手（scripts/drive.ts，用真按钮和手势），只有下面几手指定道具：
- * - start 开局；items 选好道具（连发 +1 加加力、拖好角度盘）；double 连发的第一颗、double-2 第二颗；
- * - fork 三岔三颗一起飞；plane 纸飞机在飞、plane-land 落地瞬移；
- * - tired 爬到体力不够，道具栏灰掉；
- * - fall 有人掉出画本（对局里自然发生的：一直打，碰到"掉出画本啦！"就截；这一局没有就再来一局，最多 4 局）；end 结算。
- * 种子写死（?seed=1），每屏一样。
+ * 验收截图（真实运行，正常速度，不开 ?turbo）：电脑 1280×720、手机竖屏 390×844，存到 shots/v020-<屏>-<场景>.png。
+ * - lobby 首页；room-weapons 准备房间（3v3、我的武器页签）、room-maps（地图页签）、room-maps-2（往下滑，"快图""慢图"角标）、room-bot（给黄队 2 号换人物和武器）；
+ * - map-<id> 6 张图各开一局 3v3，轮到我时截一张；
+ * - lobby-resume 打到一半回首页（有"接着上一局"）；
+ * - out 最后一张图上我故意把自己炸出局（烟花筒正上方连发 +2），出现"快进""跳到结果"；end 跳到结果以后的结算页。
+ * "我"用真按钮和手势出手（scripts/drive.ts），电脑那边照常。种子写死（?seed=1），每屏一样。
  * 用法：npm run shots [desk|port]
  */
 import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright-core';
 import { createServer } from 'vite';
 import { launch } from './browser.ts';
-import { aimAndFire, myTurn, playTurn } from './drive.ts';
+import { aimAndFire, myTurn } from './drive.ts';
 
 const root = new URL('..', import.meta.url).pathname;
 mkdirSync(`${root}shots`, { recursive: true });
@@ -21,31 +20,51 @@ const server = await createServer({ root, server: { port: 0, host: '127.0.0.1', 
 await server.listen();
 const port = (server.httpServer!.address() as { port: number }).port;
 const browser = await launch();
+const MAPS = ['kitchen', 'icecream', 'dumpling', 'bento', 'nightmarket', 'breakfast'];
 
-const flying = (page: Page): Promise<boolean> => page.evaluate('window.__danli.flying()') as Promise<boolean>;
-const stamina = (page: Page): Promise<number> => page.evaluate('window.__danli.state().stamina') as Promise<number>;
-const ended = async (page: Page): Promise<boolean> => !!(await page.$('.dl-mask.end'));
-const falling = async (page: Page): Promise<boolean> => ((await (await page.$('.dl-banner:not([hidden])'))?.textContent()) ?? '').includes('掉出画本');
+type Hook = { __danli: { state(): { phase: string; actor: number; chars: { x: number; out: boolean; ai: boolean }[] }; preview(a: unknown): { ok: boolean; events?: { t: string; x?: number }[] } } };
 
-async function until(page: Page, test: () => Promise<boolean>, ms = 120_000): Promise<boolean> {
+/** 等到轮到我；我出局了或者打完了回 false */
+async function waitMine(page: Page, ms = 240_000): Promise<boolean> {
   const t0 = Date.now();
-  while (!(await test())) {
-    if (Date.now() - t0 > ms) return false;
-    await page.waitForTimeout(30);
-  }
-  return true;
-}
-
-/** 等到轮到我（或者结束）；中间有人掉出画本就截一张 */
-async function waitMine(page: Page, onFall: () => Promise<void>): Promise<boolean> {
-  const t0 = Date.now();
-  while (Date.now() - t0 < 240_000) {
-    if (await ended(page)) return false;
-    if (await falling(page)) await onFall();
+  while (Date.now() - t0 < ms) {
+    if (await page.$('.dl-spect:not([hidden]), .dl-result')) return false;
     if (await myTurn(page)) return true;
-    await page.waitForTimeout(40);
+    await page.waitForTimeout(80);
   }
   throw new Error('等太久了');
+}
+
+/** 往正上方打（88°）、连发 +2，挑落点离自己最近的力度 */
+async function selfDestruct(page: Page): Promise<void> {
+  const power = await page.evaluate(() => {
+    const d = (window as unknown as Hook).__danli;
+    const me = d.state().chars[d.state().actor]!;
+    let best = { power: 6, dist: 1e9 };
+    for (let p = 1; p <= 30; p++) {
+      const r = d.preview({ t: 'fire', angle: 88, power: p, facing: 1, mode: 'triple' });
+      const booms = (r.ok ? (r.events ?? []) : []).filter((e) => e.t === 'boom');
+      if (!booms.length) continue;
+      const dist = booms.reduce((n, e) => n + Math.abs((e.x ?? 0) - me.x), 0) / booms.length;
+      if (dist < best.dist) best = { power: p, dist };
+    }
+    return best.power;
+  });
+  await page.click('.dl-item[data-item="triple"]');
+  await aimAndFire(page, 88, 1, power);
+}
+
+/** 从首页进房间，选好 3v3、这张图、我拿冲天烟花筒，开打 */
+async function startOn(page: Page, map: string): Promise<void> {
+  await page.goto(`http://127.0.0.1:${port}/games/danli/?seed=1`);
+  await page.waitForSelector('.dl-lobby .start');
+  await page.click('.dl-lobby .start');
+  await page.waitForSelector('.dl-room');
+  await page.click('.dl-seg button[data-size="3"]');
+  await page.click('.tabs button[data-tab="map"]');
+  await page.click(`.dl-mapcard[data-map="${map}"]`);
+  await page.click('.dl-room-go');
+  await page.waitForSelector('.dl-hud');
 }
 
 for (const [name, opts] of [
@@ -57,105 +76,68 @@ for (const [name, opts] of [
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && !/^Failed to load resource/.test(m.text()) && errors.push(m.text()));
-  const file = (s: string): string => `${root}shots/v010-${name}-${s}.png`;
-  let fell = false;
-  const onFall = async (): Promise<void> => {
-    if (fell) return;
-    fell = true;
-    await page.waitForTimeout(350);
-    await page.screenshot({ path: file('fall') });
-  };
+  const file = (s: string): string => `${root}shots/v020-${name}-${s}.png`;
   await page.goto(`http://127.0.0.1:${port}/games/danli/?seed=1`);
   await page.waitForSelector('.dl-lobby');
-  await page.evaluate(() => localStorage.removeItem('danli.solo'));
+  await page.evaluate(() => {
+    localStorage.removeItem('danli.solo');
+    localStorage.removeItem('danli.prefs');
+  });
   await page.reload();
-  await page.click('text=单机开打');
-  await waitMine(page, onFall);
-  await page.waitForTimeout(1200);
-  await page.screenshot({ path: file('start') });
+  await page.waitForSelector('.dl-lobby .start');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: file('lobby') });
 
-  // 连发 +1（加力照建议，没有就加 20%）：截选好道具、第一颗、第二颗
-  await playTurn(page, async () => void (await page.screenshot({ path: file('items') })), { mode: 'double', plane: false, boost: 20 });
-  await until(page, () => flying(page));
-  await page.waitForTimeout(700);
-  await page.screenshot({ path: file('double') });
-  await until(page, async () => !(await flying(page)));
-  await until(page, () => flying(page), 5_000);
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: file('double-2') });
+  // 准备房间三张：我的武器、地图、给黄队 2 号换
+  await page.click('.dl-lobby .start');
+  await page.waitForSelector('.dl-room');
+  await page.click('.dl-seg button[data-size="3"]');
+  await page.click('.dl-wcard[data-weapon="rocket"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: file('room-weapons') });
+  await page.click('.tabs button[data-tab="map"]');
+  await page.click('.dl-mapcard[data-map="dumpling"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: file('room-maps') });
+  // 地图页签往下滑：第二排（便当群岛"快图"、早餐吐司桥"慢图"）
+  await page.evaluate(() => {
+    const sheet = document.querySelector('.dl-room .sheet') as HTMLElement;
+    sheet.scrollTo(0, (document.querySelector('.dl-mapcard[data-map="bento"]') as HTMLElement).offsetTop - 14);
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: file('room-maps-2') });
+  await page.click('.dl-slot[data-seat="3"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: file('room-bot') });
 
-  // 三岔
-  if (await waitMine(page, onFall)) {
-    await playTurn(page, undefined, { mode: 'fork', plane: false, boost: 0 });
-    await until(page, () => flying(page));
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: file('fork') });
+  // 6 张图各开一局，轮到我时截一张；最后一张接着打：把自己炸出局、跳到结果
+  for (const map of MAPS) {
+    await startOn(page, map);
+    await waitMine(page, 120_000);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: file(`map-${map}`) });
   }
-
-  // 纸飞机：在心里试一圈（页面的 __danli.preview），挑一发落在我和对手之间、站得住的
-  if (await waitMine(page, onFall)) {
-    const pick = (await page.evaluate(`(() => {
-      const s = window.__danli.state();
-      const me = s.chars[s.actor];
-      const foe = s.chars.find((c) => c.team !== me.team && !c.out);
-      const dir = foe.x > me.x ? 1 : -1;
-      let best = null;
-      for (let angle = 30; angle <= 65; angle += 5) for (let power = 25; power <= 80; power += 3) {
-        const r = window.__danli.preview({ t: 'fire', angle, power, facing: dir, plane: true });
-        const w = r.ok && r.events.find((e) => e.t === 'warp');
-        if (!w || !w.to) continue;
-        const gain = (w.to.x - me.x) * dir;
-        if (gain > 150 && (!best || Math.abs(gain - 400) < Math.abs(best.gain - 400))) best = { angle, power, facing: dir, gain };
-      }
-      return best;
-    })()`)) as { angle: number; power: number; facing: 1 | -1 } | null;
-    if (!pick) errors.push('纸飞机找不到能落的地方');
-    await page.click('.dl-item[data-item="plane"]');
-    await aimAndFire(page, pick?.angle ?? 45, pick?.facing ?? 1, pick?.power ?? 40);
-    await until(page, () => flying(page));
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: file('plane') });
-    await until(page, async () => !(await flying(page)));
-    await page.waitForTimeout(450);
-    await page.screenshot({ path: file('plane-land') });
+  // 打到一半回首页：有"接着上一局"
+  await page.goto(`http://127.0.0.1:${port}/games/danli/?seed=1`);
+  await page.waitForSelector('.dl-lobby .resume');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: file('lobby-resume') });
+  await page.click('.dl-lobby .resume');
+  await page.waitForSelector('.dl-hud');
+  let n = 0;
+  while (await waitMine(page)) {
+    await selfDestruct(page);
+    if (++n > 12) throw new Error('炸了 12 手自己还没出局');
   }
-
-  // 爬到体力不够：按住往对手那边爬，爬到剩 30 以下或爬不动
-  if (await waitMine(page, onFall)) {
+  if (!(await page.$('.dl-result'))) {
+    await page.waitForSelector('.dl-spect:not([hidden])');
     await page.waitForTimeout(600);
-    const dir = (await page.evaluate('(() => { const s = window.__danli.state(); const me = s.chars[s.actor]; const foe = s.chars.find((c) => c.team !== me.team); return foe.x < me.x ? "left" : "right"; })()')) as string;
-    const b = (await page.locator(`.dl-climb-btn.${dir}`).boundingBox())!;
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-    await page.mouse.down();
-    let last = -1;
-    for (;;) {
-      await page.waitForTimeout(300);
-      const st = await stamina(page);
-      if (st < 30 || st === last) break;
-      last = st;
-    }
-    await page.mouse.up();
-    // 爬不动（掉在坑里、前面是悬崖）时，选上连发 +2 和锅盖把体力占住，剩下的道具一样会灰
-    if ((await stamina(page)) > 45) {
-      await page.click('.dl-item[data-item="triple"]');
-      await page.click('.dl-item[data-item="lid"]').catch(() => {});
-    }
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: file('tired') });
-    // 取消选上的，照建议打
-    for (const k of ['triple', 'lid']) if (await page.$(`.dl-item[data-item="${k}"][data-state="selected"]`)) await page.click(`.dl-item[data-item="${k}"]`);
-    await playTurn(page);
+    await page.screenshot({ path: file('out') });
+    await page.click('.dl-skip-btn');
   }
-
-  // 接着打完；没碰到掉出画本就再来一局（最多 4 局）
-  for (let game = 0; game < 4; game++) {
-    while (await waitMine(page, onFall)) await playTurn(page);
-    await page.waitForTimeout(600);
-    if (game === 0) await page.screenshot({ path: file('end') });
-    if (fell) break;
-    await page.click('.dl-mask.end button:has-text("再来一局")');
-  }
-  if (!fell) errors.push('打了 4 局都没人掉出画本');
+  await page.waitForSelector('.dl-result', { timeout: 300_000 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: file('end') });
   console.log(`${name}: ${errors.length ? errors.join('；') : '截完'}`);
   await page.close();
 }

@@ -1,0 +1,1038 @@
+/*
+ * 页面（选桌页、准备房间、结算）的样式：照美术 2026-10-21 的设计稿（v2/pages 的 ui.css、lobby.html、room.html、result.html）改写，
+ * 全部挂在 .dl-app .dl-page 下面。舞台 .dl-stage 按设计尺寸（横屏 844×390、竖屏 390×844）摆，整块等比缩放（view/stage.ts）。
+ * 手绘感的不规则圆角用 --wob，不用滤镜。
+ */
+.dl-app .dl-page {
+  --ink: #46291a;
+  --paper: #fffaf0;
+  --cream: #fff1d6;
+  --wall: #efe8dc;
+  --muted: #7a5a44;
+  --red: #e2432a;
+  --red-dk: #a8291a;
+  --gold: #ffbf1a;
+  --blue: #2f78e0;
+  --blue-tint: #e3eefc;
+  --yel: #f5ad00;
+  --yel-tint: #fff1c8;
+  --green: #3f9a4a;
+  --wob: 14px 11px 13px 10px / 11px 14px 10px 13px;
+  --lift: 2px 3px 0 rgba(70, 41, 26, 0.28);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--wall);
+  background-image: linear-gradient(rgba(70, 41, 26, 0.07) 2px, transparent 2px), linear-gradient(90deg, rgba(70, 41, 26, 0.07) 2px, transparent 2px);
+  background-size: 64px 64px;
+  color: var(--ink);
+}
+.dl-app .dl-page * {
+  box-sizing: border-box;
+}
+.dl-app .dl-page canvas {
+  display: block;
+}
+.dl-app .dl-page-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.dl-app .dl-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* ---------- 部件 ---------- */
+.dl-app .dl-page .dl-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  box-shadow: var(--lift);
+  padding: 0;
+  max-width: none;
+  width: auto;
+  text-align: left;
+}
+.dl-app .dl-page .dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2.5px solid var(--ink);
+  border-radius: var(--wob);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 900;
+  box-shadow: 0 3px 0 var(--ink);
+  white-space: nowrap;
+  padding: 0 12px;
+  text-decoration: none;
+}
+.dl-app .dl-page .dl-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.dl-app .dl-page .dl-btn.go {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--red-dk), 0 4px 0 2.5px var(--ink);
+  text-shadow: 0 2px 0 var(--red-dk);
+  position: relative;
+}
+.dl-app .dl-page .dl-btn.go::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.dl-app .dl-page .dl-btn.soft {
+  background: var(--cream);
+}
+.dl-app .dl-page .dl-btn.icon {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 12px;
+}
+.dl-app .dl-page .dl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1.5px solid var(--ink);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--paper);
+  white-space: nowrap;
+  font-style: normal;
+}
+.dl-app .dl-page .dl-tag.soon {
+  border-style: dashed;
+  color: var(--muted);
+  background: #f1e8d8;
+}
+.dl-app .dl-page .bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 8px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dl-app .dl-page .bar .dl-btn {
+  height: 38px;
+  font-size: 15px;
+}
+.dl-app .dl-page .sp {
+  flex: 1;
+}
+.dl-app .dl-page .ver,
+.dl-app .dl-page .note {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-page .dl-seg {
+  display: inline-flex;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.dl-app .dl-page .dl-seg button {
+  border: 0;
+  border-left: 2px solid var(--ink);
+  background: none;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 32px;
+}
+.dl-app .dl-page .dl-seg button:first-child {
+  border-left: 0;
+}
+.dl-app .dl-page .dl-seg button.on {
+  background: var(--gold);
+}
+
+/* ---------- 选桌页（首页） ---------- */
+.dl-app .dl-lobby .title {
+  position: absolute;
+}
+.dl-app .dl-lobby .ribbon {
+  position: absolute;
+  background: var(--red);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 4px 16px;
+  border: 2px solid var(--ink);
+  transform: rotate(-3deg);
+  box-shadow: var(--lift);
+  white-space: nowrap;
+  z-index: 1;
+}
+.dl-app .dl-lobby .ribbon::before,
+.dl-app .dl-lobby .ribbon::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  width: 14px;
+  height: 100%;
+  background: #a8291a;
+  border: 2px solid var(--ink);
+  z-index: -1;
+}
+.dl-app .dl-lobby .ribbon::before {
+  left: -12px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 40% 50%);
+}
+.dl-app .dl-lobby .ribbon::after {
+  right: -12px;
+  clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
+}
+.dl-app .dl-lobby .acts {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dl-app .dl-lobby .start {
+  height: 74px;
+  font-size: 28px;
+  letter-spacing: 2px;
+  flex-direction: column;
+  gap: 0;
+}
+.dl-app .dl-lobby .start small {
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 800;
+  opacity: 0.95;
+  text-shadow: none;
+}
+.dl-app .dl-lobby .resume {
+  height: 56px;
+  justify-content: flex-start;
+  padding: 0 12px;
+  gap: 10px;
+}
+.dl-app .dl-lobby .resume .dl-thumb {
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+}
+.dl-app .dl-lobby .resume div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+  min-width: 0;
+}
+.dl-app .dl-lobby .resume b {
+  font-size: 17px;
+}
+.dl-app .dl-lobby .resume small {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.dl-app .dl-lobby .resume .pg {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 900;
+  font-style: normal;
+  background: var(--yel-tint);
+  border: 1.5px solid var(--ink);
+  border-radius: 99px;
+  padding: 1px 7px;
+}
+.dl-app .dl-lobby .tips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dl-app .dl-lobby .tips span {
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(255, 250, 240, 0.85);
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  padding: 2px 7px;
+}
+.dl-app .dl-how {
+  margin: 6px 0 12px;
+  padding: 0 0 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.8;
+}
+
+/* ---------- 准备房间 ---------- */
+.dl-app .dl-room .bar .ttl {
+  font-size: 17px;
+  font-weight: 900;
+  background: var(--yel-tint);
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  padding: 3px 12px;
+  box-shadow: var(--lift);
+  white-space: nowrap;
+}
+.dl-app .dl-room .board {
+  position: absolute;
+  padding: 8px 8px 6px;
+}
+.dl-app .dl-room .row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.dl-app .dl-room .row .side {
+  width: 22px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 900;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  color: #fff;
+  border: 2px solid var(--ink);
+}
+.dl-app .dl-room .row .side svg {
+  writing-mode: horizontal-tb;
+}
+.dl-app .dl-room .row.t0 .side {
+  background: var(--blue);
+}
+.dl-app .dl-room .row.t1 .side {
+  background: var(--yel);
+  color: var(--ink);
+}
+.dl-app .dl-room .vs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0 3px 28px;
+}
+.dl-app .dl-room .vs b {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--red);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  padding: 0 9px;
+  transform: rotate(-4deg);
+}
+.dl-app .dl-room .vs i {
+  flex: 1;
+  border-top: 2px dashed rgba(70, 41, 26, 0.35);
+}
+.dl-app .dl-room .dl-slot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+.dl-app .dl-room .t0 .dl-slot {
+  background: var(--blue-tint);
+}
+.dl-app .dl-room .t1 .dl-slot {
+  background: var(--yel-tint);
+}
+.dl-app .dl-room .dl-slot .who {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.dl-app .dl-room .dl-slot .who b {
+  display: block;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-app .dl-room .dl-slot .who small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dl-app .dl-room .dl-slot .who > div {
+  min-width: 0;
+}
+.dl-app .dl-room .dl-slot .arm {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  padding: 1px 5px 1px 2px;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dl-app .dl-room .dl-slot .edit {
+  position: absolute;
+  right: -6px;
+  top: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.dl-app .dl-room .dl-slot.me {
+  box-shadow: 0 0 0 2.5px var(--red);
+}
+.dl-app .dl-room .dl-slot .metag {
+  position: absolute;
+  left: -6px;
+  top: -9px;
+  background: var(--red);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 900;
+  font-style: normal;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  padding: 0 6px;
+}
+.dl-app .dl-room .dl-slot.editing {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink);
+}
+.dl-app .dl-room .panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+}
+.dl-app .dl-room .tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px;
+}
+.dl-app .dl-room .tabs button {
+  position: relative;
+  top: 2px;
+  padding: 5px 12px 6px;
+  font-size: 13.5px;
+  font-weight: 900;
+  background: #ead9bd;
+  border: 2px solid var(--ink);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dl-app .dl-room .tabs button.on {
+  background: var(--paper);
+  color: var(--ink);
+  z-index: 1;
+}
+.dl-app .dl-room .tabs small {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 800;
+  margin-left: 4px;
+}
+.dl-app .dl-room .sheet {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  position: relative;
+  overscroll-behavior: contain;
+}
+.dl-app .dl-room .wgrid {
+  display: grid;
+  gap: 6px;
+}
+.dl-app .dl-room .dl-wcard {
+  position: relative;
+  min-width: 0;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: #fffdf6;
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.dl-app .dl-room .dl-wcard .hd {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 28px;
+}
+.dl-app .dl-room .dl-wcard .hd b {
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.dl-app .dl-room .dl-wcard .st {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+.dl-app .dl-room .dl-wcard .st em {
+  font-style: normal;
+  width: 12px;
+}
+.dl-app .dl-room .dl-wcard .pips {
+  display: flex;
+  gap: 1.5px;
+}
+.dl-app .dl-room .dl-wcard .pips i {
+  width: 4.5px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: #e8dcc6;
+}
+.dl-app .dl-room .dl-wcard .pips.atk i.f {
+  background: var(--red);
+}
+.dl-app .dl-room .dl-wcard .pips.def i.f {
+  background: #1f9a8c;
+}
+.dl-app .dl-room .dl-wcard .rg {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-room .dl-wcard .rg span {
+  white-space: nowrap;
+  color: var(--ink);
+  background: #fff1d6;
+  border: 1.2px solid var(--ink);
+  border-radius: 5px;
+  padding: 0 4px;
+  font-weight: 900;
+}
+.dl-app .dl-room .dl-wcard .tip {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-app .dl-room .dl-wcard .tip.hot {
+  color: var(--red);
+}
+.dl-app .dl-room .dl-wcard .spc {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 900;
+  color: var(--muted);
+  white-space: nowrap;
+  border-top: 1.5px dashed rgba(70, 41, 26, 0.3);
+  padding-top: 2px;
+}
+.dl-app .dl-room .dl-wcard .spc .dl-tag {
+  font-size: 9.5px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+.dl-app .dl-room .dl-wcard.on {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red);
+  background: #fff7ec;
+}
+.dl-app .dl-room .ok {
+  position: absolute;
+  right: -6px;
+  top: -7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dl-app .dl-room .dl-mapcard {
+  position: relative;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  background: var(--paper);
+  box-shadow: var(--lift);
+}
+.dl-app .dl-room .dl-mapcard .pic {
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+}
+.dl-app .dl-room .dl-mapcard .pic .dl-thumb {
+  width: 100% !important;
+  height: auto !important;
+}
+.dl-app .dl-room .dl-mapcard .pic.dice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff1d6;
+  aspect-ratio: 120 / 40;
+}
+.dl-app .dl-room .dl-mapcard b {
+  font-size: 12.5px;
+  font-weight: 900;
+  margin: 1px 2px 0;
+}
+.dl-app .dl-room .dl-mapcard p {
+  margin: 0 2px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--muted);
+  font-weight: 700;
+  flex: 1;
+}
+.dl-app .dl-room .dl-mapcard .ft {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 2px;
+}
+.dl-app .dl-room .dl-mapcard .mats {
+  display: flex;
+  gap: 3px;
+}
+.dl-app .dl-room .dl-mapcard .mats i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+}
+.dl-app .dl-room .dl-mapcard .dl-tag {
+  font-size: 9.5px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+.dl-app .dl-room .dl-mapcard.on {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red), var(--lift);
+}
+.dl-app .dl-room .dl-mapcard.rnd {
+  background: #fffdf4;
+  border-style: dashed;
+}
+.dl-app .dl-room .dl-picked {
+  position: absolute;
+  right: -6px;
+  top: -9px;
+  z-index: 2;
+  background: var(--red);
+  color: #fff;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  transform: rotate(6deg);
+}
+.dl-app .dl-room .dl-fast {
+  position: absolute;
+  left: -6px;
+  top: -9px;
+  z-index: 2;
+  background: var(--gold);
+  color: var(--ink);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 1px 7px 1px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  transform: rotate(-6deg);
+}
+/* 慢图：同款角标，闪电换成一只小蜗牛壳（一圈） */
+.dl-app .dl-room .dl-fast.slow::before {
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: none;
+  border: 2px solid var(--red);
+  clip-path: none;
+  box-sizing: border-box;
+}
+.dl-app .dl-room .dl-fast::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 9px;
+  height: 11px;
+  background: var(--red);
+  clip-path: polygon(55% 0, 0 60%, 45% 60%, 30% 100%, 100% 35%, 55% 35%);
+}
+.dl-app .dl-room .foot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dl-app .dl-room .mapchip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  padding: 4px 10px 4px 5px;
+  box-shadow: var(--lift);
+  min-width: 0;
+  text-align: left;
+}
+.dl-app .dl-room .mapchip .dl-thumb {
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  flex: none;
+}
+.dl-app .dl-room .mapchip b {
+  font-size: 14px;
+  font-weight: 900;
+  display: block;
+}
+.dl-app .dl-room .mapchip small {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-room .fight {
+  font-size: 26px;
+  letter-spacing: 4px;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 6px;
+}
+.dl-app .dl-room .fight small {
+  margin-top: -1px;
+  font-size: 11px;
+  letter-spacing: 0;
+  font-weight: 800;
+  text-shadow: none;
+}
+.dl-app .dl-room .pick h4 {
+  margin: 2px 0 4px;
+  font-size: 12px;
+  font-weight: 900;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.dl-app .dl-room .pick h4 small {
+  font-weight: 800;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.dl-app .dl-room .faces {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.dl-app .dl-room .faces button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 900;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 2px 3px 1px;
+  position: relative;
+  background: none;
+}
+.dl-app .dl-room .faces button.on {
+  border-color: var(--red);
+  background: #fff7ec;
+}
+.dl-app .dl-room .faces button.used .dl-face {
+  opacity: 0.45;
+}
+.dl-app .dl-room .faces button.used::after {
+  content: '在场';
+  position: absolute;
+  top: 18px;
+  font-size: 9.5px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.dl-app .dl-room .arms {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.dl-app .dl-room .arms button {
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 900;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fffdf6;
+  padding: 2px 0 1px;
+  line-height: 1.15;
+  text-align: center;
+}
+.dl-app .dl-room .arms button.on {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red);
+}
+.dl-app .dl-room .pickfoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.dl-app .dl-room .pickfoot .line {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.dl-app .dl-room .pickfoot .line b {
+  color: var(--ink);
+}
+
+/* ---------- 结算 ---------- */
+.dl-app .dl-result .head {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dl-app .dl-result .head .sub {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--muted);
+  line-height: 1.5;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--wob);
+  padding: 4px 12px;
+  box-shadow: var(--lift);
+}
+.dl-app .dl-result .head .sub b {
+  color: var(--ink);
+}
+.dl-app .dl-result .tbl {
+  position: absolute;
+  padding: 6px 8px 4px;
+}
+.dl-app .dl-result table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-weight: 800;
+}
+.dl-app .dl-result th {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 900;
+  text-align: center;
+  padding: 0 2px 3px;
+  border-bottom: 2px solid var(--ink);
+  white-space: nowrap;
+}
+.dl-app .dl-result th:first-child,
+.dl-app .dl-result th.l {
+  text-align: left;
+}
+.dl-app .dl-result td {
+  padding: 0 3px;
+  text-align: center;
+  height: 33px;
+  border-bottom: 1.5px dashed rgba(70, 41, 26, 0.25);
+  white-space: nowrap;
+}
+.dl-app .dl-result tr.t0 td:first-child {
+  box-shadow: inset 5px 0 0 var(--blue);
+}
+.dl-app .dl-result tr.t1 td:first-child {
+  box-shadow: inset 5px 0 0 var(--yel);
+}
+.dl-app .dl-result tr.sep td {
+  border-bottom: 2px solid var(--ink);
+}
+.dl-app .dl-result .who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 9px;
+  text-align: left;
+}
+.dl-app .dl-result .who small {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.dl-app .dl-result .dmg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-start;
+}
+.dl-app .dl-result .dmg i {
+  height: 9px;
+  border-radius: 5px;
+  border: 1.5px solid var(--ink);
+}
+.dl-app .dl-result .dmg b {
+  font-size: 14px;
+  min-width: 30px;
+  text-align: right;
+}
+.dl-app .dl-result .mvp {
+  font-size: 10px;
+  font-weight: 900;
+  font-style: normal;
+  background: var(--gold);
+  border: 1.5px solid var(--ink);
+  border-radius: 99px;
+  padding: 0 6px;
+  margin-left: 2px;
+}
+.dl-app .dl-result .mvp.me {
+  background: var(--red);
+  color: #fff;
+}
+.dl-app .dl-result .st {
+  font-size: 11px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 2px solid;
+  display: inline-block;
+  transform: rotate(-4deg);
+}
+.dl-app .dl-result .st.fall {
+  color: var(--red);
+  border-color: var(--red);
+  background: #fff3ee;
+}
+.dl-app .dl-result .st.hp {
+  color: #7a5a44;
+  border-color: #7a5a44;
+  background: #f4ece0;
+}
+.dl-app .dl-result .st.alive {
+  color: #2e7d3a;
+  border-color: #2e7d3a;
+  transform: none;
+}
+.dl-app .dl-result .nil {
+  color: #b9a48c;
+}
+.dl-app .dl-result .acts {
+  position: absolute;
+  display: flex;
+  gap: 10px;
+}
+.dl-app .dl-result .acts .dl-btn {
+  height: 50px;
+  font-size: 16px;
+  padding: 0 16px;
+}
+.dl-app .dl-result .acts .go {
+  flex: 1;
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+.dl-app .dl-result .says {
+  position: absolute;
+  text-align: center;
+}
+.dl-app .dl-result .says span {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 900;
+  color: #fffaf0;
+  background: rgba(70, 41, 26, 0.78);
+  border-radius: 99px;
+  padding: 3px 12px;
+}
+.dl-app .dl-result .who > div {
+  line-height: 1.15;
+}
+.dl-app .dl-result .who .dl-face {
+  flex: none;
+}
+.dl-app .dl-result .dl-stage[data-orient='port'] .mvp:not(.me) {
+  display: none;
+}
+.dl-app .dl-result .dl-stage[data-orient='port'] td,
+.dl-app .dl-result .dl-stage[data-orient='port'] th {
+  padding-left: 1px;
+  padding-right: 1px;
+}
+.dl-app .dl-result .dl-stage[data-orient='port'] .st {
+  font-size: 10px;
+  padding: 1px 3px;
+}
+.dl-app .dl-result .dl-stage[data-orient='port'] .who {
+  gap: 4px;
+  padding-left: 7px;
+}
+
+/* 弹窗（怎么玩）：页面上盖一层 */
+.dl-app .dl-page .dl-mask .dl-card {
+  max-width: 440px;
+  padding: 16px 20px;
+}

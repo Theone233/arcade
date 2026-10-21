@@ -1,16 +1,18 @@
 /**
  * 对局界面（DESIGN.md 第 4 节）：DOM 叠在画布上。
- * - 顶栏：大厅、谁的回合和第几回合、风（风向袋 + 箭头 + 级数）、全图、两队总血量；
+ * - 顶栏：大厅、谁的回合和第几轮、风（风向袋 + 箭头 + 级数）、全图、静音、两队总血量；
  * - 底栏：体力（10 格）和左右爬按钮、本局武器、力度条（带"上次"刻度）、发射键（按住蓄力，松手发射）；
  * - 出局纸签"掉出画本啦！"、电脑想事的小牌。
- * 特技、道具 M2 再做，先不放。
+ * 特技还没做，先不放。
  * 整层按设计尺寸（横屏 844×390、竖屏 390×844）等比缩放，宽高按屏幕反算，所以四角永远贴着屏幕的四角。
  */
 import { STEP_COST } from '../core/rules.ts';
 import type { Dir, Team } from '../core/types.ts';
+import type { WeaponId } from '../core/weapons.ts';
 import { el } from './dom.ts';
 import { itemIconSvg, PAL, PAL_DIM, PAL_GRAY, pawSvg, type IconId } from './itemIcons.ts';
 import type { Size } from './viewport.ts';
+import { weaponIcon } from './weaponArt.ts';
 
 /** 按住多久蓄满（毫秒） */
 export const CHARGE_MS = 1800;
@@ -23,6 +25,24 @@ export interface HudHandlers {
   view(): void;
   /** 点了一个道具按钮（选上或取消） */
   item(key: ItemKey): void;
+  /** 静音开关 */
+  mute(): void;
+  /** 蓄力到多少（0..100），松手或取消时是 null（蓄力的音效跟着它） */
+  charge?(p: number | null): void;
+  /** 我方真人全部出局以后：快进（来回切）、跳到结果 */
+  fast(): void;
+  skip(): void;
+}
+
+/** 静音按钮的图标：喇叭，静音时打个叉 */
+export function speakerSvg(muted: boolean): string {
+  return (
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#f0913a" stroke="#46291a" stroke-width="2" stroke-linejoin="round"/>' +
+    (muted
+      ? '<path d="M16 9l5 6M21 9l-5 6" stroke="#e2432a" stroke-width="2.4" stroke-linecap="round"/>'
+      : '<path d="M16 9.5c1.4 1.4 1.4 3.6 0 5M18.5 7c2.8 2.8 2.8 7.2 0 10" fill="none" stroke="#46291a" stroke-width="2" stroke-linecap="round"/>') +
+    '</svg>'
+  );
 }
 
 /** 道具栏的按钮：发射方式三个、加力三个、纸飞机、锅盖 */
@@ -65,6 +85,7 @@ export class Hud {
   private turnEl: HTMLElement;
   private windEl: HTMLElement;
   private viewBtn: HTMLButtonElement;
+  private muteBtn: HTMLButtonElement;
   private teamEls: { num: HTMLElement; bar: HTMLElement }[] = [];
   private stamNum: HTMLElement;
   private stamSegs: HTMLElement[] = [];
@@ -78,6 +99,8 @@ export class Hud {
   /** 每个按钮上次画的样子（状态、次数），没变就不重画 SVG */
   private itemSig = new Map<ItemKey, string>();
   private thinkEl: HTMLElement;
+  private spectEl: HTMLElement;
+  private fastBtn: HTMLButtonElement;
   private bannerEl: HTMLElement;
   private enabled = false;
   private charging: { t0: number; raf: number; power: number; id: number } | null = null;
@@ -98,6 +121,9 @@ export class Hud {
     this.viewBtn = el('button', 'dl-view', this.top);
     this.viewBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="M5 16l5-6 4 4 2-2 3 4"/></svg><span>全图</span>';
     this.viewBtn.addEventListener('click', () => this.h.view());
+    this.muteBtn = el('button', 'dl-mute', this.top);
+    this.muteBtn.addEventListener('click', () => this.h.mute());
+    this.setMuted(false);
     const teams = el('div', 'dl-teams', this.top);
     for (const t of [0, 1] as const) {
       const box = el('div', `dl-team t${t}`, teams);
@@ -156,6 +182,13 @@ export class Hud {
 
     this.thinkEl = el('div', 'dl-think', this.root);
     this.thinkEl.hidden = true;
+    // 我方真人全部出局以后才出现：快进（动画 ×4）、跳到结果（直接算完）
+    this.spectEl = el('div', 'dl-spect', this.root);
+    this.spectEl.hidden = true;
+    el('span', '', this.spectEl, '你出局了，看队友打');
+    this.fastBtn = el('button', 'dl-btn soft dl-fast-btn', this.spectEl, '快进 ×4');
+    this.fastBtn.addEventListener('click', () => this.h.fast());
+    el('button', 'dl-btn go dl-skip-btn', this.spectEl, '跳到结果').addEventListener('click', () => this.h.skip());
     this.bannerEl = el('div', 'dl-banner', this.root);
     this.bannerEl.hidden = true;
     this.setPower(0, null);
@@ -177,14 +210,15 @@ export class Hud {
     return { top: (this.top.offsetTop + this.top.offsetHeight) * k, bottom: (this.root.offsetHeight - this.bottom.offsetTop) * k };
   }
 
-  /** 打完了：顶栏写"打完了"和一共几回合 */
-  setOver(turn: number): void {
-    this.turnEl.innerHTML = `<b>打完了</b><span class="dl-round">${turn} 回合</span>`;
+  /** 打完了：顶栏写"打完了"和打到第几轮 */
+  setOver(round: number): void {
+    this.turnEl.innerHTML = `<b>打完了</b><span class="dl-round">${round} 轮</span>`;
     this.turnEl.classList.remove('mine');
   }
 
-  setTurn(name: string, team: Team, turn: number, maxTurns: number, mine: boolean): void {
-    this.turnEl.innerHTML = `${EMBLEM[team]}<b>${escapeHtml(name)}的回合</b><span class="dl-round">${turn}/${maxTurns}</span>`;
+  /** 谁的回合、第几轮（所有还活着的角色各出手一次算一轮） */
+  setTurn(name: string, team: Team, round: number, maxRounds: number, mine: boolean): void {
+    this.turnEl.innerHTML = `${EMBLEM[team]}<b>${escapeHtml(name)}的回合</b><span class="dl-round" title="所有还活着的角色各出手一次算一轮">第 ${round} 轮 / ${maxRounds}</span>`;
     this.turnEl.classList.toggle('mine', mine);
   }
 
@@ -225,10 +259,17 @@ export class Hud {
     this.stamNum.parentElement!.parentElement!.classList.toggle('off', !show);
   }
 
-  setWeapon(name: string, min: number, max: number): void {
-    this.weaponEl.innerHTML =
-      '<svg viewBox="0 0 32 32" class="dl-wicon" aria-hidden="true"><ellipse cx="16" cy="20" rx="12" ry="7" fill="#d8c46a" stroke="#46291a" stroke-width="2"/><path d="M4 18v-5h24v5" fill="#e6d68a" stroke="#46291a" stroke-width="2"/><ellipse cx="16" cy="13" rx="12" ry="5" fill="#f2e2b0" stroke="#46291a" stroke-width="2"/><path d="M8 18v5M13 19v5M19 19v5M24 18v5" stroke="#8f8a2c" stroke-width="1.4"/><circle cx="12" cy="11" r="3" fill="#fffaf0" stroke="#46291a" stroke-width="1.4"/><circle cx="19" cy="11.5" r="3" fill="#fffaf0" stroke="#46291a" stroke-width="1.4"/></svg>' +
-      `<b>${escapeHtml(name)}</b><small>${min}–${max}°</small>`;
+  /** 本局武器（当前出手的人的）：图标、名字、能用的角度 */
+  setWeapon(id: WeaponId, name: string, min: number, max: number): void {
+    this.weaponEl.innerHTML = `<b>${escapeHtml(name)}</b><small>${min}–${max}°</small>`;
+    this.weaponEl.prepend(weaponIcon(id, 22));
+  }
+
+  setMuted(muted: boolean): void {
+    this.muteBtn.innerHTML = speakerSvg(muted);
+    this.muteBtn.classList.toggle('on', muted);
+    this.muteBtn.setAttribute('aria-label', muted ? '打开声音' : '静音');
+    this.muteBtn.title = muted ? '打开声音' : '静音';
   }
 
   /**
@@ -281,6 +322,14 @@ export class Hud {
     this.viewBtn.querySelector('span')!.textContent = overview ? '跟随' : '全图';
   }
 
+  /** 观战的按钮：null 收起；fast 是现在开没开快进 */
+  setSpectate(v: { fast: boolean } | null): void {
+    this.spectEl.hidden = !v;
+    if (!v) return;
+    this.fastBtn.classList.toggle('on', v.fast);
+    this.fastBtn.textContent = v.fast ? '快进中 · 点了恢复' : '快进 ×4';
+  }
+
   think(text: string | null): void {
     this.thinkEl.hidden = !text;
     if (text) this.thinkEl.textContent = text;
@@ -326,6 +375,7 @@ export class Hud {
       if (this.charging !== c) return;
       c.power = Math.min(100, ((performance.now() - c.t0) / CHARGE_MS) * 100);
       this.setPower(c.power, this.lastPower);
+      this.h.charge?.(c.power);
       c.raf = requestAnimationFrame(tick);
     };
     tick();
@@ -347,6 +397,7 @@ export class Hud {
     cancelAnimationFrame(this.charging.raf);
     this.charging = null;
     this.fireBtn.classList.remove('down');
+    this.h.charge?.(null);
   }
 
   lastPower: number | null = null;

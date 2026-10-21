@@ -1,101 +1,167 @@
 /**
- * 选桌页（M1）：一张图（厨房面团岛）、你对电脑、"单机开打"；有没打完的单机就多一个"接着上一局"。
- * 选武器的备战页、电脑强弱 M2 再做。
+ * 选桌页（首页，设计稿 v2-lobby / v2-lobby-port）：厨房远景 + 一条面团舞台，六只小动物站两边；标题字、红飘带；
+ * "开始游戏"进准备房间，有没打完的单机就多一张"接着上一局"（地图缩略图、对阵、第几轮）；右上角"怎么玩"和静音。
  */
-import { buildTerrain, KITCHEN } from '../core/maps.ts';
-import { MAT_MASK } from '../core/terrain.ts';
-import { weapon } from '../core/weapons.ts';
-import { LOOK_NAME } from './chars.ts';
+import type { MapId } from '../core/maps.ts';
+import { MAPS } from '../core/maps.ts';
+import type { Look, Team } from '../core/types.ts';
+import { paintBackdrop } from './backdrops.ts';
+import { drawChar, type Expr } from './chars.ts';
 import { el } from './dom.ts';
-import { emblemSvg, escapeHtml } from './hud.ts';
+import { escapeHtml } from './hud.ts';
+import { INK } from './palette.ts';
+import { Stage, type StageView } from './stage.ts';
+import { mapThumb } from './thumb.ts';
+import { titleSvg } from './title.ts';
+import { glyphIcon } from './weaponArt.ts';
 
 export interface LobbyOpts {
-  myName: string;
-  botName: string;
   homeText: string;
   homeUrl: string;
-  canResume: boolean;
-  onStart(): void;
+  /** 能接着打的那一局（没有就是 null） */
+  resume: { map: MapId; size: number; round: number } | null;
+  muted: boolean;
+  onRoom(): void;
   onResume(): void;
+  /** 点静音，回新的状态 */
+  onMute(): boolean;
 }
 
-let thumb: HTMLCanvasElement | null = null;
+const HOW = [
+  '拖动角色身边的角度盘调角度（往左拖就朝左）',
+  '按住"发射"蓄力，松手发射；看顶上的风',
+  '每回合 100 点体力：爬和道具共用，用不完就清零',
+  '道具：连发、三岔、加力每回合都能选；纸飞机、锅盖每局 2 次',
+  '画本很薄：炸塌脚下的地，人会掉下去，掉出画本就出局',
+  '两队轮流出手，队里按座位轮；一队全部出局就输，打满 15 轮比剩下的血',
+];
 
-/** 地图缩略图：地形网格一格一个像素，下面一层雾 */
-function mapThumb(): HTMLCanvasElement {
-  if (thumb) return thumb;
-  const t = buildTerrain(KITCHEN);
-  const c = document.createElement('canvas');
-  c.width = t.cols;
-  c.height = t.rows;
-  const ctx = c.getContext('2d')!;
-  const g = ctx.createLinearGradient(0, 0, 0, t.rows);
-  g.addColorStop(0, '#efe8dc');
-  g.addColorStop(0.6, '#e4dccd');
-  g.addColorStop(1, '#a9abbe');
+type Cast = [Look, Team, number, 1 | -1, Expr, number];
+
+/** 背景：厨房远景，下面一条起伏的面团当舞台，小动物站在上面 */
+function paintBg(v: StageView): void {
+  const { bg: ctx, port, view } = v;
+  const k = port ? 0.62 : 0.56;
+  const X0 = port ? 1700 : 1180;
+  const Y0 = port ? -320 : -30;
+  ctx.save();
+  // 设计坐标 → 世界坐标：x 世界 = X0 + x 设计 / k
+  ctx.scale(k, k);
+  ctx.translate(-X0, -Y0);
+  paintBackdrop(ctx, 'kitchen', 3000, 780, { x0: X0 + view.x0 / k - 50, y0: Y0 + view.y0 / k - 50, w: (view.x1 - view.x0) / k + 100, h: (view.y1 - view.y0) / k + 100 });
+  ctx.restore();
+  const gy = port ? 560 : 326;
+  const L = view.x0 - 20;
+  const R = view.x1 + 20;
+  ctx.beginPath();
+  ctx.moveTo(L, gy + 6);
+  for (let x = Math.floor(L / 40) * 40; x <= R; x += 40) ctx.quadraticCurveTo(x + 20, gy - 6 + (Math.abs(x / 40) % 2) * 4, x + 40, gy + (Math.abs(x / 40) % 3) * 2);
+  ctx.lineTo(R, view.y1 + 20);
+  ctx.lineTo(L, view.y1 + 20);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, gy, 0, view.y1);
+  g.addColorStop(0, '#fdeccb');
+  g.addColorStop(0.6, '#f3d29c');
+  g.addColorStop(1, '#e3ab6a');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, t.cols, t.rows);
-  const img = ctx.getImageData(0, 0, t.cols, t.rows);
-  for (let r = 0; r < t.rows; r++) {
-    for (let col = 0; col < t.cols; col++) {
-      const v = t.cells[r * t.cols + col]! & MAT_MASK;
-      if (!v) continue;
-      const above = r > 0 && t.cells[(r - 1) * t.cols + col]! & MAT_MASK;
-      const i = (r * t.cols + col) * 4;
-      const [R, G, B] = above ? [248 - r / 3, 223 - r / 2.5, 178 - r / 2] : [70, 41, 26];
-      img.data[i] = R;
-      img.data[i + 1] = G;
-      img.data[i + 2] = B;
-      img.data[i + 3] = 255;
-    }
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#eba650';
+  ctx.stroke();
+  ctx.lineWidth = 2.6;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  ctx.globalAlpha = 0.25;
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 40; i++) {
+    const x = view.x0 + ((i * 97) % (view.x1 - view.x0));
+    const y = gy + 24 + ((i * 53) % Math.max(10, view.y1 - gy - 30));
+    ctx.beginPath();
+    ctx.ellipse(x, y, 4 + (i % 3), 2.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
-  ctx.putImageData(img, 0, 0);
-  thumb = c;
-  return c;
+  ctx.globalAlpha = 1;
+  const cast: Cast[] = port
+    ? [['shiba', 0, 60, 1, 'cheer', 1.7], ['panda', 0, 128, 1, 'normal', 1.7], ['rabbit', 1, 200, -1, 'normal', 1.7], ['cat', 1, 268, -1, 'hurt', 1.7], ['penguin', 0, 330, -1, 'cheer', 1.5]]
+    : [['shiba', 0, 70, 1, 'cheer', 1.6], ['panda', 0, 150, 1, 'normal', 1.6], ['mouse', 0, 222, 1, 'normal', 1.45], ['rabbit', 1, 610, -1, 'normal', 1.6], ['cat', 1, 690, -1, 'hurt', 1.6], ['penguin', 1, 770, -1, 'cheer', 1.6]];
+  for (const [look, team, x, f, e, s] of cast) {
+    ctx.save();
+    ctx.translate(x, gy + 10);
+    ctx.scale(s, s);
+    drawChar(ctx, look, team, f, e, 60);
+    ctx.restore();
+  }
 }
 
-export function renderLobby(host: HTMLElement, o: LobbyOpts): HTMLElement {
-  const root = el('div', 'dl-lobby', host);
-  const bar = el('div', 'dl-lobby-bar', root);
-  const home = el('a', 'dl-home', bar);
-  home.href = o.homeUrl;
-  home.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/></svg><span>${escapeHtml(o.homeText)}</span>`;
-  el('span', 'dl-version', bar, `v${__DANLI_VERSION__}`);
+export function renderLobby(host: HTMLElement, o: LobbyOpts): Stage {
+  let muted = o.muted;
+  const stage = new Stage(host, 'dl-lobby', (v) => {
+    paintBg(v);
+    const L = v.layer;
+    const bar = el('div', 'bar', L);
+    const home = el('a', 'dl-btn dl-home', bar);
+    home.href = o.homeUrl;
+    home.append(glyphIcon('home', 18));
+    el('span', '', home, o.homeText);
+    el('span', 'sp', bar);
+    el('span', 'ver', bar, `v${__DANLI_VERSION__}`);
+    const how = el('button', 'dl-btn how', bar);
+    how.append(glyphIcon('book', 18));
+    el('span', '', how, '怎么玩');
+    how.addEventListener('click', () => showHow(host));
+    const mute = el('button', 'dl-btn icon dl-mute', bar);
+    const paint = (): void => {
+      mute.replaceChildren(glyphIcon(muted ? 'mute' : 'sound', 22));
+      mute.setAttribute('aria-label', muted ? '打开声音' : '静音');
+      mute.classList.toggle('on', muted);
+    };
+    paint();
+    mute.addEventListener('click', () => {
+      muted = o.onMute();
+      paint();
+    });
 
-  const main = el('div', 'dl-lobby-main', root);
-  const head = el('div', 'dl-lobby-head', main);
-  el('h1', '', head, '弹里个弹');
-  el('p', '', head, '萌宠和厨房道具大乱斗：看风、调角度、按住蓄力，把对手打空血量或轰出画本');
+    const title = el('div', 'title', L);
+    title.innerHTML = titleSvg(v.port ? { w: 340, h: 130, size: 74 } : { w: 400, h: 140, size: 82 });
+    const rib = el('div', 'ribbon', L, '萌宠 × 厨房道具 · 回合制抛物线大乱斗');
+    const acts = el('div', 'acts', L);
+    const start = el('button', 'dl-btn go start', acts);
+    start.innerHTML = '开始游戏<small>进准备房间 · 1v1 到 3v3</small>';
+    start.addEventListener('click', () => o.onRoom());
+    if (o.resume) {
+      const r = o.resume;
+      const b = el('button', 'dl-btn soft resume', acts);
+      b.append(mapThumb(r.map, 58, 34, false));
+      const t = el('div', '', b);
+      t.innerHTML = `<b>接着上一局</b><small>${escapeHtml(MAPS[r.map].name)} · ${r.size}v${r.size}</small>`;
+      el('i', 'pg', b, `第 ${r.round} 轮`);
+      b.addEventListener('click', () => o.onResume());
+    }
+    const tips = el('div', 'tips', acts);
+    for (const t of ['看风', '调角度', '按住蓄力', '轰出画本就赢']) el('span', '', tips, t);
+    const pos = (e: HTMLElement, css: Partial<CSSStyleDeclaration>): void => void Object.assign(e.style, css);
+    if (v.port) {
+      pos(title, { left: '25px', top: '96px' });
+      pos(rib, { left: '62px', top: '262px' });
+      pos(acts, { left: '24px', right: '24px', bottom: '34px' });
+    } else {
+      pos(title, { left: '36px', top: '54px' });
+      pos(rib, { left: '70px', top: '206px' });
+      pos(acts, { right: '24px', top: '74px', width: '268px' });
+      tips.hidden = true;
+    }
+  });
+  return stage;
+}
 
-  const card = el('div', 'dl-map-card', main);
-  const pic = el('div', 'dl-map-pic', card);
-  pic.appendChild(mapThumb());
-  const info = el('div', 'dl-map-info', card);
-  el('b', '', info, KITCHEN.name);
-  el('span', '', info, KITCHEN.line);
-
-  const w = weapon('steamer');
-  const vs = el('div', 'dl-vs', main);
-  const side = (team: 0 | 1, name: string, who: string): void => {
-    const s = el('div', `dl-side t${team}`, vs);
-    s.innerHTML = `${emblemSvg(team)}<div><b>${escapeHtml(name)}</b><small>${escapeHtml(who)} · ${escapeHtml(w.name)}</small></div>`;
-  };
-  side(0, o.myName, `你 · ${LOOK_NAME.shiba}`);
-  el('span', 'dl-vs-mark', vs, 'VS');
-  side(1, o.botName, '电脑');
-
-  const acts = el('div', 'dl-lobby-acts', main);
-  if (o.canResume) el('button', 'dl-btn soft', acts, '接着上一局').addEventListener('click', () => o.onResume());
-  el('button', 'dl-btn go big', acts, '单机开打').addEventListener('click', () => o.onStart());
-
-  const how = el('ul', 'dl-how', main);
-  for (const line of [
-    '拖动角色身边的角度盘调角度（往左拖就朝左）',
-    '按住"发射"蓄力，松手发射；看顶上的风',
-    '每回合 100 点体力：爬和道具共用，用不完就清零',
-    '道具：连发、三岔、加力每回合都能选；纸飞机、锅盖每局 2 次',
-    '画本很薄：炸塌脚下的地，人会掉下去，掉出画本就出局',
-  ])
-    el('li', '', how, line);
-  return root;
+/** "怎么玩"：几句要点 */
+function showHow(host: HTMLElement): void {
+  const mask = el('div', 'dl-mask how', host);
+  const card = el('div', 'dl-card', mask);
+  el('h2', '', card, '怎么玩');
+  const ul = el('ul', 'dl-how', card);
+  for (const line of HOW) el('li', '', ul, line);
+  const row = el('div', 'dl-card-row', card);
+  el('button', 'dl-btn go', row, '知道了').addEventListener('click', () => mask.remove());
+  mask.addEventListener('click', (e) => e.target === mask && mask.remove());
 }

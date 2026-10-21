@@ -9,7 +9,8 @@ import type { WeaponId } from './weapons.ts';
 
 export type Team = 0 | 1;
 export type Dir = 1 | -1;
-export type Look = 'shiba' | 'panda' | 'cat' | 'penguin';
+export type Look = 'shiba' | 'panda' | 'cat' | 'penguin' | 'rabbit' | 'mouse';
+export const LOOKS: readonly Look[] = ['shiba', 'cat', 'panda', 'penguin', 'rabbit', 'mouse'];
 
 export interface Char {
   id: number;
@@ -41,9 +42,14 @@ export interface PlayerSetup {
   ai: boolean;
 }
 
+/**
+ * 开局设置：地图和座位。players 的顺序就是座位顺序（队内按它轮），两队各 1–3 人（rules.ts 的 setupError 检查）。
+ * maxRounds 不写就是 MAX_ROUNDS；界面不让改，留给模拟器比较"打满几轮"用。
+ */
 export interface Setup {
   map: MapId;
   players: readonly PlayerSetup[];
+  maxRounds?: number;
 }
 
 export interface State {
@@ -52,8 +58,12 @@ export interface State {
   setup: Setup;
   terrain: Terrain;
   chars: Char[];
-  /** 第几回合（每个角色出手一次算一回合），从 1 起 */
+  /** 第几次出手（每个角色出手一次加 1），从 1 起；风和电脑的随机流按它取 */
   turn: number;
+  /** 第几轮（所有还活着的角色各出手一次算一轮），从 1 起；打满 MAX_ROUNDS 轮按血量定胜负 */
+  round: number;
+  /** 这一轮已经出过手的角色（chars 的下标） */
+  acted: number[];
   /** 轮到谁（chars 的下标） */
   actor: number;
   /** 这一回合的风：-5..5，正数往右吹 */
@@ -105,7 +115,7 @@ export type Ev =
   | { t: 'push'; id: number; x: number; y: number }
   | { t: 'fall'; id: number; x: number; from: number; to: number; dmg: number }
   | { t: 'out'; id: number; why: OutWhy }
-  | { t: 'turn'; id: number; turn: number; wind: number }
+  | { t: 'turn'; id: number; turn: number; round: number; wind: number }
   | { t: 'over'; winner: Team | null; by: 'wipe' | 'turns' };
 
 export type Step = { ok: true; state: State; events: Ev[] } | { ok: false; error: string };

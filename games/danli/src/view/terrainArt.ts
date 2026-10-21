@@ -4,10 +4,11 @@
  * 每块的画布往外多画 1 个单位，贴的时候互相压住，缩放时也不露细缝。
  * 块是 DOM 里的画布，放在镜头那一层（scene.ts 的 world）里按世界坐标摆好；镜头平移缩放只改那一层的 CSS transform，
  * 由合成器去挪、去缩放，每帧不用再把它们贴一遍（手机降速 4 倍时，每帧贴一整屏位图要 50–60 毫秒，见 README"性能"）。
- * 层次：面团渐变（越往下越深）→ 气孔和发面的层纹 → 炸焦的坑边（材质格的焦标记）→ 朝上的地表一道烤黄的皮 → 深褐墨线。
+ * 每块怎么画在 terrainPaint.ts（美术交付）：按格子的材质码分材质填色、画纹理、焦边、地表皮、材质间细线和外轮廓墨线。
  */
-import { CELL, MAT_MASK, SCORCH, cellAt, type CellBox, type Terrain } from '../core/terrain.ts';
-import { DOUGH, INK } from './palette.ts';
+import { CELL, MAT_MASK, cellAt, type CellBox, type Terrain } from '../core/terrain.ts';
+import { MATERIALS } from './mapArt.ts';
+import { paintTerrainRect } from './terrainPaint.ts';
 
 export const CHUNK = 256;
 const PAD = 1;
@@ -18,13 +19,6 @@ interface Chunk {
   canvas: HTMLCanvasElement | null;
   dirty: boolean;
   empty: boolean;
-}
-
-/** 世界坐标的随机数（只给装饰用，同一处每次画得一样） */
-function hash(x: number, y: number): number {
-  let h = (x * 374761393 + y * 668265263) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 export class TerrainArt {
@@ -129,148 +123,7 @@ export class TerrainArt {
     ctx.clearRect(0, 0, px, px);
     ctx.setTransform(this.scale, 0, 0, this.scale, -x0 * this.scale, -y0 * this.scale);
 
-    const fill = new Path2D();
-    const edge = new Path2D();
-    const crust = new Path2D();
-    const H = CELL / 2;
-    for (let r = r0; r < r1; r++) {
-      let run = -1;
-      for (let c = c0; c <= c1; c++) {
-        const tl = c < c1 ? this.solid(c, r) : 0;
-        const tr = c < c1 ? this.solid(c + 1, r) : 0;
-        const br = c < c1 ? this.solid(c + 1, r + 1) : 0;
-        const bl = c < c1 ? this.solid(c, r + 1) : 0;
-        const k = tl * 8 + tr * 4 + br * 2 + bl;
-        // 整格连成一条横的长方形，路径短一些
-        if (k === 15) {
-          if (run < 0) run = c;
-          continue;
-        }
-        if (run >= 0) {
-          fill.rect(run * CELL + H, r * CELL + H, (c - run) * CELL, CELL);
-          run = -1;
-        }
-        if (k === 0 || c >= c1) continue;
-        const x = c * CELL + H;
-        const y = r * CELL + H;
-        const T: [number, number] = [x + H, y];
-        const R: [number, number] = [x + CELL, y + H];
-        const B: [number, number] = [x + H, y + CELL];
-        const L: [number, number] = [x, y + H];
-        const TL: [number, number] = [x, y];
-        const TR: [number, number] = [x + CELL, y];
-        const BR: [number, number] = [x + CELL, y + CELL];
-        const BL: [number, number] = [x, y + CELL];
-        const polys: [number, number][][] = [];
-        const segs: [[number, number], [number, number]][] = [];
-        switch (k) {
-          case 1: polys.push([L, B, BL]); segs.push([L, B]); break;
-          case 2: polys.push([B, R, BR]); segs.push([B, R]); break;
-          case 3: polys.push([L, R, BR, BL]); segs.push([L, R]); break;
-          case 4: polys.push([T, TR, R]); segs.push([T, R]); break;
-          case 5: polys.push([L, B, BL], [T, TR, R]); segs.push([L, B], [T, R]); break;
-          case 6: polys.push([T, TR, BR, B]); segs.push([T, B]); break;
-          case 7: polys.push([L, T, TR, BR, BL]); segs.push([L, T]); break;
-          case 8: polys.push([TL, T, L]); segs.push([T, L]); break;
-          case 9: polys.push([TL, T, B, BL]); segs.push([T, B]); break;
-          case 10: polys.push([TL, T, L], [B, R, BR]); segs.push([T, L], [B, R]); break;
-          case 11: polys.push([TL, T, R, BR, BL]); segs.push([T, R]); break;
-          case 12: polys.push([TL, TR, R, L]); segs.push([L, R]); break;
-          case 13: polys.push([TL, TR, R, B, BL]); segs.push([R, B]); break;
-          case 14: polys.push([TL, TR, BR, B, L]); segs.push([B, L]); break;
-        }
-        for (const p of polys) {
-          fill.moveTo(p[0]![0], p[0]![1]);
-          for (let i = 1; i < p.length; i++) fill.lineTo(p[i]![0], p[i]![1]);
-          fill.closePath();
-        }
-        for (const [a, b] of segs) {
-          edge.moveTo(a[0], a[1]);
-          edge.lineTo(b[0], b[1]);
-          // 上面是空、下面是地的一段是"地表"：画烤黄的表皮
-          const mx = (a[0] + b[0]) / 2;
-          const my = (a[1] + b[1]) / 2;
-          const up = this.solid(Math.floor(mx / CELL), Math.floor((my - 3) / CELL));
-          const down = this.solid(Math.floor(mx / CELL), Math.floor((my + 3) / CELL));
-          if (!up && down) {
-            crust.moveTo(a[0], a[1]);
-            crust.lineTo(b[0], b[1]);
-          }
-        }
-      }
-    }
-
-    ctx.save();
-    ctx.clip(fill);
-    const g = ctx.createLinearGradient(0, 180, 0, 700);
-    g.addColorStop(0, DOUGH.grad[0]);
-    g.addColorStop(0.55, DOUGH.grad[1]);
-    g.addColorStop(0.84, DOUGH.grad[2]);
-    g.addColorStop(1, DOUGH.grad[3]);
-    ctx.fillStyle = g;
-    ctx.fillRect(x0, y0, size, size);
-    this.texture(ctx, x0, y0, size);
-    // 炸焦的坑边
-    ctx.fillStyle = DOUGH.rim;
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    for (let r = r0; r <= r1; r++) {
-      for (let c = c0; c <= c1; c++) {
-        if (cellAt(this.terrain, c, r) & SCORCH) {
-          ctx.moveTo(c * CELL + H + 3.4, r * CELL + H);
-          ctx.arc(c * CELL + H, r * CELL + H, 3.4, 0, Math.PI * 2);
-        }
-      }
-    }
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = DOUGH.crust;
-    ctx.lineWidth = 12;
-    ctx.stroke(crust);
-    ctx.restore();
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 2.6;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke(edge);
-  }
-
-  /** 气孔和发面的层纹：按世界坐标取随机，块和块接得上 */
-  private texture(ctx: CanvasRenderingContext2D, x0: number, y0: number, size: number): void {
-    const T = 40;
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.26;
-    ctx.beginPath();
-    for (let ty = Math.floor(y0 / T) - 1; ty <= Math.floor((y0 + size) / T) + 1; ty++) {
-      for (let tx = Math.floor(x0 / T) - 1; tx <= Math.floor((x0 + size) / T) + 1; tx++) {
-        const h = hash(tx, ty);
-        if (h > 0.62) continue;
-        const x = tx * T + hash(tx + 7, ty) * T;
-        const y = ty * T + hash(tx, ty + 7) * T;
-        const rx = 2 + hash(tx + 3, ty + 5) * 4;
-        ctx.moveTo(x + rx, y);
-        ctx.ellipse(x, y, rx, rx * 0.6, 0, 0, Math.PI * 2);
-      }
-    }
-    ctx.stroke();
-    // 层纹：越往下越密、越深
-    const P = 240;
-    for (let k = 0; k < 6; k++) {
-      const y = 420 + k * 42 + k * k * 2;
-      if (y < y0 - 10 || y > y0 + size + 10) continue;
-      ctx.globalAlpha = 0.08 + k * 0.025;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      let x = Math.floor(x0 / P) * P;
-      ctx.moveTo(x, y);
-      for (; x < x0 + size; x += 120) {
-        ctx.quadraticCurveTo(x + 60, y + (Math.round(x / 120) % 2 ? 8 : -8), x + 120, y);
-      }
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+    // 多材质的画法（美术的 terrainPaint.ts）：各材质填色和纹理 → 焦边 → 地表皮 → 材质间细线 → 外轮廓墨线
+    paintTerrainRect(ctx, this.terrain, x0, y0, size, size, MATERIALS);
   }
 }

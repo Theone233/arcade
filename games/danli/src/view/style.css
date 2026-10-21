@@ -71,9 +71,8 @@ body {
 .dl-app .dl-wind,
 .dl-app .dl-view,
 .dl-app .dl-teams,
-.dl-app .dl-card,
-.dl-app .dl-map-card,
-.dl-app .dl-side {
+.dl-app .dl-mute,
+.dl-app .dl-card {
   background: #fffaf0;
   border: 2.5px solid #46291a;
   border-radius: 10px;
@@ -248,6 +247,23 @@ body {
 }
 .dl-app .dl-view.on {
   background: #fff3c4;
+}
+
+/* 静音：顶栏、选桌页、准备房间都有一个 */
+.dl-app .dl-mute {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.dl-app .dl-mute svg {
+  width: 22px;
+  height: 22px;
+}
+.dl-app .dl-mute.on {
+  background: #f3e6d6;
 }
 
 .dl-app .dl-teams {
@@ -773,149 +789,87 @@ body {
   justify-content: center;
   flex-wrap: wrap;
 }
-.dl-app .dl-end h2 {
-  margin: 0 0 6px;
-  font-size: 30px;
-  font-weight: 900;
-}
-.dl-app .dl-end.win h2 {
-  color: #e2432a;
-}
-.dl-app .dl-end-why {
-  margin: 0 0 12px;
-  font-weight: 700;
-}
-.dl-app .dl-end-turns {
-  margin: 10px 0 14px;
-  font-size: 13px;
-  color: #8a6a55;
-  font-weight: 700;
-}
-.dl-app .dl-end-teams {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
 
-.dl-app .dl-side {
+/* 我方真人全部出局以后：快进、跳到结果（顶栏下面居中） */
+.dl-app .dl-spect {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px 6px 8px;
-  text-align: left;
+  padding: 5px 6px 5px 12px;
+  background: rgba(255, 250, 240, 0.95);
+  border: 2.5px solid #46291a;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 rgba(70, 41, 26, 0.25);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 3;
 }
-.dl-app .dl-side.t0 {
-  border-left: 8px solid #2f78e0;
-}
-.dl-app .dl-side.t1 {
-  border-left: 8px solid #f5ad00;
-}
-.dl-app .dl-side b {
-  display: block;
-  font-size: 16px;
-}
-.dl-app .dl-side small {
-  display: block;
-  font-size: 12px;
-  color: #8a6a55;
-  font-weight: 700;
-}
-
-/* ---------- 选桌页 ---------- */
-
-.dl-app .dl-lobby {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  background-color: #efe8dc;
-  background-image: linear-gradient(rgba(70, 41, 26, 0.07) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(70, 41, 26, 0.07) 1.5px, transparent 1.5px);
-  background-size: 64px 64px;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.dl-app .dl-lobby-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: max(10px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
-}
-.dl-app .dl-version {
-  font-size: 12px;
-  color: #8a6a55;
-  font-weight: 700;
-}
-.dl-app .dl-lobby-main {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 6px 16px max(20px, env(safe-area-inset-bottom, 0px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: stretch;
-}
-.dl-app .dl-lobby-head {
-  text-align: center;
-}
-.dl-app .dl-lobby-head h1 {
-  margin: 0;
-  font-size: 40px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  color: #e2432a;
-  text-shadow: 2px 3px 0 #46291a;
-  -webkit-text-stroke: 1.5px #46291a;
-}
-.dl-app .dl-lobby-head p {
-  margin: 4px 0 0;
-  font-weight: 700;
+.dl-app .dl-spect .dl-btn {
+  padding: 5px 12px;
   font-size: 14px;
 }
-.dl-app .dl-map-card {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
+.dl-app .dl-spect .dl-fast-btn.on {
+  background: #fff3c4;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-spect {
+  top: 104px;
+}
+
+/* 竖屏顶栏两行：第一行大厅、谁的回合、小静音；第二行风（不要叶子）、两队血量、全图（只有图标） */
+.dl-app .dl-hud[data-orient='port'] .dl-home {
+  order: 0;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-turn {
+  order: 1;
+  flex: 1 0 calc(100% - 150px);
+  min-width: 0;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-mute {
+  order: 2;
+  width: 32px;
+  height: 32px;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-mute svg {
+  width: 18px;
+  height: 18px;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-wind {
+  order: 3;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-wind .dl-leaves {
+  display: none;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-teams {
+  order: 4;
+  margin-left: auto;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-view {
+  order: 5;
+  margin-left: 0;
+  padding: 0 8px;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-view span {
+  display: none;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-wind {
+  padding: 0 7px;
+  gap: 3px;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-sock {
+  width: 28px;
+}
+.dl-app .dl-hud[data-orient='port'] .dl-teams {
+  padding: 0 6px;
   gap: 6px;
 }
-.dl-app .dl-map-pic canvas {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3000 / 780;
-  border-radius: 6px;
-  border: 2px solid #46291a;
-  box-sizing: border-box;
+.dl-app .dl-hud[data-orient='port'] .dl-team {
+  gap: 3px;
 }
-.dl-app .dl-map-info b {
-  font-size: 18px;
-  margin-right: 8px;
-}
-.dl-app .dl-map-info span {
-  font-size: 13px;
-  font-weight: 700;
-  color: #8a6a55;
-}
-.dl-app .dl-vs {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-.dl-app .dl-vs-mark {
-  font-weight: 900;
-  font-size: 22px;
-  color: #e2432a;
-}
-.dl-app .dl-lobby-acts {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.dl-app .dl-how {
-  margin: 0;
-  padding: 10px 14px 10px 30px;
-  background: rgba(255, 250, 240, 0.7);
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.7;
+.dl-app .dl-hud[data-orient='port'] .dl-team-track {
+  width: 26px;
 }

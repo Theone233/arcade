@@ -11,13 +11,17 @@
  */
 import { BODY_CY } from '../core/physics.ts';
 import { MAX_HP } from '../core/rules.ts';
-import { carve, cloneTerrain } from '../core/terrain.ts';
+import { carve, CELL, cloneTerrain, MAT_MASK } from '../core/terrain.ts';
 import type { MapDef } from '../core/maps.ts';
 import type { Char, Dir, Ev, Look, State, Team } from '../core/types.ts';
+import type { WeaponId } from '../core/weapons.ts';
 import { Backdrop } from './backdrop.ts';
+import { MAP_ART, MATERIALS } from './mapArt.ts';
+import { crumbColor, materialAt } from './terrainPaint.ts';
 import { arrow, drawChar, edgeTag, glow, nameTag, pin, type Expr, type Tag } from './chars.ts';
 import { FONT, INK, METER, PAPER, RED } from './palette.ts';
 import { TerrainArt } from './terrainArt.ts';
+import { drawShell } from './weaponArt.ts';
 import { renderRatio, type Size } from './viewport.ts';
 
 export const ZOOM_MIN = 0.28;
@@ -30,6 +34,7 @@ interface Disp {
   name: string;
   team: Team;
   look: Look;
+  weapon: WeaponId;
   x: number;
   y: number;
   hp: number;
@@ -68,6 +73,7 @@ interface Puff {
   dy: number;
 }
 interface Crumb {
+  color: string;
   x: number;
   y: number;
   vx: number;
@@ -113,6 +119,8 @@ export class Scene {
   aimEnabled = false;
   /** 飞在天上的炮弹（三岔是三颗）；plane 是纸飞机，vx、vy 用来摆纸飞机的朝向 */
   private bullets: { x: number; y: number; vx: number; vy: number; trail: number[]; plane: boolean }[] = [];
+  /** 这一发是哪把武器的（炮弹长什么样） */
+  private shell: WeaponId = 'steamer';
   private puffs: Puff[] = [];
   private crumbs: Crumb[] = [];
   private floaters: Floater[] = [];
@@ -145,7 +153,7 @@ export class Scene {
     this.clip.appendChild(this.world);
     host.prepend(this.clip);
     this.ctx = this.canvas.getContext('2d')!;
-    this.back = new Backdrop(map.width, map.height);
+    this.back = new Backdrop(map.width, map.height, MAP_ART[map.id].theme);
     this.back.mount(this.world);
     this.art = new TerrainArt(cloneTerrain(state.terrain), renderRatio(), this.world);
     this.art.flush();
@@ -179,7 +187,10 @@ export class Scene {
   sync(s: State, terrain = false): void {
     this.chars = s.chars.map((c) => this.disp(c, this.chars.find((d) => d.id === c.id)));
     this.actor = s.phase === 'play' ? s.actor : -1;
-    if (terrain) this.art.setTerrain(cloneTerrain(s.terrain));
+    if (terrain) {
+      this.art.setTerrain(cloneTerrain(s.terrain));
+      this.terrainVer++;
+    }
   }
 
   private disp(c: Char, old?: Disp): Disp {
@@ -188,6 +199,7 @@ export class Scene {
       name: c.name,
       team: c.team,
       look: c.look,
+      weapon: c.weapon,
       x: c.x,
       y: c.y,
       hp: c.hp,
@@ -286,8 +298,38 @@ export class Scene {
     if (!a) return;
     const z = 1;
     const facing = this.aim?.facing ?? a.facing;
-    this.goal = { x: a.x + (facing * this.W * 0.14) / z, y: a.y - 30, z };
+    const x = a.x + (facing * this.W * 0.14) / z;
+    // 镜头里有比人高的地（夜市的雨棚、冰淇淋塔、浮岛）或站在高处的人，就把镜头往上挪，让它从顶栏下面露出来；人还得留在画面里（脚底离底栏至少 60）
+    const half = this.viewH() / 2 / z;
+    const x0 = x - this.W / 2 / z;
+    const x1 = x + this.W / 2 / z;
+    // 站在高处的人连名牌也要露出来（名牌顶在脚底往上约 76）
+    let top = this.terrainTop(x0, x1);
+    for (const c of this.chars) if (!c.out && c.x >= x0 && c.x <= x1) top = Math.min(top, c.y - 76);
+    const y = Math.max(a.y + 60 - half, Math.min(a.y - 30, top - 24 + half));
+    this.goal = { x, y, z };
     this.clampTo(this.goal);
+  }
+
+  /** 世界 x0..x1 这一段里最高的地面（世界 y）；地形变了才重算 */
+  private topCache = { key: '', y: 0 };
+  private terrainTop(x0: number, x1: number): number {
+    const t = this.art.grid;
+    const c0 = Math.max(0, Math.floor(x0 / 8) * 2);
+    const c1 = Math.min(t.cols - 1, Math.ceil(x1 / 8) * 2);
+    const key = `${c0}:${c1}:${this.terrainVer}`;
+    if (this.topCache.key === key) return this.topCache.y;
+    let best = t.rows;
+    for (let c = c0; c <= c1; c += 2) {
+      for (let r = 0; r < best; r++) {
+        if (t.cells[r * t.cols + c]! & MAT_MASK) {
+          best = r;
+          break;
+        }
+      }
+    }
+    this.topCache = { key, y: best * CELL };
+    return best * CELL;
   }
 
   /** 跟住某一点（掉落演出用） */
@@ -450,6 +492,7 @@ export class Scene {
           break;
         case 'fire':
           this.char(e.id).facing = e.facing;
+          this.shell = this.char(e.id).weapon;
           this.aim = null;
           break;
         case 'shot':
@@ -558,7 +601,14 @@ export class Scene {
     d.alpha = 1;
   }
 
+  /** 地形副本改过几次（镜头算"最高的地"时用来作废缓存） */
+  private terrainVer = 0;
+
   private boom(x: number, y: number, r: number): void {
+    this.terrainVer++;
+    // 碎屑的颜色照炸到的材质（炸之前在爆心附近找一格地）
+    let mat = null;
+    for (const [dx, dy] of [[0, 0], [0, r / 2], [-r / 2, 0], [r / 2, 0], [0, -r / 2]] as const) mat ??= materialAt(this.art.grid, x + dx, y + dy, MATERIALS);
     const box = carve(this.art.grid, x, y, r);
     this.art.touch(box);
     this.puff(x, y, r);
@@ -566,7 +616,8 @@ export class Scene {
     for (let i = 0; i < 14; i++) {
       const a = Math.random() * Math.PI * 2;
       const v = 80 + Math.random() * 160;
-      this.crumbs.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 140, rot: Math.random() * 6, t0: now, dur: (700 + Math.random() * 300) / this.speed });
+      const color = mat ? crumbColor(mat, i) : '#eba650';
+      this.crumbs.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 140, rot: Math.random() * 6, t0: now, dur: (700 + Math.random() * 300) / this.speed, color });
     }
     this.shake = 1;
   }
@@ -671,7 +722,7 @@ export class Scene {
         ctx.restore();
       }
     }
-    // 炮弹：一只包子，后面拖一串小点
+    // 炮弹（每把武器一个样子，view/weaponArt.ts），后面拖一串小点
     for (const b of this.bullets) {
       ctx.fillStyle = 'rgba(70,41,26,0.35)';
       for (let i = 0; i < b.trail.length; i += 2) {
@@ -680,7 +731,7 @@ export class Scene {
         ctx.fill();
       }
       if (b.plane) paperPlane(ctx, b.x, b.y, Math.atan2(b.vy, b.vx), Math.max(1, 0.8 / z));
-      else bun(ctx, b.x, b.y, Math.max(1, 0.8 / z));
+      else drawShell(ctx, this.shell, b.x, b.y, Math.max(1, 0.8 / z), b.vx, b.vy, now);
     }
     // 面粉团和碎屑
     for (const p of this.puffs.slice()) {
@@ -713,7 +764,7 @@ export class Scene {
       ctx.translate(x, y);
       ctx.rotate(c.rot + s * 8);
       ctx.globalAlpha = 1 - t;
-      ctx.fillStyle = '#eba650';
+      ctx.fillStyle = c.color;
       ctx.strokeStyle = INK;
       ctx.lineWidth = 1.2;
       ctx.fillRect(-3.5, -3, 7, 6);
@@ -858,31 +909,36 @@ export class Scene {
   /** 画面外的角色：贴着屏幕边、朝它那一侧，尖角指向它；上下让开顶栏和底栏，两张撞上就顺着边挪开 */
   private drawEdgeTags(ctx: CanvasRenderingContext2D, list: Disp[]): void {
     const viewer = this.chars.find((c) => c.id === this.viewer && !c.out);
-    const placed: { x: number; y: number }[] = [];
     const top = this.insetTop + 26;
     const bottom = this.H - this.insetBottom - 26;
-    for (const d of list) {
+    const tags = list.map((d) => {
       const [sx, sy] = this.toScreen(d.x, d.y - 20);
-      let x = Math.min(this.W - 58, Math.max(58, sx));
-      let y = Math.min(bottom, Math.max(top, sy));
-      let dirX = 0;
-      let dirY = 0;
-      if (sx < 0) dirX = -1;
-      else if (sx > this.W) dirX = 1;
-      else if (sy < top) dirY = -1;
-      else dirY = 1;
-      for (const p of placed) {
-        if (Math.abs(p.x - x) < 96 && Math.abs(p.y - y) < 38) {
-          if (dirX) y = p.y + (y >= p.y ? 40 : -40);
-          else x = p.x + (x >= p.x ? 98 : -98);
-        }
+      const dirX = sx < 0 ? -1 : sx > this.W ? 1 : 0;
+      const dirY = dirX ? 0 : sy < top ? -1 : 1;
+      return { d, x: Math.min(this.W - 58, Math.max(58, sx)), y: Math.min(bottom, Math.max(top, sy)), dirX, dirY };
+    });
+    // 同一条边上的小牌按位置排好、挨个往后让（3v3 时一边能有五张），挤不下就在两栏之间压紧，不压到顶栏、底栏上
+    const spread = (group: typeof tags, key: 'x' | 'y', gap: number, lo: number, hi: number): void => {
+      group.sort((a, b) => a[key] - b[key]);
+      for (let k = 1; k < group.length; k++) group[k]![key] = Math.max(group[k]![key], group[k - 1]![key] + gap);
+      const over = group.length ? group[group.length - 1]![key] - hi : 0;
+      if (over > 0) for (const t of group) t[key] -= over;
+      if (group.length && group[0]![key] < lo) {
+        const step = group.length > 1 ? Math.max(0, (hi - lo) / (group.length - 1)) : 0;
+        group.forEach((t, k) => (t[key] = lo + k * Math.min(gap, step)));
       }
-      placed.push({ x, y });
+    };
+    for (const side of [-1, 1]) {
+      spread(tags.filter((t) => t.dirX === side), 'y', 40, top, bottom);
+      spread(tags.filter((t) => t.dirY === side), 'x', 98, 58, this.W - 58);
+    }
+    for (const { d, x, y, dirX, dirY } of tags) {
       const from = d === viewer ? this.chars.find((c) => c.id === this.actor) : viewer;
       const m = from && from !== d ? Math.max(1, Math.round(Math.hypot(d.x - from.x, d.y - from.y) / METER)) : null;
       edgeTag(ctx, this.tagOf(d), x, y, dirX, dirY, m);
     }
   }
+
 
   /** 炮弹正在飞（截图用） */
   get flying(): boolean {
@@ -930,29 +986,4 @@ function paperPlane(ctx: CanvasRenderingContext2D, x: number, y: number, a: numb
   ctx.restore();
 }
 
-/** 包子（炮弹）：白面团、顶上一圈褶 */
-function bun(ctx: CanvasRenderingContext2D, x: number, y: number, k: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(k, k);
-  ctx.fillStyle = '#fffaf0';
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(0, 1, 9, 7.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  for (const a of [-0.9, -0.3, 0.3, 0.9]) {
-    ctx.moveTo(0, -5);
-    ctx.lineTo(Math.sin(a) * 7, -5 + Math.cos(a) * 5);
-  }
-  ctx.stroke();
-  ctx.fillStyle = '#f2c27c';
-  ctx.beginPath();
-  ctx.arc(0, -5.5, 1.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
 
