@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { plan, planActions } from '../src/ai/index.ts';
+import { favoriteWeapon, PERSONAS } from '../src/ai/personas.ts';
 import { apply, MAX_HP, newGame } from '../src/core/rules.ts';
-import type { State } from '../src/core/types.ts';
-import { weapon } from '../src/core/weapons.ts';
-import { flat, KEY, SETUP, slab } from './helpers.ts';
+import { LOOKS, type State } from '../src/core/types.ts';
+import { isWeaponId, weapon, WEAPON_IDS } from '../src/core/weapons.ts';
+import { flat, KEY, SETUP, slab, vs } from './helpers.ts';
 
 const bots = { ...SETUP, players: SETUP.players.map((p) => ({ ...p, ai: true })) };
 
@@ -114,4 +115,83 @@ describe('电脑', () => {
     }
     expect(worst).toBeLessThan(300);
   });
+
+  it('3v3 想一手也不超过 300 毫秒', () => {
+    let worst = 0;
+    for (let k = 0; k < 4; k++) {
+      const st = newGame([k, 6, 6, 6, 6, 6, 6, 6], vs(3));
+      const t0 = performance.now();
+      plan(st);
+      worst = Math.max(worst, performance.now() - t0);
+    }
+    expect(worst).toBeLessThan(300);
+  });
+
+  it('每把武器的电脑都打得出合法的一发（角度在它的范围里）', () => {
+    for (const id of WEAPON_IDS) {
+      const s = newGame([3, 3, 3, 3, 3, 3, 3, 3], bots);
+      for (const c of s.chars) c.weapon = id;
+      const p = plan(s);
+      expect(p.angle).toBeGreaterThanOrEqual(weapon(id).minAngle);
+      expect(p.angle).toBeLessThanOrEqual(weapon(id).maxAngle);
+      runAll(s);
+    }
+  });
 });
+
+describe('电脑当队友', () => {
+  /** 2v2 平地：0 号（电脑，蓝队）在 x0，队友 2 号在 xm，对手 1、3 号在 x1、x3 */
+  function team(x0: number, xm: number, x1: number, x3: number, wind: number): State {
+    const s = flat([x0, x1], { wind });
+    s.setup = vs(2);
+    s.chars.push({ ...s.chars[0]!, id: 2, name: '队友', x: xm }, { ...s.chars[1]!, id: 3, name: '对手2', x: x3 });
+    s.chars[0]!.ai = true;
+    s.chars[1]!.team = 1;
+    s.chars[3]!.team = 1;
+    s.chars[2]!.team = 0;
+    for (const c of s.chars) c.hp = MAX_HP;
+    return s;
+  }
+
+  it('不打自己人：队友站在中间，各种风下都不伤到他', () => {
+    for (const wind of [-4, -1, 0, 2, 5]) {
+      const s = team(800, 1150, 1500, 1700, wind);
+      const after = runAll(s);
+      expect(after.chars[2]!.hp, `风 ${wind}`).toBe(MAX_HP);
+      expect(after.chars[2]!.out).toBe(false);
+    }
+  });
+
+  it('队友贴着对手站：宁可不炸那一片，也不连队友一起炸', () => {
+    for (const wind of [-2, 0, 3]) {
+      const s = team(800, 1480, 1520, 2400, wind);
+      const after = runAll(s);
+      expect(after.chars[2]!.hp, `风 ${wind}`).toBe(MAX_HP);
+    }
+  });
+
+  it('只朝对手那边打：对手都在左边就朝左', () => {
+    const s = team(1500, 1900, 900, 700, 0);
+    expect(plan(s).facing).toBe(-1);
+  });
+});
+
+describe('电脑人物', () => {
+  it('6 位，名字、外观不重复；偏好的武器都认得，第一把是默认', () => {
+    expect(PERSONAS).toHaveLength(6);
+    expect(new Set(PERSONAS.map((p) => p.name)).size).toBe(6);
+    expect(new Set(PERSONAS.map((p) => p.id)).size).toBe(6);
+    expect(new Set(PERSONAS.map((p) => p.look)).size).toBe(6);
+    expect(PERSONAS.map((p) => p.name)).toEqual(['橘子', '团团', '企企', '柴柴', '兔兔', '鼠鼠']);
+    for (const p of PERSONAS) {
+      expect(LOOKS).toContain(p.look);
+      for (const w of p.weapons) expect(isWeaponId(w)).toBe(true);
+      expect(favoriteWeapon(p)).toBe(p.weapons[0]);
+    }
+  });
+
+  it('性格不一样，默认挑的武器也不全一样', () => {
+    expect(new Set(PERSONAS.map(favoriteWeapon)).size).toBeGreaterThanOrEqual(5);
+  });
+});
+

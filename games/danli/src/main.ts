@@ -1,24 +1,32 @@
 /**
- * 页面入口：选桌页 → 对局 → 结算。规则在 src/core，电脑在 src/ai，单机存档在 solo.ts，画面在 src/view；这里只把它们连起来。
+ * 页面入口：选桌页 → 准备房间 → 对局 → 结算（再来一局、回房间、大厅）。规则在 src/core，电脑在 src/ai，单机存档在 solo.ts，
+ * 房间设置和 danli.prefs 在 room.ts，画面在 src/view，音效在 view/sound.ts；这里只把它们连起来。
  * 回大厅（AGENTS.md 第 2 节第 6 条）：左上角常驻"大厅"，指向平台首页 /；对局中离开先确认一次（单机存着下次接着打）。
- * 独立部署（kit 的 detectPlatform 说没有平台）时"大厅"改成回游戏首页。M1 没有接平台的云存档。
+ * 独立部署（kit 的 detectPlatform 说没有平台）时"大厅"改成回游戏首页。还没有接平台的云存档。
  */
 import { detectPlatform } from 'arcade-kit/client';
 import { reportErrors } from 'arcade-kit/report';
-import { PERSONAS } from './ai/personas.ts';
-import { plan, type Plan } from './ai/index.ts';
+import { plan, planActions, type Plan } from './ai/index.ts';
 import { BOOST_COST, FORK_SPREAD as FORK, loadoutCost, MODES, PLAIN, SPECIALS, type Boost, type Loadout, type ShotMode } from './core/items.ts';
-import { apply, loadoutBlocked, MAX_HP, MAX_TURNS, mapOf, stepTarget, teamHp } from './core/rules.ts';
-import type { Action, Dir, Ev, State, Team } from './core/types.ts';
+import { MAP_IDS, type MapId } from './core/maps.ts';
+import { apply, loadoutBlocked, MAX_HP, mapOf, roundLimit, stepTarget } from './core/rules.ts';
+import type { Action, Dir, Ev, Setup, Team } from './core/types.ts';
 import { weapon } from './core/weapons.ts';
-import { clearSolo, hasSolo, Solo } from './solo.ts';
-import { confirmBox, el } from './view/dom.ts';
-import { CHARGE_MS, emblemSvg, escapeHtml, Hud, type ItemKey, type ItemView } from './view/hud.ts';
+import { loadPrefs, roomSetup, savePrefs, type RoomConfig } from './room.ts';
+import { clearSolo, peekSolo, Solo } from './solo.ts';
+import { computeStats } from './stats.ts';
+import { confirmBox } from './view/dom.ts';
+import { CHARGE_MS, Hud, type ItemKey, type ItemView } from './view/hud.ts';
 import { renderLobby } from './view/lobby.ts';
 import { TEAM_NAME } from './view/palette.ts';
+import { renderResult } from './view/result.ts';
+import { renderRoom } from './view/room.ts';
 import { Scene } from './view/scene.ts';
+import type { Stage } from './view/stage.ts';
+import { sound } from './view/sound.ts';
 import { watchViewport, type Size } from './view/viewport.ts';
 import './view/style.css';
+import './view/pages.css';
 
 // 页面里没人接住的报错发给平台（kit 0.22，docs/platform-backend.md 第 16 节）：只带报错、调用栈、路径、游戏和版本；
 // 单独部署没有平台时发不出去，吞掉，不影响玩
@@ -54,36 +62,127 @@ async function loadMe(): Promise<void> {
   if (name) myName = name;
 }
 
+/** localStorage 拿不到（隐私模式、被禁）时当没有 */
+function store(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+// 设置（danli.prefs）：静音和准备房间上次的选择
+const prefs = loadPrefs(store());
+sound.muted = prefs.muted;
+sound.install();
+
+function toggleMute(): boolean {
+  prefs.muted = !prefs.muted;
+  sound.setMuted(prefs.muted);
+  savePrefs(store(), prefs);
+  return prefs.muted;
+}
+
+// 按钮的"咔哒"（道具、发射、爬有自己的声音）
+app.addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement).closest('button, a.dl-home');
+  if (b && !b.matches('.dl-item, .dl-fire, .dl-climb-btn')) sound.play('button');
+});
+
+/** "随机"地图：页面里抽（规则核心不管），抽到的写进开局设置，存档里就是定下来的那张 */
+function pickMap(ids: readonly MapId[]): MapId {
+  return ids[Math.floor(Math.random() * ids.length)]!;
+}
+
 let size: Size = { w: 0, h: 0, port: false };
 let game: Game | null = null;
+/** 选桌页、准备房间、结算（同一时间只有一页，或者一局） */
+let page: Stage | null = null;
 const viewport = watchViewport(app, (s) => {
   size = s;
   game?.resize(s);
+  page?.resize(s);
 });
+
+/** 换一页：收掉现在的对局和页面 */
+function clear(): void {
+  game?.destroy();
+  game = null;
+  page?.destroy();
+  page = null;
+  app.replaceChildren();
+}
+
+function show(p: Stage): void {
+  page = p;
+  p.resize(viewport().w ? viewport() : size);
+}
 
 // ---------- 选桌页 ----------
 
 function lobby(): void {
-  game?.destroy();
-  game = null;
-  app.replaceChildren();
-  renderLobby(app, {
-    myName,
-    botName: PERSONAS[0]!.name,
+  clear();
+  show(renderLobby(app, {
     homeText,
     homeUrl,
-    canResume: hasSolo(),
-    onStart: () => start(Solo.fresh(myName)),
+    resume: peekSolo(),
+    muted: prefs.muted,
+    onRoom: () => room(),
     onResume: () => {
       const s = Solo.load();
       if (s) start(s);
       else lobby();
     },
-  });
+    onMute: toggleMute,
+  }));
+}
+
+// ---------- 准备房间 ----------
+
+function room(): void {
+  clear();
+  show(renderRoom(app, {
+    myName,
+    homeText,
+    homeUrl,
+    cfg: prefs.room,
+    muted: prefs.muted,
+    onChange: (cfg: RoomConfig) => {
+      prefs.room = cfg;
+      savePrefs(store(), prefs);
+    },
+    onMute: toggleMute,
+    onStart: (cfg: RoomConfig) => {
+      prefs.room = cfg;
+      savePrefs(store(), prefs);
+      clearSolo();
+      start(Solo.fresh(roomSetup(cfg, myName, pickMap)));
+    },
+  }));
+}
+
+// ---------- 结算 ----------
+
+function result(solo: Solo): void {
+  const save = solo.save;
+  clear();
+  show(renderResult(app, {
+    stats: computeStats(save.key, save.setup, save.log),
+    homeText,
+    homeUrl,
+    onAgain: () => start(Solo.fresh(again(save.setup))),
+    onRoom: () => room(),
+    onHome: goHome,
+  }));
+}
+
+/** "再来一局"：同样的座位和武器；房间里选的是"随机"地图就再抽一张 */
+function again(setup: Setup): Setup {
+  return prefs.room.map === 'random' ? { ...setup, map: pickMap(MAP_IDS) } : setup;
 }
 
 function start(solo: Solo): void {
-  app.replaceChildren();
+  clear();
   game = new Game(solo);
 }
 
@@ -105,6 +204,10 @@ class Game {
   private hp = new Map<number, number>();
   private out = new Set<number>();
   private alive = true;
+  private finished = false;
+  /** 快进（动画 ×4）、正在跳到结果 */
+  private fast = false;
+  private skipping = false;
   private keyHandler: (e: KeyboardEvent) => void;
   private keyUp: (e: KeyboardEvent) => void;
 
@@ -120,7 +223,12 @@ class Game {
       view: () => {
         this.scene.toggleOverview();
       },
+      mute: () => this.hud.setMuted(toggleMute()),
+      fast: () => this.toggleFast(),
+      skip: () => void this.skip(),
+      charge: (p) => sound.charge(p),
     });
+    this.hud.setMuted(prefs.muted);
     this.scene = new Scene(app, mapOf(s), s);
     this.scene.speed = SPEED;
     this.scene.viewer = s.chars.find((c) => !c.ai)?.id ?? -1;
@@ -133,8 +241,6 @@ class Game {
       e.preventDefault();
       void confirmBox(app, `这一局还没打完，存着下次接着打。现在回${homeText}吗？`, `回${homeText}`, '接着打').then((ok) => ok && goHome());
     });
-    const w = weapon(s.chars.find((c) => !c.ai)?.weapon ?? 'steamer');
-    this.hud.setWeapon(w.name, w.minAngle, w.maxAngle);
     for (const c of s.chars) {
       this.hp.set(c.id, c.hp);
       if (c.out) this.out.add(c.id);
@@ -170,6 +276,7 @@ class Game {
     this.alive = false;
     window.removeEventListener('keydown', this.keyHandler);
     window.removeEventListener('keyup', this.keyUp);
+    sound.charge(null);
     this.scene.destroy();
   }
 
@@ -196,19 +303,33 @@ class Game {
   private paintTurn(): void {
     const s = this.solo.state;
     const a = s.chars[s.actor]!;
-    this.hud.setTurn(a.name, a.team, s.turn, MAX_TURNS, !a.ai);
+    const w = weapon(a.weapon);
+    this.hud.setTurn(a.name, a.team, s.round, roundLimit(s.setup), !a.ai);
+    this.hud.setWeapon(w.id, w.name, w.minAngle, w.maxAngle);
     this.hud.setWind(s.wind);
     this.hud.lastPower = a.power;
     this.hud.setPower(a.power ?? 0, a.power);
   }
 
+  /** 事件放到时：HUD 跟着变，配上音效 */
   private onEvent = (e: Ev): void => {
     const s = this.solo.state;
+    if (e.t === 'move') sound.play('crawl');
+    else if (e.t === 'shot') sound.play(e.plane ? 'plane' : 'shot');
+    else if (e.t === 'boom') sound.play('boom', e.r);
+    else if (e.t === 'warp') sound.play('warp');
+    else if (e.t === 'turn' && !s.chars[e.id]!.ai) sound.play('turn');
+    else if (e.t === 'over') {
+      const me = s.chars.find((c) => !c.ai);
+      sound.play(e.winner === null ? 'draw' : me && e.winner === me.team ? 'win' : 'lose');
+    }
     if (e.t === 'hurt') {
+      sound.play('hit');
       this.hp.set(e.id, e.hp);
       this.paintTeams();
     } else if (e.t === 'fall' && e.to > mapOf(s).height) {
       // 往画本外掉：一开始掉就贴纸签（DESIGN.md 第 4 节"翻着跟头掉进雾里，纸签写'掉出画本啦！'"）
+      sound.play('fall');
       this.banner(e.id, '掉出画本啦！');
     } else if (e.t === 'out') {
       this.out.add(e.id);
@@ -229,11 +350,22 @@ class Game {
   }
 
   /** 一回合开始：真人就放开底栏和角度盘，电脑就想好了按顺序做 */
+  /** 动画的速度：冒烟 ×8、快进 ×4 */
+  private get k(): number {
+    return SPEED * (this.fast ? 4 : 1);
+  }
+
+  /** 页面关了，或者已经在跳到结果：放到一半的回合就此打住 */
+  private stopped(): boolean {
+    return !this.alive || this.skipping;
+  }
+
   private async turn(): Promise<void> {
-    if (!this.alive) return;
+    if (this.stopped()) return;
     const s = this.solo.state;
     this.scene.sync(s);
     if (s.phase === 'over') return this.result();
+    this.hud.setSpectate(this.spectating() ? { fast: this.fast } : null);
     this.paintTurn();
     const a = s.chars[s.actor]!;
     const w = weapon(a.weapon);
@@ -254,13 +386,14 @@ class Game {
     this.hud.setEnabled(false);
     this.hud.think(`${a.name}在想…`);
     await this.scene.wait(500);
+    if (this.stopped()) return;
     const p = plan(s);
     this.hud.think(null);
-    if (!this.alive) return;
     for (const dir of p.moves) {
       const r = this.solo.apply({ t: 'move', dir });
       if (!r.ok) break;
       await this.scene.play(r.events, this.onEvent);
+      if (this.stopped()) return;
       this.paintItems();
     }
     // 亮出电脑选的道具，再转角度盘、蓄力：放给人看，电脑也是这么打的
@@ -272,14 +405,19 @@ class Game {
     const steps = 12;
     for (let i = 1; i <= steps; i++) {
       await this.scene.wait(30);
+      if (this.stopped()) return;
       this.scene.aim = { ...this.scene.aim, angle: Math.round(from + ((p.angle - from) * i) / steps) };
     }
     const t0 = performance.now();
-    const dur = ((p.power / 100) * CHARGE_MS) / SPEED;
+    const dur = ((p.power / 100) * CHARGE_MS) / this.k;
     while (performance.now() - t0 < dur) {
-      await this.scene.wait(16 * SPEED);
-      this.hud.setPower(Math.min(p.power, (p.power * (performance.now() - t0)) / dur), a.power);
+      await this.scene.wait(16 * this.k);
+      if (this.stopped()) return sound.charge(null);
+      const now = Math.min(p.power, (p.power * (performance.now() - t0)) / dur);
+      this.hud.setPower(now, a.power);
+      sound.charge(now);
     }
+    sound.charge(null);
     this.hud.setPower(p.power, a.power);
     await this.act({ t: 'fire', angle: p.angle, power: p.power, facing: p.facing, ...p.loadout });
   }
@@ -293,7 +431,7 @@ class Game {
     this.scene.aimEnabled = false;
     await this.scene.play(r.events, this.onEvent);
     this.busy = false;
-    void this.turn();
+    if (!this.stopped()) void this.turn();
   }
 
   // ---------- 真人的操作 ----------
@@ -325,6 +463,7 @@ class Game {
     const next = toggled(this.loadout, key);
     const s = this.solo.state;
     if (loadoutBlocked(s, s.chars[s.actor]!, next)) return;
+    sound.play('item');
     this.loadout = next;
     if (this.scene.aim) this.scene.aim = { ...this.scene.aim, spread: next.mode === 'fork' ? FORK : 0 };
     this.paintItems();
@@ -394,44 +533,50 @@ class Game {
 
   // ---------- 结算 ----------
 
-  private result(): void {
+  /** 打完了：顶栏写"打完了"，等胜负的音效和最后一下动画放完，换到结算页 */
+  private async result(): Promise<void> {
+    if (this.finished) return;
+    this.finished = true;
     this.hud.setEnabled(false);
     this.hud.banner(null);
+    this.hud.setSpectate(null);
     this.scene.aim = null;
-    const s: State = this.solo.state;
-    this.hud.setOver(s.turn);
-    const me = s.chars.find((c) => !c.ai)!;
-    const win = s.winner === me.team;
-    const title = s.winner === null ? '平局' : win ? '你赢了！' : '这局输了';
-    const foe = s.chars.find((c) => c.team !== me.team)!;
-    const why =
-      s.endBy === 'turns'
-        ? `打满 ${MAX_TURNS} 回合，按血量定：${TEAM_NAME[0]} ${teamHp(s, 0)} 比 ${TEAM_NAME[1]} ${teamHp(s, 1)}`
-        : win
-          ? foe.hp <= 0
-            ? `${foe.name}血量掉光了`
-            : `把${foe.name}轰出了画本`
-          : me.hp <= 0
-            ? '你的血量掉光了'
-            : '你掉出了画本';
-    const mask = el('div', 'dl-mask end', app);
-    const card = el('div', `dl-card dl-end ${win ? 'win' : s.winner === null ? 'draw' : 'lose'}`, mask);
-    el('h2', '', card, title);
-    el('p', 'dl-end-why', card, why);
-    const row = el('div', 'dl-end-teams', card);
-    for (const t of [0, 1] as const) {
-      const c = s.chars.find((x) => x.team === t)!;
-      row.insertAdjacentHTML('beforeend', `<div class="dl-side t${t}">${emblemSvg(t)}<div><b>${escapeHtml(c.name)}</b><small>${c.out ? '出局' : `血量 ${c.hp}`}</small></div></div>`);
-    }
-    el('p', 'dl-end-turns', card, `打了 ${s.turn} 回合`);
-    const acts = el('div', 'dl-card-row', card);
-    el('button', 'dl-btn soft end-home', acts, homeText).addEventListener('click', goHome);
-    el('button', 'dl-btn soft', acts, '回选桌').addEventListener('click', () => lobby());
-    el('button', 'dl-btn go', acts, '再来一局').addEventListener('click', () => {
-      clearSolo();
-      start(Solo.fresh(myName));
-    });
+    this.hud.setOver(this.solo.state.round);
+    await new Promise((r) => window.setTimeout(r, 900 / this.k));
+    if (this.alive) result(this.solo);
   }
+
+  // ---------- 我方真人全部出局以后：快进、跳到结果 ----------
+
+  /** 我这边的真人都出局了吗（只剩电脑在打，看着就行） */
+  private spectating(): boolean {
+    const humans = this.solo.state.chars.filter((c) => !c.ai);
+    return humans.length > 0 && humans.every((c) => c.out);
+  }
+
+  private toggleFast(): void {
+    this.fast = !this.fast;
+    this.scene.speed = this.k;
+    this.hud.setSpectate({ fast: this.fast });
+  }
+
+  /** 跳到结果：剩下的回合不放动画，电脑一手一手直接算完（每几手让一下，页面不卡死），然后换到结算页 */
+  private async skip(): Promise<void> {
+    if (this.skipping || this.solo.state.phase !== 'play') return;
+    this.skipping = true;
+    this.hud.setSpectate(null);
+    sound.charge(null);
+    let n = 0;
+    while (this.alive && this.solo.state.phase === 'play') {
+      for (const a of planActions(plan(this.solo.state))) if (!this.solo.apply(a).ok) break;
+      if (++n % 2 === 0) {
+        this.hud.think(`正在算结果… 第 ${this.solo.state.round} 轮`);
+        await new Promise((r) => window.setTimeout(r, 0));
+      }
+    }
+    if (this.alive) result(this.solo);
+  }
+
 }
 
 // ---------- 道具栏的按钮 ----------

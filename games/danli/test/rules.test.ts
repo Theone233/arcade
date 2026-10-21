@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apply, FALL_SAFE, MAX_HP, MAX_STAMINA, MAX_TURNS, newGame, previewShot, replay, stepTarget, STEP, STEP_COST, windFor } from '../src/core/rules.ts';
+import { apply, FALL_SAFE, MAX_HP, MAX_ROUNDS, MAX_STAMINA, newGame, previewShot, replay, stepTarget, STEP, STEP_COST, windFor } from '../src/core/rules.ts';
 import { carve, cloneTerrain, solidAt } from '../src/core/terrain.ts';
 import type { Action, Ev, State } from '../src/core/types.ts';
 import { blastDamage, weapon } from '../src/core/weapons.ts';
@@ -317,8 +317,8 @@ describe('回合和胜负', () => {
     // 每队内部轮着来
     const t0 = order.filter((id) => teamOf(id) === 0);
     expect(new Set(t0.slice(0, 2)).size).toBe(2);
-    // 让 0 队的一个出局，之后 0 队只剩另一个出手
-    const gone = t0[0]!;
+    // 让 0 队不在出手的那一个出局，之后 0 队只剩另一个出手
+    const gone = t0.find((id) => id !== s.actor)!;
     s.chars[gone]!.out = true;
     for (let i = 0; i < 6; i++) {
       if (teamOf(s.actor) === 0) expect(s.actor).not.toBe(gone);
@@ -326,11 +326,13 @@ describe('回合和胜负', () => {
     }
   });
 
-  it(`打满 ${MAX_TURNS} 回合按全队剩余血量定胜负`, () => {
+  it(`打满 ${MAX_ROUNDS} 轮按全队剩余血量定胜负`, () => {
+    // 第 15 轮，对面已经出过手：我这一手打完这一轮就结束
     let s = flat([500, 2500]);
     s.chars[0]!.hp = 40;
     s.chars[1]!.hp = 70;
-    s.turn = MAX_TURNS;
+    s.round = MAX_ROUNDS;
+    s.acted = [1];
     const r = run(s, { t: 'fire', angle: 20, power: 60, facing: -1 });
     expect(r.state.phase).toBe('over');
     expect(r.state.endBy).toBe('turns');
@@ -338,7 +340,8 @@ describe('回合和胜负', () => {
     expect(r.events.at(-1)).toEqual({ t: 'over', winner: 1, by: 'turns' });
     // 血量一样是平局（往左打出画本，谁也不伤）
     s = flat([500, 2500]);
-    s.turn = MAX_TURNS;
+    s.round = MAX_ROUNDS;
+    s.acted = [1];
     expect(run(s, { t: 'fire', angle: 20, power: 60, facing: -1 }).state.winner).toBeNull();
   });
 

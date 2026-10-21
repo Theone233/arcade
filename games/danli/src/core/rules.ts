@@ -1,24 +1,29 @@
 /**
  * 规则核心（DESIGN.md 第 2 节）：纯函数、确定性。输入状态和操作，输出新状态和事件；不碰 DOM、网络、Math.random、Date、三角函数。
  * 随机只用 arcade-kit/rng 的 ChaCha20 按用途分流：'open' 开局（出生点、谁先手），'wind' 每回合的风（序号是回合数）。
+ * 对阵 1v1、2v2、3v3：两队各 1–3 人，座位顺序就是 setup.players 的顺序。
  *
  * 一回合：轮到的角色先爬（耗体力）、调朝向，然后带着这回合选的道具发射（道具也耗体力，和爬共用这回合的 100 点）。
  * 炮弹落地或打中人就爆炸：挖坑、扣血、推开、掉落、出局；连发一颗一颗算（前一颗的坑、掉落会影响后一颗），三岔三颗同时飞、按落地先后炸；
- * 纸飞机不炸，人瞬移到落点。然后换下一个：两队交替出手，队内按座位轮；一队全部出局就输；打满 MAX_TURNS 回合按全队剩余血量总和定胜负。
+ * 纸飞机不炸，人瞬移到落点。然后换下一个：两队交替出手，队内按座位轮（出局的跳过）；一队全部出局就输；
+ * 打满 MAX_ROUNDS 轮（所有还活着的角色各出手一次算一轮；人少的那队轮得快，一轮里有人会出手两次）按全队剩余血量总和定胜负。
  */
-import { shuffle, stream, type Entropy } from 'arcade-kit/rng';
+import { shuffle, stream, type Entropy, type RandomStream } from 'arcade-kit/rng';
 import { idiv, isqrt } from './fixed.ts';
 import { FORK_SPREAD, loadoutCost, loadoutError, MODES, PLAIN, shotScale, SPECIALS, type Loadout } from './items.ts';
-import { buildTerrain, MAPS, type MapDef } from './maps.ts';
+import { buildTerrain, isMapId, MAPS, type MapDef } from './maps.ts';
 import { BODY_CY, BODY_H, BODY_R, launch, simulate, type Shot } from './physics.ts';
 import { carve, cloneTerrain, solidAt, type Terrain } from './terrain.ts';
-import type { Action, Char, Dir, Ev, FireAction, Flight, OutWhy, Setup, State, Step, Team } from './types.ts';
-import { blastDamage, weapon } from './weapons.ts';
+import { LOOKS, type Action, type Char, type Dir, type Ev, type FireAction, type Flight, type OutWhy, type Setup, type State, type Step, type Team } from './types.ts';
+import { blastDamage, isWeaponId, weapon } from './weapons.ts';
 
 /** 血量上限（0.1.0 平衡调整：DESIGN.md 2.6 定 150，模拟器调到 180，见 README"数值"） */
 export const MAX_HP = 180;
 export const MAX_STAMINA = 100;
-export const MAX_TURNS = 30;
+/** 打满几轮按血量定（策划 2026-10-21 定：1v1 是 30 次出手，和 0.1.0 一样；2v2、3v3 不会被人数压短） */
+export const MAX_ROUNDS = 15;
+/** 每队最多几人（3v3） */
+export const TEAM_MAX = 3;
 /** 爬一步走多远（一格） */
 export const STEP = 4;
 /** 平地爬一步扣几点体力；往上每 2 单位高差再加 1 */
@@ -54,16 +59,104 @@ function standable(t: Terrain, x: number, y: number): boolean {
   return solidAt(t, x, y) && bodyClear(t, x, y);
 }
 
+/** 打满几轮按血量定胜负 */
+export function roundLimit(setup: Pick<Setup, 'maxRounds'>): number {
+  return setup.maxRounds ?? MAX_ROUNDS;
+}
+
+/** 开局设置合不合法（读存档、开局前查）：地图、两队各 1–3 人、人物和武器都认得、出生点够用。合法回 null */
+export function setupError(setup: unknown): string | null {
+  if (!setup || typeof setup !== 'object') return 'setup';
+  const s = setup as Partial<Setup>;
+  if (!isMapId(s.map)) return 'map';
+  if (!Array.isArray(s.players)) return 'players';
+  const size = [0, 0];
+  for (const p of s.players as unknown[]) {
+    if (!p || typeof p !== 'object') return 'player';
+    const q = p as Record<string, unknown>;
+    if (q.team !== 0 && q.team !== 1) return 'team';
+    if (typeof q.name !== 'string' || !q.name || q.name.length > 16) return 'name';
+    if (!LOOKS.includes(q.look as never)) return 'look';
+    if (!isWeaponId(q.weapon)) return 'weapon';
+    if (typeof q.ai !== 'boolean') return 'ai';
+    size[q.team]! += 1;
+  }
+  if (size[0]! < 1 || size[1]! < 1 || size[0]! > TEAM_MAX || size[1]! > TEAM_MAX) return 'size';
+  if (s.players.length > MAPS[s.map].spawns.length) return 'spawns';
+  if (s.maxRounds !== undefined && (!Number.isInteger(s.maxRounds) || s.maxRounds < 1)) return 'rounds';
+  return null;
+}
+
+/** 这一列从上往下第一块地的地面（出生点的 y） */
+export function surfaceY(t: Terrain, height: number, x: number): number {
+  let y = 0;
+  while (y < height && !solidAt(t, x, y)) y++;
+  return y;
+}
+
+/**
+ * 出生点（DESIGN.md 第 3 节）：候选表用 'open' 洗一遍，再用它抽哪队先挑，两队交错取点（比如黄 1、蓝 1、黄 2、蓝 2……）。
+ * 每个座位按洗好的顺序找第一个"离已经站好的对手至少 enemyGap、离队友至少 MATE_GAP"的点，找不到就取折算后最远的那个。
+ * 这样摆一遍不一定全满足：从洗好的顺序的第 1、2、3……个点起各摆一遍，取第一种全满足的；都不满足就取"最差的那一处折算后最远"的一种。
+ * enemyGap 按人数定：地图宽 ÷ (总人数 + 1)，厨房面团岛（宽 3000）1v1 是 1000、2v2 是 600、3v3 是 428。
+ * 回每个座位（setup.players 的下标）的 x。
+ */
+export const MATE_GAP = 240;
+
+export function pickSpawns(m: MapDef, teams: readonly Team[], open: RandomStream): number[] {
+  const order = shuffle(m.spawns.map((p) => p.x), open);
+  const enemyGap = Math.floor(m.width / (teams.length + 1));
+  // 取点的先后：两队交错，各队内按座位；哪队先挑也随机（固定蓝队先挑时两队分到的位置分布不一样，模拟器里 2v2 黄队多赢一成）
+  const lead = open.below(2);
+  const byTeam = [lead, 1 - lead].map((t) => teams.flatMap((x, i) => (x === t ? [i] : [])));
+  const seats: number[] = [];
+  for (let k = 0; k < TEAM_MAX; k++) for (const list of byTeam) if (k < list.length) seats.push(list[k]!);
+  // 折算分：离对手 / enemyGap 和离队友 / MATE_GAP 里小的那个，交叉相乘比大小（不做除法）；够了门槛就是 enemyGap × MATE_GAP
+  const enough = enemyGap * MATE_GAP;
+  let best: { at: number[]; worst: number } | null = null;
+  for (let from = 0; from < order.length; from++) {
+    const list = [...order.slice(from), ...order.slice(0, from)];
+    const at: number[] = teams.map(() => -1);
+    let worst = Infinity;
+    for (const seat of seats) {
+      let pick = -1;
+      let top = -1;
+      for (const x of list) {
+        if (at.includes(x)) continue;
+        let score = Infinity;
+        for (let i = 0; i < teams.length; i++) {
+          if (at[i]! < 0) continue;
+          const d = Math.abs(at[i]! - x);
+          score = Math.min(score, teams[i] === teams[seat] ? d * enemyGap : d * MATE_GAP);
+        }
+        if (score >= enough) {
+          pick = x;
+          top = score;
+          break;
+        }
+        if (score > top) {
+          top = score;
+          pick = x;
+        }
+      }
+      at[seat] = pick;
+      worst = Math.min(worst, top);
+    }
+    if (worst >= enough) return at;
+    if (!best || worst > best.worst) best = { at, worst };
+  }
+  return best!.at;
+}
+
 export function newGame(key: Entropy, setup: Setup): State {
+  const bad = setupError(setup);
+  if (bad) throw new Error(`开局设置不对：${bad}`);
   const m = MAPS[setup.map];
   const terrain = buildTerrain(m);
   const open = stream(key, 'open');
-  const slots = [shuffle(m.spawns[0], open), shuffle(m.spawns[1], open)];
-  const used = [0, 0];
+  const xs = pickSpawns(m, setup.players.map((p) => p.team), open);
   const chars: Char[] = setup.players.map((p, id) => {
-    const x = slots[p.team]![used[p.team]!++ % slots[p.team]!.length]!;
-    let y = 0;
-    while (y < m.height && !solidAt(terrain, x, y)) y++;
+    const x = xs[id]!;
     return {
       id,
       name: p.name,
@@ -72,17 +165,23 @@ export function newGame(key: Entropy, setup: Setup): State {
       weapon: p.weapon,
       ai: p.ai,
       x,
-      y,
+      y: surfaceY(terrain, m.height, x),
       hp: MAX_HP,
       out: false,
-      facing: x < m.width / 2 ? 1 : -1,
+      facing: 1,
       angle: 45,
       power: null,
       special: { plane: SPECIALS.plane.perGame, lid: SPECIALS.lid.perGame },
     };
   });
+  // 开局朝着最近的对手
+  for (const c of chars) {
+    let near: Char | null = null;
+    for (const o of chars) if (o.team !== c.team && (!near || Math.abs(o.x - c.x) < Math.abs(near.x - c.x))) near = o;
+    c.facing = near && near.x < c.x ? -1 : 1;
+  }
   const first = open.below(2) as Team;
-  const s: State = { v: 1, key, setup, terrain, chars, turn: 1, actor: -1, wind: 0, stamina: MAX_STAMINA, lastOf: [-1, -1], phase: 'play', winner: null, endBy: null };
+  const s: State = { v: 1, key, setup, terrain, chars, turn: 1, round: 1, acted: [], actor: -1, wind: 0, stamina: MAX_STAMINA, lastOf: [-1, -1], phase: 'play', winner: null, endBy: null };
   s.actor = nextOf(s, first);
   s.wind = windFor(key, 1);
   return s;
@@ -108,7 +207,7 @@ export function teamHp(s: State, team: Team): number {
 }
 
 function copy(s: State): State {
-  return { ...s, chars: s.chars.map((c) => ({ ...c, special: { ...c.special } })), lastOf: [s.lastOf[0], s.lastOf[1]] };
+  return { ...s, chars: s.chars.map((c) => ({ ...c, special: { ...c.special } })), lastOf: [s.lastOf[0], s.lastOf[1]], acted: [...s.acted] };
 }
 
 /** 往 dir 爬一步落在哪、花几点体力；爬不了回原因 */
@@ -370,6 +469,9 @@ function settle(s: State, events: Ev[]): void {
 function finishTurn(s: State, events: Ev[]): void {
   const me = s.chars[s.actor]!;
   s.lastOf[me.team] = me.id;
+  if (!s.acted.includes(me.id)) s.acted.push(me.id);
+  // 这一轮完了吗：还活着的每个人都出过手（这一手里出局的不用等）
+  const roundDone = s.chars.every((c) => c.out || s.acted.includes(c.id));
   const left: [number, number] = [alive(s, 0).length, alive(s, 1).length];
   if (left[0] === 0 || left[1] === 0) {
     s.phase = 'over';
@@ -378,7 +480,7 @@ function finishTurn(s: State, events: Ev[]): void {
     events.push({ t: 'over', winner: s.winner, by: 'wipe' });
     return;
   }
-  if (s.turn >= MAX_TURNS) {
+  if (roundDone && s.round >= roundLimit(s.setup)) {
     const hp = [teamHp(s, 0), teamHp(s, 1)];
     s.phase = 'over';
     s.winner = hp[0] === hp[1] ? null : hp[0]! > hp[1]! ? 0 : 1;
@@ -389,9 +491,13 @@ function finishTurn(s: State, events: Ev[]): void {
   const other = (1 - me.team) as Team;
   s.actor = nextOf(s, other);
   s.turn += 1;
+  if (roundDone) {
+    s.round += 1;
+    s.acted = [];
+  }
   s.wind = windFor(s.key, s.turn);
   s.stamina = MAX_STAMINA;
-  events.push({ t: 'turn', id: s.actor, turn: s.turn, wind: s.wind });
+  events.push({ t: 'turn', id: s.actor, turn: s.turn, round: s.round, wind: s.wind });
 }
 
 /** 从头按操作重放（存档、回放、测试用）；中间有一步不合法就停在那里并回报 */

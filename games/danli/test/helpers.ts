@@ -1,7 +1,7 @@
 /** 测试用的局面：平地、两个角色，位置随便摆 */
 import { newGame } from '../src/core/rules.ts';
 import { emptyTerrain, fillPolygon, MAT, type Terrain } from '../src/core/terrain.ts';
-import type { Setup, State } from '../src/core/types.ts';
+import type { PlayerSetup, Setup, State } from '../src/core/types.ts';
 
 export const KEY = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -33,4 +33,11 @@ export function flat(xs: [number, number], opts: Partial<Pick<State, 'wind' | 'a
   s.wind = opts.wind ?? 0;
   s.turn = opts.turn ?? 1;
   return s;
+}
+
+/** n 对 n 的电脑对局：座位顺序是蓝 1..n、黄 1..n */
+export function vs(n: number, extra: Partial<Setup> = {}): Setup {
+  const players: PlayerSetup[] = [];
+  for (const team of [0, 1] as const) for (let k = 0; k < n; k++) players.push({ name: `${team}-${k}`, team, look: 'cat', weapon: 'steamer', ai: true });
+  return { map: 'kitchen', players, ...extra };
 }

@@ -1,185 +1,15 @@
 /**
- * 角色（M1 先用简单的程序画，精修交给美术）：圆身子、大头、队色围巾，脚下一个队色圈；
- * 柴柴、橘子、团团、企企只换外观（DESIGN.md 2.6）。挨打时挤眼冒汗。
+ * 角色：本体和头像的画法在 charArt.ts（美术交付）；这里是队标、名牌、图钉、画面外小牌、"出局"章和页面用的小画布。
+ * 柴柴、橘子、团团、企企、兔兔、鼠鼠只换外观（DESIGN.md 2.6）。挨打时挤眼冒汗。
  * 缩放低于 0.7 时角色换成队色图钉（DESIGN.md 第 4 节），名牌、图钉、画面外小牌都按屏幕像素画，不跟着缩放。
  */
 import type { Look, Team } from '../core/types.ts';
+import { drawChar, drawPortrait, type Expr } from './charArt.ts';
 import { FONT, INK, PAPER, RED, TEAM, TEAM_TEXT } from './palette.ts';
 
-export type Expr = 'normal' | 'hurt' | 'cheer';
+export { drawChar, drawPortrait, type Expr } from './charArt.ts';
 
-interface Skin {
-  fur: string;
-  face: string;
-  ear: string;
-  /** 耳朵：尖的（狗、猫）、圆的（熊猫）、没有（企鹅） */
-  ears: 'pointy' | 'round' | 'none';
-  stripes?: string;
-  patch?: string;
-  beak?: string;
-}
-
-const SKINS: Record<Look, Skin> = {
-  shiba: { fur: '#ef9442', face: '#fff1d6', ear: '#ef9442', ears: 'pointy' },
-  cat: { fur: '#f57d2a', face: '#fff1d6', ear: '#f57d2a', ears: 'pointy', stripes: '#b8551f' },
-  panda: { fur: '#fffdf6', face: '#fffdf6', ear: '#3a3540', ears: 'round', patch: '#3a3540' },
-  penguin: { fur: '#3a3d55', face: '#fffdf6', ear: '#3a3d55', ears: 'none', beak: '#f5a531' },
-};
-
-export const LOOK_NAME: Record<Look, string> = { shiba: '柴柴', cat: '橘子', panda: '团团', penguin: '企企' };
-
-/** 在世界坐标里画一只：脚底在 (0,0)，往上约 44；facing 1 朝右 */
-export function drawChar(ctx: CanvasRenderingContext2D, look: Look, team: Team, facing: 1 | -1, expr: Expr, t: number): void {
-  const s = SKINS[look];
-  ctx.save();
-  // 脚下的队色圈
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = TEAM[team];
-  ctx.fillStyle = team ? 'rgba(245,173,0,0.22)' : 'rgba(47,120,224,0.22)';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 17, 4.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.scale(facing, 1);
-  const bob = expr === 'cheer' ? Math.abs(Math.sin(t / 120)) * -4 : Math.sin(t / 400) * 0.6;
-  ctx.translate(0, bob);
-  ctx.lineWidth = 2.2;
-  ctx.strokeStyle = INK;
-  ctx.lineJoin = 'round';
-  // 脚
-  ctx.fillStyle = s.fur;
-  for (const fx of [-6, 6]) {
-    ctx.beginPath();
-    ctx.ellipse(fx, -2.5, 4.5, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-  // 身子
-  ctx.beginPath();
-  ctx.ellipse(0, -11, 10.5, 9.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = s.face;
-  ctx.beginPath();
-  ctx.ellipse(2, -10, 6, 6.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // 耳朵
-  ctx.fillStyle = s.ear;
-  if (s.ears === 'pointy') {
-    for (const ex of [-8, 6]) {
-      ctx.beginPath();
-      ctx.moveTo(ex - 4, -34);
-      ctx.lineTo(ex + 1, -44);
-      ctx.lineTo(ex + 6, -33);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }
-  } else if (s.ears === 'round') {
-    for (const ex of [-9, 9]) {
-      ctx.beginPath();
-      ctx.arc(ex, -38, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
-  }
-  // 头
-  ctx.fillStyle = s.fur;
-  ctx.beginPath();
-  ctx.arc(0, -28, 12.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  if (s.stripes) {
-    ctx.strokeStyle = s.stripes;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (const sx of [-4, 0, 4]) {
-      ctx.moveTo(sx, -40);
-      ctx.lineTo(sx, -35);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = INK;
-  }
-  // 脸
-  ctx.fillStyle = s.face;
-  ctx.beginPath();
-  ctx.ellipse(3, -25, 8.5, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-  if (s.patch) {
-    ctx.fillStyle = s.patch;
-    for (const px of [-1, 8]) {
-      ctx.beginPath();
-      ctx.ellipse(px, -28, 3.2, 4, 0.3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  // 眼睛
-  ctx.fillStyle = s.patch ? '#fffdf6' : INK;
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.8;
-  if (expr === 'hurt') {
-    // 挤眼：> <
-    for (const [ex, d] of [[-1, 1], [8, -1]] as const) {
-      ctx.beginPath();
-      ctx.moveTo(ex - 2.5 * d, -31);
-      ctx.lineTo(ex + 1.5 * d, -28.5);
-      ctx.lineTo(ex - 2.5 * d, -26);
-      ctx.stroke();
-    }
-  } else {
-    for (const ex of [-1, 8]) {
-      ctx.beginPath();
-      ctx.arc(ex, -28.5, 1.9, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  // 鼻子、嘴
-  ctx.fillStyle = s.beak ?? INK;
-  ctx.beginPath();
-  if (s.beak) {
-    ctx.moveTo(10, -25);
-    ctx.lineTo(16, -23);
-    ctx.lineTo(10, -21);
-  } else ctx.ellipse(11, -24.5, 2, 1.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  if (expr === 'cheer' || expr === 'hurt') {
-    ctx.fillStyle = '#8a2f28';
-    ctx.beginPath();
-    ctx.ellipse(6, -20.5, 2.6, expr === 'cheer' ? 2.4 : 1.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // 脸红
-  ctx.fillStyle = 'rgba(242,127,127,0.6)';
-  ctx.beginPath();
-  ctx.ellipse(-4, -22.5, 2.6, 1.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // 队色围巾
-  ctx.fillStyle = TEAM[team];
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.roundRect(-10, -18.5, 20, 5, 2.5);
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-8, -15);
-  ctx.lineTo(-13, -9);
-  ctx.lineTo(-6, -11);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  // 冒汗
-  if (expr === 'hurt') {
-    ctx.fillStyle = '#7cc4ec';
-    ctx.beginPath();
-    ctx.moveTo(-14, -42);
-    ctx.quadraticCurveTo(-18, -35, -14, -34);
-    ctx.quadraticCurveTo(-10, -35, -14, -42);
-    ctx.fill();
-    ctx.stroke();
-  }
-  ctx.restore();
-}
+export const LOOK_NAME: Record<Look, string> = { shiba: '柴柴', cat: '橘子', panda: '团团', penguin: '企企', rabbit: '兔兔', mouse: '鼠鼠' };
 
 /** 队标：蓝队圆、黄队星（屏幕坐标） */
 export function emblem(ctx: CanvasRenderingContext2D, team: Team, x: number, y: number, r: number, white = false): void {
@@ -403,3 +233,40 @@ export function glow(ctx: CanvasRenderingContext2D, t: number): void {
   ctx.restore();
 }
 
+
+/** 一张按像素比画的小画布（CSS 像素 w×h），draw 里用 CSS 像素坐标 */
+export function smallCanvas(w: number, h: number, cls: string, draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  c.style.width = `${w}px`;
+  c.style.height = `${h}px`;
+  c.className = cls;
+  const ctx = c.getContext('2d')!;
+  ctx.scale(dpr, dpr);
+  draw(ctx);
+  return c;
+}
+
+/** 圆形头像（房间位子、结算表）；team 给了就带队色底和围巾 */
+export function portrait(look: Look, team: Team | null, px: number, expr: Expr = 'normal'): HTMLCanvasElement {
+  return smallCanvas(px, px, 'dl-face', (ctx) => drawPortrait(ctx, look, px / 2, px / 2, px - 2, { team, expr }));
+}
+
+/** 全身（首页、结算的领奖台）：一张小画布，画一只站着的；px 是 CSS 像素边长 */
+export function avatar(look: Look, team: Team, px = 48): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  c.width = Math.round(px * dpr);
+  c.height = Math.round(px * dpr);
+  c.style.width = `${px}px`;
+  c.style.height = `${px}px`;
+  c.className = 'dl-avatar';
+  const ctx = c.getContext('2d')!;
+  // 兔耳朵最高到脚底上面 56，脚下的圈往下 5：按 66 高放进画布
+  const k = (px / 66) * dpr;
+  ctx.setTransform(k, 0, 0, k, (px / 2) * dpr, px * 0.92 * dpr);
+  drawChar(ctx, look, team, 1, 'normal', 0);
+  return c;
+}
