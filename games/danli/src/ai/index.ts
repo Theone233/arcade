@@ -5,7 +5,8 @@
  * 1. 锅盖：风大（3 级以上）、还有次数，就先留出锅盖的 30 点，按"不受风"去瞄；
  * 2. 候选站位：原地，和往左、往右各爬 8、16 步（爬的体力要给锅盖留够）；
  * 3. 每个站位朝对手那边，角度每 5°、力度每 4 点试一遍（只模拟炮弹，不改地形），按落点粗算得分；最好的几发细调（角度 ±2°、力度 ±2）；
- * 4. 最好的几发，每一发把剩下的体力能买的"发射方式 × 加力"组合都在副本上真打一遍（规则核心的 apply，连发、三岔、坑、掉落都是真的），
+ * 4. 最好的几发，每一发把剩下的体力能买的几组有代表性的叠法（STACKS：只加力、连发、连发加加力、三岔、三岔加连发……）都在副本上真打一遍
+ *    （规则核心的 apply，连发、三岔、坑、掉落都是真的），
  *    挑总分最高的：打掉对方的血、把对方炸出画本加很多分，伤到自己扣 1.5 倍、伤到队友扣 2 倍（炸出局再多扣），赢下这局加很多分，
  *    省下来的体力不值钱（回合末就清零）。
  *    所以离得远时爬得少、体力留给加力和连发；对手站得近、挤在一起时三岔的分自然高；
@@ -16,7 +17,7 @@
  */
 import { stream, type RandomStream } from 'arcade-kit/rng';
 import { idiv, isqrt } from '../core/fixed.ts';
-import { BOOST_COST, MODES, PLAIN, SPECIALS, type Boost, type Loadout, type ShotMode } from '../core/items.ts';
+import { COMMON, COMMONS, loadout, PLAIN, SPECIALS, type Loadout } from '../core/items.ts';
 import { BODY_CY, BODY_R } from '../core/physics.ts';
 import { apply, groundDepth, mapOf, planeLanding, previewShot, STEP, stepTarget } from '../core/rules.ts';
 import { solidAt } from '../core/terrain.ts';
@@ -32,7 +33,8 @@ export interface Plan {
 }
 
 /** 可以禁掉的道具（模拟器比较用和不用） */
-export type ItemKey = 'double' | 'triple' | 'fork' | 'boost' | 'lid' | 'plane';
+/** 可以禁掉的道具：连发 +1、+2、三岔、加力（三种一起）、锅盖、纸飞机 */
+export type ItemKey = 'p1' | 'p2' | 'fork' | 'boost' | 'lid' | 'plane';
 export interface PlanOpts {
   ban?: ReadonlySet<ItemKey>;
 }
@@ -55,10 +57,10 @@ const ANGLE_STEP = 5;
 const POWER_STEP = 4;
 const KEEP = 5;
 /** 伤到自己比打到对方多扣一半；伤到队友扣两倍（电脑不打自己人） */
-const SELF_K = 1.5;
-const MATE_K = 2;
+export const SELF_K = 1.5;
+export const MATE_K = 2;
 /** 风多大用锅盖 */
-const LID_WIND = 3;
+export const LID_WIND = 3;
 /** 这回合打不出这么多分，危险时一定用纸飞机飞走 */
 const GOOD_SHOT = 25;
 /** 打得出伤害，但站的地方危险时，也有这么大的机会（百分比）先飞走（0.1.0 平衡调整） */
@@ -111,7 +113,7 @@ function quick(s: State, angle: number, power: number, facing: Dir, lid: boolean
 }
 
 /** 准算：在副本上真打一遍（带道具） */
-function exact(s: State, angle: number, power: number, facing: Dir, l: Loadout): number {
+export function exact(s: State, angle: number, power: number, facing: Dir, l: Loadout): number {
   const r = apply(s, { t: 'fire', angle, power, facing, ...l });
   if (!r.ok) return -10_000;
   const me = s.chars[s.actor]!;
@@ -142,20 +144,55 @@ function facings(s: State): Dir[] {
 }
 
 /** 剩下 left 点体力能买的组合（发射方式 × 加力），已经带上锅盖 */
-function combos(left: number, lid: boolean, ban: ReadonlySet<ItemKey>): Loadout[] {
-  const out: Loadout[] = [];
-  for (const mode of Object.keys(MODES) as ShotMode[]) {
-    if (mode !== 'single' && ban.has(mode)) continue;
-    for (const boost of [0, 10, 20, 50] as Boost[]) {
-      if (boost && ban.has('boost')) continue;
-      if (MODES[mode].cost + BOOST_COST[boost] <= left) out.push({ mode, boost, lid, plane: false });
-    }
-  }
-  return out;
+/**
+ * 有代表性的叠法（0.3.0 常用道具任意组合，DESIGN.md 2.6）：不枚举所有组合，挑这些——
+ * 不用；只加力；连发（+1、+1+1、+2、+2+1、+2+2、+2+2+2）和连发加加力；三岔、三岔加连发（+1、+2、+1+2）、三岔加加力。按剩下的体力和禁掉的道具筛
+ */
+const STACKS: readonly Loadout[] = [
+  {},
+  { b10: 1 },
+  { b20: 1 },
+  { b20: 1, b10: 1 },
+  { b20: 2 },
+  { b20: 3 },
+  { b50: 1 },
+  { b50: 1, b20: 1 },
+  { p1: 1 },
+  { p1: 2 },
+  { p2: 1 },
+  { p2: 1, p1: 1 },
+  { p2: 2 },
+  { p2: 3 },
+  { p1: 1, b20: 1 },
+  { p2: 1, b20: 1 },
+  { p2: 1, p1: 1, b20: 1 },
+  { p2: 2, b20: 1 },
+  { p1: 1, b50: 1 },
+  { p2: 1, b50: 1 },
+  { fork: 1 },
+  { fork: 1, b20: 1 },
+  { fork: 1, p1: 1 },
+  { fork: 1, p2: 1 },
+  { fork: 1, p1: 1, b20: 1 },
+  { fork: 1, p2: 1, b10: 1 },
+  { fork: 1, p1: 1, p2: 1 },
+].map((p) => loadout(p));
+
+function stackCost(l: Loadout): number {
+  return COMMON.reduce((n, k) => n + COMMONS[k].cost * l[k], 0);
+}
+
+function banned(l: Loadout, ban: ReadonlySet<ItemKey>): boolean {
+  return (l.p1 > 0 && ban.has('p1')) || (l.p2 > 0 && ban.has('p2')) || (l.fork > 0 && ban.has('fork')) || (l.b10 + l.b20 + l.b50 > 0 && ban.has('boost'));
+}
+
+/** 剩下 left 点体力能买的叠法，已经带上锅盖 */
+export function combos(left: number, lid: boolean, ban: ReadonlySet<ItemKey>): Loadout[] {
+  return STACKS.filter((l) => stackCost(l) <= left && !banned(l, ban)).map((l) => ({ ...l, lid }));
 }
 
 /** 站在这里危险吗：脚下太薄、能踩的地不到 2 个身位，或者旁边一步之内就是通到底的洞 */
-function inDanger(s: State): boolean {
+export function inDanger(s: State): boolean {
   const me = s.chars[s.actor]!;
   const t = s.terrain;
   if (groundDepth(t, me.x, me.y) < 28) return true;
@@ -246,7 +283,7 @@ export function plan(s: State, opts: PlanOpts = {}): Plan {
     const left = c.spot.state.stamina - keep;
     for (const l of combos(left, lid, ban)) {
       // 省下的体力不值钱，只用很小的分数让同分时少花
-      const score = exact(c.spot.state, c.angle, c.power, c.facing, l) - c.spot.moves.length * 0.2 - (MODES[l.mode].cost + BOOST_COST[l.boost]) * 0.001;
+      const score = exact(c.spot.state, c.angle, c.power, c.facing, l) - c.spot.moves.length * 0.2 - stackCost(l) * 0.001;
       if (!best || score > best.score) best = { ...c, score, loadout: l };
     }
   }
@@ -262,7 +299,7 @@ export function plan(s: State, opts: PlanOpts = {}): Plan {
 }
 
 /** 出手的误差：角度 ±2°、力度 ±3（'ai' 随机流，序号是回合数；和纸飞机的那一下共用一条流） */
-function withError(s: State, p: Plan, err: RandomStream): Plan {
+export function withError(s: State, p: Plan, err: RandomStream): Plan {
   const w = weapon(s.chars[s.actor]!.weapon);
   const angle = Math.min(w.maxAngle, Math.max(w.minAngle, p.angle + err.below(5) - 2));
   const power = Math.min(100, Math.max(1, p.power + err.below(7) - 3));

@@ -4,7 +4,7 @@
  * 碰到地或者没出局的角色就停（爆炸点）；飞出左、右、下边就没了；上边不封顶，飞出去还会落回来。
  */
 import { cosDeg, FP, idiv, sinDeg } from './fixed.ts';
-import { solidAt, type Terrain } from './terrain.ts';
+import { CELL, MAT_MASK, type Terrain } from './terrain.ts';
 import type { Char, Dir } from './types.ts';
 
 /** 重力（定点，每帧²） */
@@ -58,27 +58,47 @@ export function simulate(
   let { x, y, vx, vy } = start;
   const path: number[] = [];
   const ax = wind * WIND_K;
-  const live = chars.filter((c) => !c.out);
+  // 每一小段都要查：电脑一手试几十发、好友房的服务器每一步有 CPU 预算，所以这里写得直白、少分配（结果和逐个调 solidAt 一模一样）。
+  // 定点坐标都是 int32 以内的整数（世界 3000 宽，往上最多飞约 1300），>> 10 就是除以 FP 向下取整
+  const live: number[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i]!;
+    if (!c.out) live.push(c.x, c.y - BODY_CY, i);
+  }
   const r2 = BODY_R * BODY_R;
-  const check = (px: number, py: number): Shot | null => {
-    const wx = Math.floor(px / FP);
-    const wy = Math.floor(py / FP);
-    if (wx < 0 || wx >= width || wy >= height) return { path, end: null, hit: null };
-    for (const c of live) {
-      const dx = wx - c.x;
-      const dy = wy - (c.y - BODY_CY);
-      if (dx * dx + dy * dy <= r2) return { path, end: { x: wx, y: wy }, hit: chars.indexOf(c) };
+  const { cols, rows, cells } = terrain;
+  let end: { x: number; y: number } | null = null;
+  let hit: number | null = null;
+  /** 这一点碰到东西了吗：飞出画本（end 留 null）、打中人、碰到地都回 true */
+  const check = (px: number, py: number): boolean => {
+    const wx = px >> 10;
+    const wy = py >> 10;
+    if (wx < 0 || wx >= width || wy >= height) return true;
+    for (let k = 0; k < live.length; k += 3) {
+      const dx = wx - live[k]!;
+      const dy = wy - live[k + 1]!;
+      if (dx * dx + dy * dy <= r2) {
+        end = { x: wx, y: wy };
+        hit = live[k + 2]!;
+        return true;
+      }
     }
-    if (solidAt(terrain, wx, wy)) return { path, end: { x: wx, y: wy }, hit: null };
-    return null;
+    if (wy >= 0) {
+      const c = Math.floor(wx / CELL);
+      const r = Math.floor(wy / CELL);
+      if (c < cols && r < rows && (cells[r * cols + c]! & MAT_MASK) !== 0) {
+        end = { x: wx, y: wy };
+        return true;
+      }
+    }
+    return false;
   };
-  const first = check(x, y);
-  if (first) {
-    if (record) path.push(Math.floor(x / FP), Math.floor(y / FP));
-    return first;
+  if (check(x, y)) {
+    if (record) path.push(x >> 10, y >> 10);
+    return { path, end, hit };
   }
   for (let tick = 0; tick < MAX_TICKS; tick++) {
-    if (record) path.push(Math.floor(x / FP), Math.floor(y / FP));
+    if (record) path.push(x >> 10, y >> 10);
     vx += ax;
     vy += GRAVITY;
     const dx = vx;
@@ -87,10 +107,9 @@ export function simulate(
     for (let i = 1; i <= n; i++) {
       const px = x + idiv(dx * i, n);
       const py = y + idiv(dy * i, n);
-      const hit = check(px, py);
-      if (hit) {
-        if (record) path.push(Math.floor(px / FP), Math.floor(py / FP));
-        return hit;
+      if (check(px, py)) {
+        if (record) path.push(px >> 10, py >> 10);
+        return { path, end, hit };
       }
     }
     x += dx;

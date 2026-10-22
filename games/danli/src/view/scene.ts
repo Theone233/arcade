@@ -10,12 +10,15 @@
  * - 缩放低于 0.7 时角色换成队色图钉；画面外的角色在屏幕边显示小牌（名字、约几米、一截血量）。
  */
 import { BODY_CY } from '../core/physics.ts';
+import { fallMs, flightMs, paced, volleyPace } from '../net/anim.ts';
 import { MAX_HP } from '../core/rules.ts';
-import { carve, CELL, cloneTerrain, MAT_MASK } from '../core/terrain.ts';
+import { buildTerrain } from '../core/maps.ts';
+import { CELL, cloneTerrain, dig, MAT_MASK, solidAt } from '../core/terrain.ts';
 import type { MapDef } from '../core/maps.ts';
 import type { Char, Dir, Ev, Look, State, Team } from '../core/types.ts';
 import type { WeaponId } from '../core/weapons.ts';
 import { Backdrop } from './backdrop.ts';
+import type { Burn } from './scorch.ts';
 import { MAP_ART, MATERIALS } from './mapArt.ts';
 import { crumbColor, materialAt } from './terrainPaint.ts';
 import { arrow, drawChar, edgeTag, glow, nameTag, pin, type Expr, type Tag } from './chars.ts';
@@ -44,8 +47,14 @@ interface Disp {
   expr: Expr;
   exprUntil: number;
   rot: number;
+  /** 顺着脚下地面的倾斜（弧度，画面用）：每帧往地面的坡度缓过去 */
+  tilt: number;
   alpha: number;
 }
+
+/** 角色贴着地面倾斜（DESIGN.md 2.4，只是画面）：按脚下左右各 TILT_SPAN 的地表算坡度，最多歪 35° */
+const TILT_SPAN = 12;
+const TILT_MAX = (35 * Math.PI) / 180;
 
 export interface Aim {
   angle: number;
@@ -93,6 +102,14 @@ interface Floater {
 
 type Mode = 'follow' | 'free' | 'overview';
 
+/** 屏幕上的一块地方（像素） */
+interface Box {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
 export class Scene {
   readonly canvas: HTMLCanvasElement;
   /** 镜头那一层：远景和地形块是这里面的画布，按世界坐标摆，整层用一个 CSS transform 平移缩放 */
@@ -113,6 +130,8 @@ export class Scene {
   private actor = -1;
   /** 屏幕前的真人操控的角色：画面外小牌的"约几米"从他量起（量他自己时从当前角色量） */
   viewer = -1;
+  /** 好友房：角色名牌上挂的小签（掉线、电脑代打），按角色编号 */
+  readonly badges = new Map<number, string>();
   /** 画角度盘（轮到真人瞄准时） */
   aim: Aim | null = null;
   /** 角度盘能不能拖 */
@@ -128,6 +147,8 @@ export class Scene {
   private art: TerrainArt;
   private back: Backdrop;
   private shake = 0;
+  /** 这一帧出手的人的名牌占的地方（屏幕坐标），画角度盘时让开 */
+  private actorTag: Box | null = null;
   /** 动画加速（冒烟用 ?turbo） */
   speed = 1;
   onAim: ((angle: number, facing: Dir) => void) | null = null;
@@ -140,7 +161,8 @@ export class Scene {
 
   private map: MapDef;
 
-  constructor(host: HTMLElement, map: MapDef, state: State) {
+  /** burns：开局到现在挖过的坑（读档、中途进好友房时从头重放得来），用来把焦痕重建出来 */
+  constructor(host: HTMLElement, map: MapDef, state: State, burns: readonly Burn[] = []) {
     this.map = map;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'dl-canvas';
@@ -156,6 +178,7 @@ export class Scene {
     this.back = new Backdrop(map.width, map.height, MAP_ART[map.id].theme);
     this.back.mount(this.world);
     this.art = new TerrainArt(cloneTerrain(state.terrain), renderRatio(), this.world);
+    if (burns.length) this.art.resetScorch(buildTerrain(map), burns);
     this.art.flush();
     this.sync(state);
     this.bindInput();
@@ -183,12 +206,18 @@ export class Scene {
     this.cam = { ...this.goal };
   }
 
-  /** 按状态摆好角色（读档、每一步动画放完以后对一遍）；地形副本要和状态一致时传 terrain */
-  sync(s: State, terrain = false): void {
+  /** 地形块烘焙、焦痕画了多少次、花了多久（npm run perf 读） */
+  get terrainStats(): TerrainArt['stats'] {
+    return this.art.stats;
+  }
+
+  /** 按状态摆好角色（读档、每一步动画放完以后对一遍）；地形副本要和状态一致时传 burns（开局到现在挖过的坑，焦痕照它重建） */
+  sync(s: State, burns?: readonly Burn[]): void {
     this.chars = s.chars.map((c) => this.disp(c, this.chars.find((d) => d.id === c.id)));
     this.actor = s.phase === 'play' ? s.actor : -1;
-    if (terrain) {
+    if (burns) {
       this.art.setTerrain(cloneTerrain(s.terrain));
+      this.art.resetScorch(buildTerrain(this.map), burns);
       this.terrainVer++;
     }
   }
@@ -209,6 +238,7 @@ export class Scene {
       expr: old?.expr ?? 'normal',
       exprUntil: old?.exprUntil ?? 0,
       rot: 0,
+      tilt: old ? old.tilt : c.out ? 0 : this.slopeAt(c.x, c.y),
       alpha: c.out ? 0 : 1,
     };
   }
@@ -473,6 +503,9 @@ export class Scene {
 
   /** 按顺序放一串事件；cb 在每个事件放到时调（HUD 跟着变） */
   async play(events: readonly Ev[], cb: (e: Ev) => void): Promise<void> {
+    // 连发第 3 轮起放快，时长和房间的停顿（net/anim.ts 的 playMs）用同一套算法
+    let shots = 0;
+    let pace = 1;
     for (const e of events) {
       cb(e);
       switch (e.t) {
@@ -491,19 +524,22 @@ export class Scene {
           this.char(e.id).facing = e.dir;
           break;
         case 'fire':
+          shots = 0;
+          pace = 1;
           this.char(e.id).facing = e.facing;
           this.shell = this.char(e.id).weapon;
           this.aim = null;
           break;
         case 'shot':
-          await this.playShot(e.flights.map((f) => f.path), e.plane);
+          pace = volleyPace(shots++);
+          await this.playShot(e.flights.map((f) => f.path), e.plane, pace);
           break;
         case 'warp':
           await this.playWarp(e.id, e.to);
           break;
         case 'boom':
-          this.boom(e.x, e.y, e.r);
-          await this.wait(260);
+          this.boom(e.x, e.y, e.r, e.w);
+          await this.wait(paced(260, pace));
           break;
         case 'hurt': {
           const d = this.char(e.id);
@@ -511,21 +547,11 @@ export class Scene {
           d.expr = 'hurt';
           d.exprUntil = performance.now() + 1100 / this.speed;
           this.floaters.push({ x: d.x, y: d.y - 50, text: `-${e.dmg}`, color: RED, t0: performance.now(), dur: 1100 / this.speed });
-          await this.wait(160);
-          break;
-        }
-        case 'push': {
-          const d = this.char(e.id);
-          const x0 = d.x;
-          const y0 = d.y;
-          await this.tween(200, (p) => {
-            d.x = x0 + (e.x - x0) * p;
-            d.y = y0 + (e.y - y0) * p - Math.sin(p * Math.PI) * 10;
-          });
+          await this.wait(paced(160, pace));
           break;
         }
         case 'fall':
-          await this.playFall(e.id, e.x, e.from, e.to);
+          await this.playFall(e.id, e.x, e.from, e.to, pace);
           break;
         case 'out': {
           const d = this.char(e.id);
@@ -538,6 +564,7 @@ export class Scene {
           break;
         }
         case 'turn':
+          pace = 1;
           await this.wait(600);
           this.newTurn(e.id);
           break;
@@ -550,14 +577,14 @@ export class Scene {
   }
 
   /** 放一批同时飞的炮弹（普通、连发的一颗，三岔的三颗，或者纸飞机）；镜头跟着第一颗还在飞的 */
-  private async playShot(paths: readonly number[][], plane: boolean): Promise<void> {
+  private async playShot(paths: readonly number[][], plane: boolean, pace: number): Promise<void> {
     const n = Math.max(0, ...paths.map((p) => p.length / 2));
     if (n === 0) return;
     if (this.mode === 'free') this.mode = 'follow';
     this.manual = false;
     const live = paths.map((path) => ({ path, b: { x: path[0]!, y: path[1]!, vx: 0, vy: 0, trail: [] as number[], plane }, last: 0 }));
     this.bullets = live.map((l) => l.b);
-    await this.tween((n * 1000) / 60, (p) => {
+    await this.tween(flightMs(n, pace), (p) => {
       const at = p * (n - 1);
       for (const l of live) {
         const len = l.path.length / 2;
@@ -604,13 +631,30 @@ export class Scene {
   /** 地形副本改过几次（镜头算"最高的地"时用来作废缓存） */
   private terrainVer = 0;
 
-  private boom(x: number, y: number, r: number): void {
+  /**
+   * 脚下地面的坡度（弧度，往右下为正）：脚底左右各 TILT_SPAN 处往上下找地表；两边都找不到（悬空、在掉）就是 0。
+   * 只看画面那份地形，规则不管；瞄准角度仍按水平线算。
+   */
+  private slopeAt(x: number, y: number): number {
+    const t = this.art.grid;
+    const surface = (sx: number): number | null => {
+      for (let yy = y - 16; yy <= y + 24; yy += 2) if (solidAt(t, sx, yy)) return yy;
+      return null;
+    };
+    const l = surface(x - TILT_SPAN);
+    const r = surface(x + TILT_SPAN);
+    if (l === null && r === null) return 0;
+    const a = Math.atan2((r ?? y) - (l ?? y), 2 * TILT_SPAN);
+    return Math.max(-TILT_MAX, Math.min(TILT_MAX, a));
+  }
+
+  private boom(x: number, y: number, r: number, w: WeaponId): void {
     this.terrainVer++;
     // 碎屑的颜色照炸到的材质（炸之前在爆心附近找一格地）
     let mat = null;
     for (const [dx, dy] of [[0, 0], [0, r / 2], [-r / 2, 0], [r / 2, 0], [0, -r / 2]] as const) mat ??= materialAt(this.art.grid, x + dx, y + dy, MATERIALS);
-    const box = carve(this.art.grid, x, y, r);
-    this.art.touch(box);
+    this.art.touch(dig(this.art.grid, x, y, r, w));
+    this.art.burn({ x, y, r, w });
     this.puff(x, y, r);
     const now = performance.now();
     for (let i = 0; i < 14; i++) {
@@ -631,12 +675,12 @@ export class Scene {
     this.puffs.push({ x, y, r: r * 0.8, t0: now, dur: 700 / this.speed, dx: 0, dy: -8 });
   }
 
-  private async playFall(id: number, x: number, from: number, to: number): Promise<void> {
+  private async playFall(id: number, x: number, from: number, to: number, pace = 1): Promise<void> {
     const d = this.char(id);
     d.x = x;
     const gone = to > this.map.height;
     const h = Math.max(1, to - from);
-    const dur = 140 + Math.sqrt(h) * 26;
+    const dur = fallMs(to - from, pace);
     if (gone) {
       this.lookAt(x, Math.min(this.map.height - 160, from + 120), 0.7);
       d.expr = 'hurt';
@@ -712,6 +756,10 @@ export class Scene {
         ctx.save();
         ctx.translate(d.x, d.y);
         ctx.globalAlpha = d.alpha;
+        if (!d.rot && !d.out) {
+          d.tilt += (this.slopeAt(d.x, d.y) - d.tilt) * (1 - Math.exp(-dt * 0.012));
+          ctx.rotate(d.tilt);
+        }
         if (d.id === this.actor && !this.bullets.length) glow(ctx, now);
         if (d.rot) {
           ctx.translate(0, -20);
@@ -774,6 +822,8 @@ export class Scene {
     // ---------- 屏幕坐标：名牌、图钉、角度盘、飘字、画面外小牌 ----------
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const offscreen: Disp[] = [];
+    // 屏幕里的角色连同名牌（和头上的箭头、小签）占的地方：画面外小牌要避开它们
+    const keepOut: Box[] = [];
     for (const d of this.chars) {
       if (d.out && d.alpha <= 0) continue;
       const [sx, sy] = this.toScreen(d.x, d.y);
@@ -784,6 +834,8 @@ export class Scene {
       }
       const tag = this.tagOf(d);
       const cur = d.id === this.actor && !this.bullets.length;
+      if (pinMode) keepOut.push({ x0: sx - 22, x1: sx + 22, y0: sy - (cur ? 76 : 52), y1: sy + 6 });
+      else keepOut.push({ x0: sx - Math.max(42, 30 * z), x1: sx + Math.max(42, 30 * z), y0: sy - 48 * z - 10 - 30 - (cur ? 38 : tag.badge ? 15 : 2), y1: sy + 6 });
       if (pinMode) {
         ctx.globalAlpha = d.alpha;
         pin(ctx, tag, sx, sy, cur, now);
@@ -793,8 +845,11 @@ export class Scene {
         nameTag(ctx, tag, sx, sy - 48 * z - 10, cur);
         if (cur) arrow(ctx, sx, sy - 48 * z - 46, now);
       }
+      // 出手的人的名牌（连同头上的箭头）：角度盘的度数牌要让开它
+      if (d.id === this.actor) this.actorTag = pinMode ? { x0: sx - 22, x1: sx + 22, y0: sy - 76, y1: sy + 6 } : { x0: sx - 41, x1: sx + 43, y0: sy - 48 * z - 10 - 30 - 38, y1: sy - 48 * z - 10 + 4 };
     }
     if (this.aim && !this.bullets.length) this.drawDial(ctx);
+    this.actorTag = null;
     for (const f of this.floaters.slice()) {
       const t = (now - f.t0) / f.dur;
       if (t >= 1) {
@@ -812,11 +867,12 @@ export class Scene {
       ctx.fillText(f.text, sx, sy - t * 40);
       ctx.globalAlpha = 1;
     }
-    this.drawEdgeTags(ctx, offscreen);
+    this.drawEdgeTags(ctx, offscreen, keepOut);
   }
 
   private tagOf(d: Disp): Tag {
-    return { name: d.name, team: d.team, hp: d.hp, maxHp: d.maxHp, out: d.out };
+    const badge = this.badges.get(d.id);
+    return { name: d.name, team: d.team, hp: d.hp, maxHp: d.maxHp, out: d.out, ...(badge ? { badge } : {}) };
   }
 
   /** 角度盘：能用的范围刷蓝，指针是这一发的方向，旁边写度数 */
@@ -888,12 +944,26 @@ export class Scene {
       ctx.strokeStyle = INK;
       ctx.lineWidth = 1.6;
     }
-    // 度数牌
-    const lx = x + Math.cos(a) * (R + 44);
-    const ly = y + Math.sin(a) * (R + 30) - 4;
+    // 度数牌：默认在瞄准线外头；压到出手的人的名牌上时顺着瞄准线往外挪，还压着就摆到名牌朝外的那一侧
     ctx.font = `900 17px ${FONT}`;
     const text = `${angle}°`;
     const w = ctx.measureText(text).width + 14;
+    let lx = x + Math.cos(a) * (R + 44);
+    let ly = y + Math.sin(a) * (R + 30) - 4;
+    const tag = this.actorTag;
+    const over = (cx: number, cy: number): boolean => !!tag && cx - w / 2 - 4 < tag.x1 && tag.x0 < cx + w / 2 + 4 && cy - 17 < tag.y1 && tag.y0 < cy + 17;
+    if (tag && over(lx, ly)) {
+      let ok = false;
+      for (let k = 60; k <= 108 && !ok; k += 16) {
+        const cx = x + Math.cos(a) * (R + k);
+        const cy = y + Math.sin(a) * (R + k - 14) - 4;
+        if (!over(cx, cy)) [lx, ly, ok] = [cx, cy, true];
+      }
+      if (!ok) {
+        lx = facing === 1 ? tag.x1 + w / 2 + 6 : tag.x0 - w / 2 - 6;
+        ly = (tag.y0 + tag.y1) / 2 + 10;
+      }
+    }
     ctx.fillStyle = PAPER;
     ctx.beginPath();
     ctx.roundRect(lx - w / 2, ly - 13, w, 26, 6);
@@ -907,7 +977,7 @@ export class Scene {
   }
 
   /** 画面外的角色：贴着屏幕边、朝它那一侧，尖角指向它；上下让开顶栏和底栏，两张撞上就顺着边挪开 */
-  private drawEdgeTags(ctx: CanvasRenderingContext2D, list: Disp[]): void {
+  private drawEdgeTags(ctx: CanvasRenderingContext2D, list: Disp[], keepOut: readonly Box[] = []): void {
     const viewer = this.chars.find((c) => c.id === this.viewer && !c.out);
     const top = this.insetTop + 26;
     const bottom = this.H - this.insetBottom - 26;
@@ -931,6 +1001,22 @@ export class Scene {
     for (const side of [-1, 1]) {
       spread(tags.filter((t) => t.dirX === side), 'y', 40, top, bottom);
       spread(tags.filter((t) => t.dirY === side), 'x', 98, 58, this.W - 58);
+    }
+    // 压到屏幕里的角色、名牌上的：沿着边挪到最近的空处（左右边上下挪，上下边左右挪），也不压别的小牌
+    const box = (t: (typeof tags)[number]): Box => ({ x0: t.x - 56, x1: t.x + 56, y0: t.y - 26, y1: t.y + 26 });
+    const hits = (b: Box, others: readonly Box[]): boolean => others.some((o) => b.x0 < o.x1 && o.x0 < b.x1 && b.y0 < o.y1 && o.y0 < b.y1);
+    const placed: Box[] = [];
+    for (const t of tags) {
+      const key = t.dirX ? 'y' : 'x';
+      const [lo, hi] = key === 'y' ? [top, bottom] : [58, this.W - 58];
+      const ok = (v: number): boolean => v >= lo && v <= hi && !hits(box({ ...t, [key]: v }), [...keepOut, ...placed]);
+      if (!ok(t[key])) {
+        const at = t[key];
+        const cands = [...keepOut, ...placed].flatMap((o) => (key === 'y' ? [o.y0 - 27, o.y1 + 27] : [o.x0 - 57, o.x1 + 57]));
+        const best = cands.filter(ok).sort((p, q) => Math.abs(p - at) - Math.abs(q - at))[0];
+        if (best !== undefined) t[key] = best;
+      }
+      placed.push(box(t));
     }
     for (const { d, x, y, dirX, dirY } of tags) {
       const from = d === viewer ? this.chars.find((c) => c.id === this.actor) : viewer;

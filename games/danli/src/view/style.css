@@ -388,8 +388,9 @@ body {
   background: #3f9a4a;
 }
 .dl-app .dl-stam-bar i.held {
-  /* 预扣给道具的那截：斜线 */
-  background: repeating-linear-gradient(135deg, #3f9a4a 0 2px, #efe6d2 2px 4.5px);
+  /* 预扣给道具的那截：黄色斜线，和剩下能爬的绿格分得开 */
+  background: repeating-linear-gradient(135deg, #f2b632 0 2.5px, #fff1cc 2.5px 5px);
+  border-color: #a8701a;
 }
 .dl-app .dl-climb {
   display: flex;
@@ -576,6 +577,72 @@ body {
 .dl-app .dl-item[data-state='selected'] .dl-item-tag {
   background: #fff1b8;
 }
+/* 选了几个（能叠的）：左上角"×n"；一回合 1 个的写"已选" */
+.dl-app .dl-item-n {
+  position: absolute;
+  top: -9px;
+  left: -8px;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: #ffbf1a;
+  border: 1.5px solid #46291a;
+  color: #46291a;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 14px;
+  text-align: center;
+  white-space: nowrap;
+}
+.dl-app .dl-item-n.once {
+  font-size: 9.5px;
+  padding: 0 3px;
+}
+/* 选了还想再加、体力不够：选中的样子外面描一圈红（买不起第二个） */
+.dl-app .dl-item[data-state='selected'][data-more='no'] {
+  --ring: #e2432a;
+}
+/* 道具栏上面那一行：已选的组合，点一项减一个，"清空" */
+.dl-app .dl-picked {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  margin-bottom: -4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dl-app .dl-picked-hint {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #8a6a55;
+}
+.dl-app .dl-picked-chip,
+.dl-app .dl-picked-clear {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 1.6px solid #46291a;
+  border-radius: 11px;
+  background: #fff1b8;
+  color: #46291a;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.dl-app .dl-picked-chip::after {
+  content: ' −';
+  color: #a8291a;
+}
+.dl-app .dl-picked-clear {
+  margin-left: 2px;
+  background: #fffaf0;
+  color: #a8291a;
+}
+
 /* 用完了：灰色虚线框、次数章 0 */
 .dl-app .dl-item[data-state='empty'] {
   border: 2.4px dashed #a89a86;
@@ -678,6 +745,29 @@ body {
   box-shadow: 0 0 0 6px rgba(255, 191, 26, 0.7), inset 0 0 0 5px #e2432a, inset 0 0 0 7px rgba(255, 250, 240, 0.8);
 }
 
+.dl-app .dl-clock {
+  flex: none;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffaf0;
+  border: 2px solid #46291a;
+  border-radius: 99px;
+  font-weight: 900;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 0 rgba(70, 41, 26, 0.3);
+}
+.dl-app .dl-clock.mine {
+  background: #ffbf1a;
+}
+.dl-app .dl-clock.hot {
+  background: #e2432a;
+  color: #fff;
+}
 .dl-app .dl-think {
   position: absolute;
   left: 50%;
@@ -753,6 +843,11 @@ body {
   --ib: 38px;
   --ib-gap: 4px;
 }
+.dl-app .dl-hud[data-orient='port'] .dl-picked-chip,
+.dl-app .dl-hud[data-orient='port'] .dl-picked-clear {
+  font-size: 11px;
+  padding: 0 6px;
+}
 .dl-app .dl-hud[data-orient='port'] .dl-items-group {
   padding: 0 6px;
 }
@@ -788,6 +883,55 @@ body {
   gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* 输房间码（首页"好友房"） */
+.dl-app .dl-mask.code .dl-card {
+  max-width: 320px;
+}
+.dl-app .dl-mask.code .dl-code-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border: 2.5px solid #46291a;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #46291a;
+  box-sizing: border-box;
+}
+.dl-app .dl-mask.code .dl-btn:disabled {
+  opacity: 0.5;
+}
+
+/* 好友房：连接断了、正在重连的提示（顶上居中，不挡底栏） */
+.dl-app .dl-net {
+  position: absolute;
+  left: 50%;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px;
+  background: #fff3c4;
+  border: 2.5px solid #46291a;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 rgba(70, 41, 26, 0.25);
+  font-weight: 800;
+  font-size: 14px;
+  color: #46291a;
+}
+.dl-app .dl-net .dl-btn {
+  height: 30px;
+  font-size: 13px;
 }
 
 /* 我方真人全部出局以后：快进、跳到结果（顶栏下面居中） */

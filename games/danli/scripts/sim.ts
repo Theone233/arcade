@@ -6,14 +6,17 @@
  * - room：用准备房间的默认阵容（room.ts 的 defaultRoom，我那个位子也换成电脑）；
  * - map:<id>：在这张图上打（默认厨房面团岛；map:all 六张各打 N 局，一张一行）；
  * - cap:N：打满 N 轮按血量定（默认 MAX_ROUNDS）；cap:999 看不限轮数时一局自然打多久；
- * - ab：每种道具再打 N 局"全会的电脑"对"禁了这种道具的电脑"（单双局换边），看用和不用的胜率差（平局算半局），最后比一组"全会"对"什么道具都不用"；
- *   ab:none 只比这一组，ab:fork,lid 只比这几种；
- * - weapons：8 把武器两两 1v1 对打（每一对 N 局、单双局换边，同一把也打），打印胜率表和每把的平均胜率。
+ * - ab：每种道具再打 N 局"全会的电脑"对"禁了这种道具的电脑"（单双局换边），看用和不用的胜率差（平局算半局），最后比"全会"对"常用道具都不用"（commons）、"什么道具都不用"（none）；
+ *   ab:none 只比这一组，ab:commons,fork 只比这几种；
+ * - weapons：8 把武器两两 1v1 对打（每一对 N 局、单双局换边，同一把也打；加 map:all 六张图轮着打），打印胜率表和每把的平均胜率；
+ * - online：好友房的"联机档"电脑（ai/online.ts）对单机档（ai/index.ts）打 N 局（单双局换边），看联机档弱多少，再打 N 局联机档对联机档看一局多长。
  * 改了数值或电脑跑一遍，结果写进 README 的"数值"一节。
  */
 import { plan, planActions, type ItemKey, type PlanOpts } from '../src/ai/index.ts';
+import { planLite } from '../src/ai/online.ts';
 import { PERSONAS } from '../src/ai/personas.ts';
 import { apply, MAX_ROUNDS, newGame } from '../src/core/rules.ts';
+import { loadoutName } from '../src/core/items.ts';
 import type { PlayerSetup, Setup, State, Team } from '../src/core/types.ts';
 import { MAP_IDS, MAPS, type MapId } from '../src/core/maps.ts';
 import { WEAPON_IDS, WEAPONS, type WeaponId } from '../src/core/weapons.ts';
@@ -28,11 +31,13 @@ const mapArg = args.find((a) => a.startsWith('map:'))?.slice(4) ?? 'kitchen';
 let map: MapId = mapArg === 'all' ? 'kitchen' : (mapArg as MapId);
 const capArg = args.find((a) => a.startsWith('cap:'));
 const cap = capArg ? Number(capArg.slice(4)) : MAX_ROUNDS;
-const ALL: ItemKey[] = ['double', 'triple', 'fork', 'boost', 'lid', 'plane'];
+const ALL: ItemKey[] = ['p1', 'p2', 'fork', 'boost', 'lid', 'plane'];
 const abArg = args.find((a) => a.startsWith('ab')) ?? '';
 const groups: { name: string; ban: ItemKey[] }[] = !abArg
   ? []
-  : (abArg === 'ab' ? [...ALL, 'none'] : abArg.slice(3).split(',')).map((k) => (k === 'none' ? { name: '所有道具', ban: ALL } : { name: k, ban: [k as ItemKey] }));
+  : (abArg === 'ab' ? [...ALL, 'commons', 'none'] : abArg.slice(3).split(',')).map((k) =>
+        k === 'none' ? { name: '所有道具', ban: ALL } : k === 'commons' ? { name: '常用道具（连发、三岔、加力）', ban: ['p1', 'p2', 'fork', 'boost'] as ItemKey[] } : { name: k, ban: [k as ItemKey] },
+      );
 
 /** 座位：蓝队 size 个、黄队 size 个；人物按 PERSONAS 的顺序发（蓝队拿前面的、黄队拿后面的） */
 function makeSetup(weapons?: [WeaponId, WeaponId]): Setup {
@@ -59,27 +64,36 @@ interface Tally {
   mateHits: number;
   ends: { hp: number; fall: number; turns: number; draw: number };
   use: Record<string, number>;
+  combo: Record<string, { n: number; dmg: number }>;
   ms: number[];
   wins: [number, number];
   draws: number;
 }
 
-function play(seed: number, setup: Setup, opts: [PlanOpts, PlanOpts], t: Tally): Team | null {
+/** lite：用好友房的联机档电脑 */
+type Who = PlanOpts & { lite?: boolean };
+
+function play(seed: number, setup: Setup, opts: [Who, Who], t: Tally): Team | null {
   let s: State = newGame([seed, 7, 7, 7, 7, 7, 7, 7], setup);
   let fell = false;
   while (s.phase === 'play') {
     const me = s.actor;
     const team = s.chars[me]!.team;
     const t0 = performance.now();
-    const p = plan(s, opts[team]);
+    const p = opts[team].lite ? planLite(s) : plan(s, opts[team]);
     t.ms.push(performance.now() - t0);
     const l = p.loadout;
-    const tag = l.plane ? ['plane'] : [...(l.mode !== 'single' ? [l.mode] : []), ...(l.boost ? [`boost${l.boost}`] : []), ...(l.lid ? ['lid'] : [])];
+    const tag = l.plane ? ['plane'] : [...(['p1', 'p2', 'fork'] as const).filter((k) => l[k]), ...(l.b10 + l.b20 + l.b50 ? ['boost'] : []), ...(l.lid ? ['lid'] : [])];
     for (const k of tag) t.use[k] = (t.use[k] ?? 0) + 1;
     t.use.turns = (t.use.turns ?? 0) + 1;
+    // 叠法（不算锅盖）：用了几次、打到对方一共多少血（实战伤害，打偏的也算进次数）
+    const name = loadoutName({ ...l, lid: false });
+    const row = (t.combo[name] ??= { n: 0, dmg: 0 });
+    row.n++;
     for (const a of planActions(p)) {
       const r = apply(s, a);
       if (!r.ok) throw new Error(`第 ${seed} 局电脑出了不合法的一步：${r.error} ${JSON.stringify(a)}`);
+      if (a.t === 'fire') for (const e of r.events) if (e.t === 'hurt' && s.chars[e.id]!.team !== team) row.dmg += e.dmg;
       if (a.t === 'fire' && !a.plane) {
         t.shots++;
         if (r.events.some((e) => e.t === 'hurt' && s.chars[e.id]!.team !== team)) t.hits++;
@@ -101,7 +115,7 @@ function play(seed: number, setup: Setup, opts: [PlanOpts, PlanOpts], t: Tally):
   return s.winner;
 }
 
-const blank = (): Tally => ({ games: 0, turns: [], rounds: [], shots: 0, hits: 0, mateHits: 0, ends: { hp: 0, fall: 0, turns: 0, draw: 0 }, use: {}, ms: [], wins: [0, 0], draws: 0 });
+const blank = (): Tally => ({ games: 0, turns: [], rounds: [], shots: 0, hits: 0, mateHits: 0, ends: { hp: 0, fall: 0, turns: 0, draw: 0 }, use: {}, combo: {}, ms: [], wins: [0, 0], draws: 0 });
 const pct = (a: number, b: number): string => `${b ? ((100 * a) / b).toFixed(0) : 0}%`;
 const q = (xs: number[], p: number): number => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))] ?? 0;
 
@@ -117,6 +131,8 @@ if (args.includes('weapons')) {
       let score = 0;
       for (let g = 0; g < n; g++) {
         const aTeam: Team = g % 2 === 0 ? 0 : 1;
+        // map:all：6 张图轮着打
+        if (mapArg === 'all') map = MAP_IDS[g % MAP_IDS.length]!;
         const w = play(1000 * i + 37 * j + g, makeSetup(aTeam === 0 ? [a, b] : [b, a]), [{}, {}], all);
         score += w === null ? 0.5 : w === aTeam ? 1 : 0;
       }
@@ -133,6 +149,25 @@ if (args.includes('weapons')) {
     console.log([WEAPONS[a].name.padEnd(5, '　'), ...WEAPON_IDS.map((b) => (a === b ? '—' : `${Math.round(100 * rate[a]![b]!)}`)), `平均 ${Math.round(100 * avg)}%`].join('\t'));
   }
   console.log(`一共 ${all.games} 局：平均 ${(all.turns.reduce((x, y) => x + y, 0) / all.games).toFixed(1)} 次出手，掉出画本 ${pct(all.ends.fall, all.games)}，打满轮数 ${pct(all.ends.turns, all.games)}`);
+  process.exit(0);
+}
+
+if (args.includes('online')) {
+  // 联机档对单机档：单双局换边，平局算半局
+  const t = blank();
+  let lite = 0;
+  for (let g = 0; g < n; g++) {
+    const liteTeam: Team = g % 2 === 0 ? 0 : 1;
+    const w = play(g, makeSetup(), liteTeam === 0 ? [{ lite: true }, {}] : [{}, { lite: true }], t);
+    lite += w === null ? 0.5 : w === liteTeam ? 1 : 0;
+  }
+  const self = blank();
+  for (let g = 0; g < n; g++) play(g, makeSetup(), [{ lite: true }, { lite: true }], self);
+  const avg = (xs: number[]): string => (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1);
+  console.log(`${MAPS[map].name} ${size}v${size}${mix ? '（性格武器）' : useRoom ? '（房间默认阵容）' : '（人人包子蒸笼）'}，${n} 局：`);
+  console.log(`联机档对单机档：联机档胜率 ${pct(lite, n)}（平局算半局），平均 ${avg(t.rounds)} 轮`);
+  console.log(`联机档对联机档：平均 ${avg(self.rounds)} 轮、${avg(self.turns)} 次出手，命中率 ${pct(self.hits, self.shots)}，掉出画本 ${pct(self.ends.fall, n)}，打满轮数 ${pct(self.ends.turns, n)}，蓝 ${self.wins[0]} : 黄 ${self.wins[1]}`);
+  console.log(`联机档想一手：中位 ${q(self.ms, 0.5).toFixed(2)} ms，九成九 ${q(self.ms, 0.99).toFixed(2)} ms（Node，不降速，不含结算）`);
   process.exit(0);
 }
 
@@ -159,10 +194,15 @@ console.log(`平均 ${avgTurns.toFixed(1)} 次出手（中位 ${q(base.turns, 0.
 console.log(`两队：蓝队赢 ${base.wins[0]}、黄队赢 ${base.wins[1]}、平 ${base.draws}`);
 console.log(`怎么结束：掉出画本 ${base.ends.fall}（${pct(base.ends.fall, n)}），血量掉光 ${base.ends.hp}（${pct(base.ends.hp, n)}），打满轮数 ${base.ends.turns}（${pct(base.ends.turns, n)}），平局 ${base.ends.draw}`);
 console.log(
-  `道具使用率（每次出手）：${['double', 'triple', 'fork', 'boost10', 'boost20', 'boost50', 'lid', 'plane']
-    .map((k) => `${({ double: '连发+1', triple: '连发+2', fork: '三岔', boost10: '加力10%', boost20: '加力20%', boost50: '加力50%', lid: '锅盖', plane: '纸飞机' } as Record<string, string>)[k]} ${pct(base.use[k] ?? 0, turns)}`)
+  `道具使用率（每次出手）：${['p1', 'p2', 'fork', 'boost', 'lid', 'plane']
+    .map((k) => `${({ p1: '连发+1', p2: '连发+2', fork: '三岔', boost: '加力', lid: '锅盖', plane: '纸飞机' } as Record<string, string>)[k]} ${pct(base.use[k] ?? 0, turns)}`)
     .join('，')}`,
 );
+console.log('叠法\t次数\t占出手\t平均打到对方的血（实战，含打偏）');
+for (const [name, row] of Object.entries(base.combo).sort((a, b) => b[1].n - a[1].n)) {
+  if (row.n < turns / 200) continue;
+  console.log(`${name}\t${row.n}\t${pct(row.n, turns)}\t${(row.dmg / row.n).toFixed(1)}`);
+}
 console.log(`电脑想一手：中位 ${q(base.ms, 0.5).toFixed(0)} ms，最慢 ${Math.max(...base.ms).toFixed(0)} ms（Node，不降速）`);
 
 for (const { name, ban } of groups) {

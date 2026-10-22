@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import pkg from '../package.json' with { type: 'json' };
-import { HEALTH_PATH, route, type Env } from '../worker/route.ts';
+import { HEALTH_PATH, ROOMS_PATH, route, type Env } from '../worker/route.ts';
 
 const ORIGIN = 'https://game.example.com';
 const root = new URL('..', import.meta.url).pathname;
@@ -53,5 +53,37 @@ describe('健康检查', () => {
     const cfg = JSON.parse(text) as { assets: { run_worker_first: string[] }; observability?: { enabled: boolean } };
     expect(cfg.assets.run_worker_first).toContain(HEALTH_PATH);
     expect(cfg.observability?.enabled).toBe(true);
+  });
+
+  it('wrangler.jsonc：好友房的开房、进房先过 Worker；房间和计量两个 Durable Object，迁移用 SQLite 后端（免费版只支持这一种）', () => {
+    const text = readFileSync(`${root}wrangler.jsonc`, 'utf8')
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('//'))
+      .join('\n');
+    const cfg = JSON.parse(text) as {
+      assets: { run_worker_first: string[] };
+      durable_objects: { bindings: { name: string; class_name: string }[] };
+      migrations: { tag: string; new_sqlite_classes?: string[]; new_classes?: string[] }[];
+    };
+    expect(cfg.assets.run_worker_first).toEqual(expect.arrayContaining([ROOMS_PATH, `${ROOMS_PATH}/*`]));
+    expect(cfg.durable_objects.bindings).toEqual([
+      { name: 'ROOM', class_name: 'DanliRoom' },
+      { name: 'METER', class_name: 'RoomMeter' },
+    ]);
+    expect(cfg.migrations).toEqual([{ tag: 'v1', new_sqlite_classes: ['DanliRoom', 'RoomMeter'] }]);
+    // 入口只导出 default 和这两个类
+    const main = readFileSync(`${root}worker/main.ts`, 'utf8');
+    expect(main).toContain("export { DanliRoom } from './room.ts';");
+    expect(main).toContain("export { RoomMeter } from 'arcade-kit/meter';");
+  });
+
+  it('进房、开房的路径交给 kit（health 仍在最前面）', async () => {
+    const env = { ASSETS: { fetch: async () => new Response('asset', { status: 404 }) } } as unknown as Env;
+    // GET 开房：kit 只收 POST
+    expect((await route(new Request(`${ORIGIN}${ROOMS_PATH}`), env)).status).toBe(405);
+    // 不是 WebSocket 的进房请求：kit 回 426
+    expect((await route(new Request(`${ORIGIN}${ROOMS_PATH}/123456/ws`), env)).status).toBe(426);
+    // 码不是 6 位数字：不是进房的路径，交给静态资源
+    expect((await route(new Request(`${ORIGIN}${ROOMS_PATH}/12345/ws`), env)).status).toBe(404);
   });
 });

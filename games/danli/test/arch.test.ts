@@ -1,5 +1,5 @@
 /**
- * 架构约束（AGENTS.md 第 4 节）：规则核心、地图数据、电脑是纯函数、确定性——
+ * 架构约束（AGENTS.md 第 4 节）：规则核心、地图数据、电脑、好友房的规则（src/net，房间和页面共用）是纯函数、确定性——
  * 不用 Math.random、Date、三角函数和开方这类结果依赖平台的数学函数，不碰 DOM、网络；规则核心和电脑不 import 画面。
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -16,7 +16,7 @@ function files(dir: string): string[] {
   });
 }
 
-const PURE = [...files('src/core'), ...files('src/ai')];
+const PURE = [...files('src/core'), ...files('src/ai'), ...files('src/net')];
 const BANNED = [
   /Math\.random/,
   /Date\.now/,
@@ -42,11 +42,11 @@ describe('纯函数', () => {
 });
 
 describe('分层', () => {
-  it('规则核心和电脑不 import 画面和页面', () => {
+  it('规则核心、电脑、好友房的规则不 import 画面和页面', () => {
     for (const f of PURE) {
       const src = readFileSync(join(root, f), 'utf8');
       expect(src, f).not.toMatch(/from '.*\/view\//);
-      expect(src, f).not.toMatch(/from '.*\/(main|solo)(\.ts)?'/);
+      expect(src, f).not.toMatch(/from '.*\/(main|solo|friend)(\.ts)?'/);
     }
   });
 
@@ -57,14 +57,14 @@ describe('分层', () => {
 
 describe('随机分流', () => {
   it('用途名的哈希互不相撞', () => {
-    const names = ['open', 'wind', 'ai'];
+    const names = ['open', 'wind', 'ai', 'match'];
     expect(new Set(names.map(purposeHash)).size).toBe(names.length);
   });
 
-  it('规则和电脑只用这几个用途', () => {
+  it('规则和电脑只用这几个用途（match 是好友房按局号分出这一局的种子）', () => {
     for (const f of PURE) {
       const src = readFileSync(join(root, f), 'utf8');
-      for (const m of src.matchAll(/stream\([^,]+,\s*'([^']+)'/g)) expect(['open', 'wind', 'ai'], f).toContain(m[1]);
+      for (const m of src.matchAll(/stream\([^,]+,\s*'([^']+)'/g)) expect(['open', 'wind', 'ai', 'match'], f).toContain(m[1]);
     }
   });
 });

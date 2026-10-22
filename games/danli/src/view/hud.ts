@@ -7,6 +7,7 @@
  * 整层按设计尺寸（横屏 844×390、竖屏 390×844）等比缩放，宽高按屏幕反算，所以四角永远贴着屏幕的四角。
  */
 import { STEP_COST } from '../core/rules.ts';
+import { CHARGE_MS } from '../net/anim.ts';
 import type { Dir, Team } from '../core/types.ts';
 import type { WeaponId } from '../core/weapons.ts';
 import { el } from './dom.ts';
@@ -14,8 +15,8 @@ import { itemIconSvg, PAL, PAL_DIM, PAL_GRAY, pawSvg, type IconId } from './item
 import type { Size } from './viewport.ts';
 import { weaponIcon } from './weaponArt.ts';
 
-/** 按住多久蓄满（毫秒） */
-export const CHARGE_MS = 1800;
+/** 蓄满要多久（DESIGN.md 第 4 节：0.3.0 起 3 秒，原来 1.8 秒太快、停不准）：和好友房的停顿（net/anim.ts）同一个数 */
+export { CHARGE_MS };
 const STEP_MS = 90;
 
 export interface HudHandlers {
@@ -23,8 +24,11 @@ export interface HudHandlers {
   step(dir: Dir): boolean;
   fire(power: number): void;
   view(): void;
-  /** 点了一个道具按钮（选上或取消） */
+  /** 点了一个道具按钮（加一个；一回合 1 个的是选上或取消） */
   item(key: ItemKey): void;
+  /** 已选那一行：点一项减一个、"清空" */
+  unpick(key: ItemKey): void;
+  clearItems(): void;
   /** 静音开关 */
   mute(): void;
   /** 蓄力到多少（0..100），松手或取消时是 null（蓄力的音效跟着它） */
@@ -45,22 +49,26 @@ export function speakerSvg(muted: boolean): string {
   );
 }
 
-/** 道具栏的按钮：发射方式三个、加力三个、纸飞机、锅盖 */
-export type ItemKey = 'double' | 'triple' | 'fork' | 'b10' | 'b20' | 'b50' | 'plane' | 'lid';
+/** 道具栏的按钮：连发 +1、+2、三岔，加力 10%、20%、50%，纸飞机、锅盖 */
+export type ItemKey = 'p1' | 'p2' | 'fork' | 'b10' | 'b20' | 'b50' | 'plane' | 'lid';
 
 export interface ItemView {
   key: ItemKey;
   label: string;
   title: string;
   cost: number;
-  /** on 选上了；off 能选；tired 体力不够；empty 这一局用完了 */
-  state: 'on' | 'off' | 'tired' | 'empty';
-  /** 特殊道具还剩几次 */
-  count?: number;
+  /** 这一回合选了几个（特殊道具是 0 或 1） */
+  count: number;
+  /** 一回合最多 1 个（三岔、加力 50%、锅盖、纸飞机）：选过以后标"已选"，再点一下是取消 */
+  once: boolean;
+  /** 还能再加一个（体力够、没到上限、组合合法）；不能就标红边 */
+  can: boolean;
+  /** 特殊道具这一局还剩几次 */
+  uses?: number;
 }
 
 /** 道具按钮用哪个图标（view/itemIcons.ts） */
-const ICON: Record<ItemKey, IconId> = { double: 'burst1', triple: 'burst2', fork: 'fork', b10: 'power10', b20: 'power20', b50: 'power50', plane: 'plane', lid: 'lid' };
+const ICON: Record<ItemKey, IconId> = { p1: 'burst1', p2: 'burst2', fork: 'fork', b10: 'power10', b20: 'power20', b50: 'power50', plane: 'plane', lid: 'lid' };
 /** 选中：左上角的勾 */
 const TICK =
   '<svg class="dl-item-tick" viewBox="-8 -8 16 16" aria-hidden="true"><circle r="7" fill="#ffbf1a" stroke="#46291a" stroke-width="1.5"/><path d="M-3.4,0.2l2.4,2.4l4.2,-4.6" fill="none" stroke="#46291a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -83,6 +91,7 @@ export class Hud {
   readonly bottom: HTMLElement;
   readonly home: HTMLAnchorElement;
   private turnEl: HTMLElement;
+  private clockEl: HTMLElement;
   private windEl: HTMLElement;
   private viewBtn: HTMLButtonElement;
   private muteBtn: HTMLButtonElement;
@@ -96,6 +105,9 @@ export class Hud {
   private climbBtns: HTMLButtonElement[] = [];
   private weaponEl: HTMLElement;
   private itemBtns = new Map<ItemKey, HTMLButtonElement>();
+  /** 道具栏上面那一行：已选的组合 */
+  private pickedEl: HTMLElement;
+  private pickedSig = '';
   /** 每个按钮上次画的样子（状态、次数），没变就不重画 SVG */
   private itemSig = new Map<ItemKey, string>();
   private thinkEl: HTMLElement;
@@ -117,6 +129,9 @@ export class Hud {
     this.home.href = '/';
     this.home.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/></svg><span>大厅</span>';
     this.turnEl = el('div', 'dl-turn', this.top);
+    // 好友房的回合倒计时（服务器算的 30 秒）；单机不限时，一直收着
+    this.clockEl = el('div', 'dl-clock', this.top);
+    this.clockEl.hidden = true;
     this.windEl = el('div', 'dl-wind', this.top);
     this.viewBtn = el('button', 'dl-view', this.top);
     this.viewBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="M5 16l5-6 4 4 2-2 3 4"/></svg><span>全图</span>';
@@ -162,9 +177,10 @@ export class Hud {
     this.powerLast = el('div', 'dl-power-last', track);
     el('span', '', this.powerLast, '上次');
     // 道具栏：发射方式、加力、特殊三组，组之间用间距和细虚线隔开；按钮上只有图标（不放汉字），名字放在 aria-label 和悬停提示里
+    this.pickedEl = el('div', 'dl-picked', mid);
     const items = el('div', 'dl-items', mid);
     for (const keys of [
-      ['double', 'triple', 'fork'],
+      ['p1', 'p2', 'fork'],
       ['b10', 'b20', 'b50'],
       ['plane', 'lid'],
     ] as const) {
@@ -222,6 +238,17 @@ export class Hud {
     this.turnEl.classList.toggle('mine', mine);
   }
 
+  /** 好友房的回合倒计时：还剩几秒（null 收起）；10 秒以内变红 */
+  setClock(sec: number | null, mine = false): void {
+    this.clockEl.hidden = sec === null;
+    if (sec === null) return;
+    const t = `${Math.max(0, Math.ceil(sec))}`;
+    if (this.clockEl.textContent !== t) this.clockEl.textContent = t;
+    this.clockEl.classList.toggle('hot', sec <= 10);
+    this.clockEl.classList.toggle('mine', mine);
+    this.clockEl.title = mine ? '这一手还剩几秒，到了算弃权' : '这一手还剩几秒';
+  }
+
   /** 风：-5..5。风向袋朝风吹去的方向，箭头 + 级数 + 5 片叶子（几级亮几片） */
   setWind(w: number): void {
     const a = Math.abs(w);
@@ -244,12 +271,13 @@ export class Hud {
   }
 
   /**
-   * 体力：n 是这回合还剩的，reserved 是选了的道具要花的（发射时才扣）。10 格里绿的是"选了这些以后还剩多少能爬"，斜线的是预扣给道具的。
+   * 体力：n 是这回合还剩的，reserved 是选了的道具要花的（发射时才扣）。10 格里绿的是"选了这些以后还剩多少能爬"，黄色斜线的是预扣给道具的。
    */
   setStamina(n: number, show: boolean, reserved = 0): void {
     const free = Math.max(0, n - reserved);
-    this.stamNum.textContent = reserved ? `${n} · 能爬 ${Math.floor(free / STEP_COST)} 步` : String(n);
-    this.stamNum.title = reserved ? `道具要 ${reserved}（黄的那几格）` : '';
+    // 选了道具时写"剩多少 / 这回合一共多少"，一眼看出预扣了多少（只写 100 容易看成还没花）
+    this.stamNum.textContent = reserved ? `剩 ${free} / ${n} · 能爬 ${Math.floor(free / STEP_COST)} 步` : String(n);
+    this.stamNum.title = reserved ? `道具预扣 ${reserved}（黄色斜线那几格）` : '';
     const on = Math.ceil(free / 10);
     const held = Math.ceil(n / 10);
     this.stamSegs.forEach((s, i) => {
@@ -279,24 +307,52 @@ export class Hud {
   setItems(views: readonly ItemView[]): void {
     for (const v of views) {
       const b = this.itemBtns.get(v.key)!;
-      const state = { on: 'selected', off: 'ok', tired: 'short', empty: 'empty' }[v.state];
-      const sig = `${state}|${v.count ?? ''}`;
+      const empty = v.uses !== undefined && v.uses <= 0 && v.count === 0;
+      const state = empty ? 'empty' : v.count > 0 ? 'selected' : v.can ? 'ok' : 'short';
+      // 选了几个还能再加吗：不能就在选中的样子外面描红边（买不起第二个）；一回合 1 个的不标
+      const more = v.count > 0 && !v.once && !v.can ? 'no' : 'yes';
+      const sig = `${state}|${more}|${v.count}|${v.uses ?? ''}`;
       b.dataset.state = state;
-      const tip = `${v.label}：${v.title}；体力 ${v.cost}${v.count !== undefined ? `，这一局还剩 ${v.count} 次` : ''}${v.state === 'tired' ? '（体力不够）' : v.state === 'empty' ? '（用完了）' : ''}`;
+      b.dataset.more = more;
+      b.dataset.count = String(v.count);
+      const tip =
+        `${v.label}：${v.title}；体力 ${v.cost}${v.uses !== undefined ? `，这一局还剩 ${v.uses} 次` : ''}` +
+        `${v.count ? (v.once ? '（已选，再点取消）' : `（选了 ${v.count} 个）`) : ''}${state === 'short' ? '（体力不够）' : state === 'empty' ? '（用完了）' : ''}`;
       b.title = tip;
       b.setAttribute('aria-label', tip);
-      b.setAttribute('aria-pressed', String(v.state === 'on'));
+      b.setAttribute('aria-pressed', String(v.count > 0));
       if (this.itemSig.get(v.key) === sig) continue;
       this.itemSig.set(v.key, sig);
-      const pal = v.state === 'tired' ? PAL_DIM : v.state === 'empty' ? PAL_GRAY : PAL;
-      const pawFill = v.state === 'tired' ? '#e2432a' : v.state === 'empty' ? '#b4a896' : '#3fa34d';
+      const pal = state === 'short' ? PAL_DIM : state === 'empty' ? PAL_GRAY : PAL;
+      const pawFill = state === 'short' ? '#e2432a' : state === 'empty' ? '#b4a896' : '#3fa34d';
+      const mark = v.count === 0 ? '' : v.once ? (v.uses !== undefined ? TICK : '<span class="dl-item-n once">已选</span>') : `<span class="dl-item-n">×${v.count}</span>`;
       b.innerHTML =
         `<span class="dl-item-face">${itemIconSvg(ICON[v.key], pal)}</span>` +
         `<span class="dl-item-tag"><svg viewBox="-6 -7 12 12" aria-hidden="true">${pawSvg(PAL, 0, 0, 1, pawFill)}</svg><b>${v.cost}</b></span>` +
-        (v.count !== undefined ? `<span class="dl-item-uses">${v.count === 0 || v.state === 'empty' ? '0' : `×${v.count}`}</span>` : '') +
-        (v.state === 'on' ? TICK : '') +
-        (v.state === 'tired' ? LOCK : '');
+        (v.uses !== undefined ? `<span class="dl-item-uses">${v.uses <= 0 ? '0' : `×${v.uses}`}</span>` : '') +
+        mark +
+        (state === 'short' ? LOCK : '');
     }
+  }
+
+  /** 道具栏上面那一行：已选的组合，点一项减一个，"清空"；没选时写一句提示 */
+  setPicked(list: readonly { key: ItemKey; text: string }[]): void {
+    const sig = list.map((x) => `${x.key}:${x.text}`).join('|');
+    if (sig === this.pickedSig) return;
+    this.pickedSig = sig;
+    this.pickedEl.replaceChildren();
+    if (!list.length) {
+      el('span', 'dl-picked-hint', this.pickedEl, '点道具加上去，能叠，体力够就行');
+      return;
+    }
+    for (const x of list) {
+      const c = el('button', 'dl-picked-chip', this.pickedEl, x.text);
+      c.dataset.item = x.key;
+      c.title = '点一下减一个';
+      c.addEventListener('click', () => this.enabled && this.h.unpick(x.key));
+    }
+    const clr = el('button', 'dl-picked-clear', this.pickedEl, '清空');
+    clr.addEventListener('click', () => this.enabled && this.h.clearItems());
   }
 
   /** 力度条：现在的力度（0..100）和上次的刻度 */
@@ -314,6 +370,7 @@ export class Hud {
     this.fireBtn.disabled = !on;
     for (const b of this.climbBtns) b.disabled = !on;
     for (const b of this.itemBtns.values()) b.disabled = !on;
+    for (const b of this.pickedEl.querySelectorAll('button')) b.disabled = !on;
     if (!on) this.cancelCharge();
   }
 

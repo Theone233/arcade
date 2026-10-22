@@ -1,22 +1,26 @@
 /**
  * 页面入口：选桌页 → 准备房间 → 对局 → 结算（再来一局、回房间、大厅）。规则在 src/core，电脑在 src/ai，单机存档在 solo.ts，
  * 房间设置和 danli.prefs 在 room.ts，画面在 src/view，音效在 view/sound.ts；这里只把它们连起来。
+ * 好友房（0.3.0）在 friend.ts：首页"开房间""输房间码"、地址带 ?room=<码> 直接进房、danli.room 记着的房间刷新后自动回去。
  * 回大厅（AGENTS.md 第 2 节第 6 条）：左上角常驻"大厅"，指向平台首页 /；对局中离开先确认一次（单机存着下次接着打）。
  * 独立部署（kit 的 detectPlatform 说没有平台）时"大厅"改成回游戏首页。还没有接平台的云存档。
  */
 import { detectPlatform } from 'arcade-kit/client';
+import { mountSocial, type SocialHandle } from 'arcade-kit/social';
 import { reportErrors } from 'arcade-kit/report';
 import { plan, planActions, type Plan } from './ai/index.ts';
-import { BOOST_COST, FORK_SPREAD as FORK, loadoutCost, MODES, PLAIN, SPECIALS, type Boost, type Loadout, type ShotMode } from './core/items.ts';
+import { FORK_SPREAD as FORK, loadoutCost, PLAIN, type Loadout } from './core/items.ts';
 import { MAP_IDS, type MapId } from './core/maps.ts';
 import { apply, loadoutBlocked, MAX_HP, mapOf, roundLimit, stepTarget } from './core/rules.ts';
 import type { Action, Dir, Ev, Setup, Team } from './core/types.ts';
 import { weapon } from './core/weapons.ts';
 import { loadPrefs, roomSetup, savePrefs, type RoomConfig } from './room.ts';
+import { clearRoom, Friend, loadRoom, openRoom } from './friend.ts';
 import { clearSolo, peekSolo, Solo } from './solo.ts';
 import { computeStats } from './stats.ts';
 import { confirmBox } from './view/dom.ts';
-import { CHARGE_MS, Hud, type ItemKey, type ItemView } from './view/hud.ts';
+import { CHARGE_MS, Hud } from './view/hud.ts';
+import { addItem, itemViews, pickedList, removeItem } from './view/itemBar.ts';
 import { renderLobby } from './view/lobby.ts';
 import { TEAM_NAME } from './view/palette.ts';
 import { renderResult } from './view/result.ts';
@@ -47,17 +51,27 @@ app.addEventListener('scroll', () => {
 let myName = '我';
 let homeUrl = '/';
 let homeText = '大厅';
+/** 单独部署（没有平台）：好友房的开房、进房带上昵称（?name=） */
+let standalone = false;
+/** 有平台、登录了：报位置、收好友邀请、"叫好友"（kit 的 social） */
+let social: SocialHandle | null = null;
 
 async function loadMe(): Promise<void> {
   const p = await detectPlatform();
   if (p.platform === true) {
     const u = p.user as { displayName?: string } | null;
     if (u?.displayName) myName = u.displayName.slice(0, 8);
+    social = await mountSocial({
+      platform: p,
+      where: () => friend?.where() ?? { place: 'game', game: 'danli' },
+      gameName: (id) => (id === 'danli' ? '弹里个弹' : undefined),
+    }).catch(() => null);
     return;
   }
   if (p.platform !== false) return;
   homeUrl = './';
   homeText = '首页';
+  standalone = true;
   const name = query.get('name')?.trim().slice(0, 8);
   if (name) myName = name;
 }
@@ -96,16 +110,21 @@ function pickMap(ids: readonly MapId[]): MapId {
 
 let size: Size = { w: 0, h: 0, port: false };
 let game: Game | null = null;
+/** 好友房（进了房间才有） */
+let friend: Friend | null = null;
 /** 选桌页、准备房间、结算（同一时间只有一页，或者一局） */
 let page: Stage | null = null;
 const viewport = watchViewport(app, (s) => {
   size = s;
   game?.resize(s);
   page?.resize(s);
+  friend?.resize(s);
 });
 
 /** 换一页：收掉现在的对局和页面 */
 function clear(): void {
+  friend?.destroy();
+  friend = null;
   game?.destroy();
   game = null;
   page?.destroy();
@@ -120,13 +139,22 @@ function show(p: Stage): void {
 
 // ---------- 选桌页 ----------
 
-function lobby(): void {
+function lobby(note: string | null = null): void {
   clear();
+  // 不在好友房里了：地址上的房间码去掉（刷新不再进房）
+  if (query.has('room')) {
+    query.delete('room');
+    const q = query.toString();
+    history.replaceState(null, '', `${location.pathname}${q ? `?${q}` : ''}`);
+  }
   show(renderLobby(app, {
     homeText,
     homeUrl,
     resume: peekSolo(),
     muted: prefs.muted,
+    friendNote: note,
+    onOpenRoom: () => void friendOpen(),
+    onJoinCode: (code) => enterRoom(code, false),
     onRoom: () => room(),
     onResume: () => {
       const s = Solo.load();
@@ -135,6 +163,48 @@ function lobby(): void {
     },
     onMute: toggleMute,
   }));
+}
+
+// ---------- 好友房 ----------
+
+function enterRoom(code: string, host: boolean): void {
+  clear();
+  friend = new Friend(
+    {
+      app,
+      viewport: () => (viewport().w ? viewport() : size),
+      homeUrl,
+      homeText,
+      myName,
+      standalone,
+      speed: SPEED,
+      muted: () => prefs.muted,
+      toggleMute,
+      me: () => prefs.room.me,
+      social,
+      toLobby: (note) => {
+        friend = null;
+        lobby(note);
+      },
+    },
+    code,
+    host,
+  );
+}
+
+let opening = false;
+
+/** 首页"开房间" */
+async function friendOpen(): Promise<void> {
+  if (opening) return;
+  opening = true;
+  try {
+    const r = await openRoom({ standalone, myName });
+    if ('code' in r) enterRoom(r.code, true);
+    else lobby(r.error);
+  } finally {
+    opening = false;
+  }
 }
 
 // ---------- 准备房间 ----------
@@ -219,7 +289,9 @@ class Game {
     this.hud = new Hud(app, {
       step: (dir) => this.step(dir),
       fire: (power) => void this.fire(power),
-      item: (key) => this.toggleItem(key),
+      item: (key) => this.setItems(addItem(this.loadout, key)),
+      unpick: (key) => this.setItems(removeItem(this.loadout, key)),
+      clearItems: () => this.setItems(PLAIN),
       view: () => {
         this.scene.toggleOverview();
       },
@@ -229,7 +301,7 @@ class Game {
       charge: (p) => sound.charge(p),
     });
     this.hud.setMuted(prefs.muted);
-    this.scene = new Scene(app, mapOf(s), s);
+    this.scene = new Scene(app, mapOf(s), s, solo.burns);
     this.scene.speed = SPEED;
     this.scene.viewer = s.chars.find((c) => !c.ai)?.id ?? -1;
     this.scene.onAim = (angle, facing) => this.setAim(angle, facing);
@@ -268,6 +340,7 @@ class Game {
         this.scene.draws.length = 0;
       },
       nudge: (dx: number, dy: number) => this.scene.nudge(dx, dy),
+      terrainStats: () => this.scene.terrainStats,
     };
     void this.turn();
   }
@@ -399,7 +472,7 @@ class Game {
     // 亮出电脑选的道具，再转角度盘、蓄力：放给人看，电脑也是这么打的
     this.loadout = p.loadout;
     this.paintItems();
-    this.scene.aim = { angle: this.angle, facing: p.facing, min: w.minAngle, max: w.maxAngle, spread: p.loadout.mode === 'fork' ? FORK : 0 };
+    this.scene.aim = { angle: this.angle, facing: p.facing, min: w.minAngle, max: w.maxAngle, spread: p.loadout.fork ? FORK : 0 };
     this.scene.setFacing(a.id, p.facing);
     const from = this.angle;
     const steps = 12;
@@ -457,15 +530,14 @@ class Game {
 
   // ---------- 道具栏 ----------
 
-  /** 点一个道具：发射方式三选一、加力三选一（再点一下取消）；纸飞机不能和别的一起用，选它就清掉别的，选别的就清掉它 */
-  private toggleItem(key: ItemKey): void {
+  /** 换一组道具（点道具加一个、"已选"那一行减一个、清空）：组合不合法、体力不够就不换 */
+  private setItems(next: Loadout): void {
     if (!this.mine()) return;
-    const next = toggled(this.loadout, key);
     const s = this.solo.state;
     if (loadoutBlocked(s, s.chars[s.actor]!, next)) return;
     sound.play('item');
     this.loadout = next;
-    if (this.scene.aim) this.scene.aim = { ...this.scene.aim, spread: next.mode === 'fork' ? FORK : 0 };
+    if (this.scene.aim) this.scene.aim = { ...this.scene.aim, spread: next.fork ? FORK : 0 };
     this.paintItems();
   }
 
@@ -473,16 +545,8 @@ class Game {
   private paintItems(): void {
     const s = this.solo.state;
     const me = s.chars[s.actor]!;
-    const views: ItemView[] = ITEMS.map(({ key, label, title }) => {
-      const on = isOn(this.loadout, key);
-      const special = key === 'plane' || key === 'lid' ? key : null;
-      const cost = special ? SPECIALS[special].cost : key === 'double' || key === 'triple' || key === 'fork' ? MODES[key].cost : BOOST_COST[boostOf(key)];
-      let state: ItemView['state'] = on ? 'on' : 'off';
-      if (!on && special && me.special[special] <= 0) state = 'empty';
-      else if (!on && loadoutBlocked(s, me, toggled(this.loadout, key)) === 'tired') state = 'tired';
-      return { key, label, title, cost, state, ...(special ? { count: me.special[special] } : {}) };
-    });
-    this.hud.setItems(views);
+    this.hud.setItems(itemViews(s, this.loadout));
+    this.hud.setPicked(pickedList(this.loadout));
     this.hud.setStamina(s.stamina, !me.ai, loadoutCost(this.loadout));
   }
 
@@ -579,41 +643,6 @@ class Game {
 
 }
 
-// ---------- 道具栏的按钮 ----------
-
-const ITEMS: readonly { key: ItemKey; label: string; title: string }[] = [
-  // 提示里的数从规则核心取，调数值时不会漏改
-  { key: 'double', label: '连发+1', title: `连扔 ${MODES.double.count} 发，每发伤害 ${MODES.double.pct}%` },
-  { key: 'triple', label: '连发+2', title: `连扔 ${MODES.triple.count} 发，每发伤害 ${MODES.triple.pct}%` },
-  { key: 'fork', label: '三岔', title: `一发分成三颗，角度各差 ${FORK}°，每颗伤害 ${MODES.fork.pct}%` },
-  { key: 'b10', label: '加力10%', title: '这回合伤害 +10%' },
-  { key: 'b20', label: '加力20%', title: '这回合伤害 +20%' },
-  { key: 'b50', label: '加力50%', title: '这回合伤害 +50%' },
-  { key: 'plane', label: '纸飞机', title: '这一发扔纸飞机，人飞到落点；不能和别的道具一起用' },
-  { key: 'lid', label: '锅盖', title: '这一发不受风（连发、三岔的每一颗都算）' },
-];
-
-function boostOf(key: ItemKey): Boost {
-  return key === 'b10' ? 10 : key === 'b20' ? 20 : key === 'b50' ? 50 : 0;
-}
-
-function isOn(l: Loadout, key: ItemKey): boolean {
-  if (key === 'plane') return l.plane;
-  if (key === 'lid') return l.lid;
-  if (key === 'b10' || key === 'b20' || key === 'b50') return l.boost === boostOf(key);
-  return l.mode === key;
-}
-
-/** 点了 key 以后的组合 */
-function toggled(l: Loadout, key: ItemKey): Loadout {
-  const on = isOn(l, key);
-  if (key === 'plane') return on ? PLAIN : { ...PLAIN, plane: true };
-  const base = { ...l, plane: false };
-  if (key === 'lid') return { ...base, lid: !on };
-  if (key === 'b10' || key === 'b20' || key === 'b50') return { ...base, boost: on ? 0 : boostOf(key) };
-  return { ...base, mode: on ? 'single' : (key as ShotMode) };
-}
-
 // ---------- 开始 ----------
 
 document.addEventListener('contextmenu', (e) => {
@@ -622,5 +651,13 @@ document.addEventListener('contextmenu', (e) => {
 
 void (async () => {
   await loadMe();
-  lobby();
+  // 地址带 ?room=<码> 直接进房；没带但 danli.room 记着一个房间（刷新、切回来）就回那个房间
+  const code = query.get('room');
+  const saved = loadRoom();
+  if (code && /^\d{6}$/.test(code)) enterRoom(code, saved?.code === code && saved.host);
+  else if (saved) enterRoom(saved.code, saved.host);
+  else {
+    if (code) clearRoom();
+    lobby(code ? '房间码要 6 位数字' : null);
+  }
 })();

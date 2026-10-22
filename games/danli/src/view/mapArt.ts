@@ -69,7 +69,7 @@ export const MAP_ART: Readonly<Record<MapId, MapArt>> = {
   kitchen: { theme: 'kitchen', card: {short: '什么都有一点，上手就选它', feature: '左山头挡平射；中间长台地有口井，炸井边能把人送下去；右边凹谷四面是崖，进去难出来；两块浮岛是高点', players: '1v1–3v3'} },
   icecream: { theme: 'icecream', card: {short: '平射过不去，只能高抛或者把塔打穿', feature: '三层高塔挡死平射，塔顶是全图最高点也最险；塔脚两颗冰淇淋球贴着塔，是躲高抛的死角；两边山坡起伏，坑多好藏', players: '1v1–3v3'} },
   dumpling: { theme: 'dumpling', card: {short: '躲进隧道，只有平射、钻地和窄缝打得着', feature: '山肚子里一段隧道：躲进去高抛打不着，拖鞋平射、萝卜钻能掏进去；隧道只在中间有底，山顶两侧打穿就直接掉出画本；山顶窄缝正对隧道中段，从蒸笼上往下垂直打；两头的大饺子是掩体', players: '1v1–3v3'} },
-  bento: { theme: 'bento', card: {short: '快图：岛和岛不连着，全靠高抛和纸飞机', feature: '每座岛都小而薄，两三炮就能把岛炸空；走不过去，换位置只能坐纸飞机；中间饭碗最大，碗上西兰花是制高点', players: '1v1–3v3', tag: '快图'} },
+  bento: { theme: 'bento', card: {short: '快图：岛小又不连着，最容易掉出画本', feature: '每座岛都小而薄，两三炮就能把岛炸空；走不过去，换位置只能坐纸飞机；中间饭碗最大，碗上西兰花是制高点', players: '1v1–3v3', tag: '快图'} },
   nightmarket: { theme: 'nightmarket', card: {short: '雨棚挡高抛，两炮就穿；钻到棚下平射', feature: '四个雨棚两炮就穿：站棚上是高点，躲棚下高抛打不着，只怕平射；中间戏台高出一截，两道水沟把街切成三段', players: '1v1–3v3'} },
   breakfast: { theme: 'breakfast', card: {short: '桥薄得一炮就断，断了人就掉下去', feature: '法棍桥只有 44 厚，一炮就断，断开的那段原地悬着；桥上不放出生点，走上去全凭胆子；草莓、香肠、煎蛋浮在桥上方，是高点也挡高抛；右边马克杯是个坑，掉进去只能坐纸飞机出来', players: '1v1–3v3', tag: '慢图'} },
 };

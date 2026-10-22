@@ -22,7 +22,11 @@ export interface ResultOpts {
   stats: GameStats;
   homeText: string;
   homeUrl: string;
-  onAgain(): void;
+  /** 我操控的角色（好友房里旁观的人是 null）；不给就是第一个真人（单机） */
+  meId?: number | null;
+  /** "再来一局"：null 时按钮灰着、写 againText（好友房里只有房主能点） */
+  onAgain: (() => void) | null;
+  againText?: string;
   onRoom(): void;
   onHome(): void;
 }
@@ -100,11 +104,13 @@ function podium(ctx: CanvasRenderingContext2D, px: number, py: number, team: Tea
 export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
   const { stats } = o;
   const s = stats.state;
-  const me = s.chars.find((c) => !c.ai)!;
+  const meId = o.meId === undefined ? (s.chars.find((c) => !c.ai)?.id ?? null) : o.meId;
+  const me = meId === null ? null : s.chars[meId]!;
   const size = Math.max(s.chars.filter((c) => c.team === 0).length, s.chars.filter((c) => c.team === 1).length);
   const won = s.winner;
-  const win = won === me.team;
-  const foeTeam = (1 - me.team) as Team;
+  const myTeam: Team = me ? me.team : (won ?? 0);
+  const win = won === myTeam;
+  const foeTeam = (1 - myTeam) as Team;
   const foes = s.chars.filter((c) => c.team === foeTeam);
   const fellAll = foes.every((c) => stats.players[c.id]!.end === 'fall');
   const says =
@@ -112,18 +118,22 @@ export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
       ? `打满 ${roundLimit(s.setup)} 轮，两队剩下的血一样多`
       : s.endBy === 'turns'
         ? `打满 ${roundLimit(s.setup)} 轮比血量：蓝 ${teamHp(s, 0)} : 黄 ${teamHp(s, 1)}`
-        : win
-          ? fellAll
-            ? size === 1
-              ? `你把${foes[0]!.name}送出了画本`
-              : '你这队把对面全送出了画本'
-            : `${TEAM_NAME[foeTeam]}全部出局了`
-          : size === 1
-            ? me.hp <= 0
-              ? '你的血量打空了，再来一局？'
-              : '你掉出了画本，再来一局？'
-            : `${TEAM_NAME[me.team]}全部出局了，再来一局？`;
+        : !me
+          ? `${TEAM_NAME[foeTeam]}全部出局了`
+          : win
+            ? fellAll
+              ? size === 1
+                ? `你把${foes[0]!.name}送出了画本`
+                : '你这队把对面全送出了画本'
+              : `${TEAM_NAME[foeTeam]}全部出局了`
+            : size === 1
+              ? me.hp <= 0
+                ? '你的血量打空了，再来一局？'
+                : '你掉出了画本，再来一局？'
+              : `${TEAM_NAME[me.team]}全部出局了，再来一局？`;
   const mapName = MAPS[s.setup.map].name;
+  // 好友房两队人数可以不一样（2 对 1）
+  const vs = `${s.chars.filter((c) => c.team === 0).length}v${s.chars.filter((c) => c.team === 1).length}`;
 
   return new Stage(host, 'dl-result', (v: StageView) => {
     const { bg: ctx, port, view } = v;
@@ -136,7 +146,7 @@ export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
     ctx.translate(-X0, -Y0);
     paintBackdrop(ctx, MAP_ART[s.setup.map].theme, 3000, 780, { x0: X0 + view.x0 / k - 50, y0: Y0 + view.y0 / k - 50, w: (view.x1 - view.x0) / k + 100, h: (view.y1 - view.y0) / k + 100 });
     ctx.restore();
-    const showTeam: Team = won ?? me.team;
+    const showTeam: Team = won ?? myTeam;
     const px = port ? 195 : 140;
     const py = port ? 380 : 300;
     podium(ctx, px, py, showTeam, s.chars.filter((c) => c.team === showTeam), won !== null);
@@ -159,7 +169,7 @@ export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
     if (port) Object.assign(head.style, { position: 'static' });
     else Object.assign(head.style, { left: '290px', right: '12px', top: '8px', height: '82px' });
     const sub = el('div', 'sub', head);
-    sub.innerHTML = `${escapeHtml(mapName)} · ${size}v${size} · 打了 <b>${s.round}</b> 轮<br>掉出画本 <b>${stats.falls}</b> 人 · 血量打空 <b>${stats.busts}</b> 人`;
+    sub.innerHTML = `${escapeHtml(mapName)} · ${vs} · 打了 <b>${s.round}</b> 轮<br>掉出画本 <b>${stats.falls}</b> 人 · 血量打空 <b>${stats.busts}</b> 人`;
 
     const tbl = el('div', 'tbl dl-card', box);
     Object.assign(tbl.style, port ? { position: 'static' } : { left: '290px', right: '12px', top: '92px' });
@@ -194,7 +204,7 @@ export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
       const happy = won === null ? 'normal' : r.c.team === won ? 'cheer' : 'hurt';
       who.append(portrait(r.c.look, r.c.team, 28, p.end === 'alive' ? happy : 'hurt'));
       const t = el('div', '', who);
-      t.innerHTML = `${escapeHtml(r.c.name)}${r.c.ai ? '' : '<i class="mvp me">我</i>'}`;
+      t.innerHTML = `${escapeHtml(r.c.name)}${r.c.id === meId ? '<i class="mvp me">我</i>' : ''}`;
       const sm = el('small', '', t);
       sm.append(weaponIcon(r.c.weapon, 13));
       el('span', '', sm, WEAPONS[r.c.weapon].name);
@@ -202,7 +212,12 @@ export function renderResult(host: HTMLElement, o: ResultOpts): Stage {
 
     const acts = el('div', 'acts', L);
     Object.assign(acts.style, port ? { left: '12px', right: '12px', bottom: '18px' } : { left: '290px', right: '12px', bottom: '10px' });
-    el('button', 'dl-btn go end-again', acts, '再来一局').addEventListener('click', () => o.onAgain());
+    const again = el('button', 'dl-btn go end-again', acts, o.onAgain ? '再来一局' : (o.againText ?? '再来一局'));
+    if (o.onAgain) again.addEventListener('click', () => o.onAgain!());
+    else {
+      again.disabled = true;
+      again.classList.add('wait');
+    }
     el('button', 'dl-btn soft end-room', acts, '回房间').addEventListener('click', () => o.onRoom());
     const home = el('button', 'dl-btn end-home', acts);
     home.append(glyphIcon('home', 17));
