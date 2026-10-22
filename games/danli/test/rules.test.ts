@@ -145,7 +145,7 @@ describe('爆炸', () => {
     expect(blastDamage(strong, w, w.radius, 0)).toBeGreaterThan(full);
   });
 
-  it('打中扣血、把人往外推，并且记事件', () => {
+  it('打中扣血，并且记事件', () => {
     const s = flat([1000, 1300]);
     const r = run(s, { t: 'fire', angle: 45, power: hitPower(s), facing: 1 });
     const hurt = r.events.find((e) => e.t === 'hurt' && e.id === 1);
@@ -162,37 +162,38 @@ describe('爆炸', () => {
     expect(r.events.some((e) => e.t === 'hurt' && e.id === 0)).toBe(true);
   });
 
-  it('站在井口旁边的被炸到，会被推（或者连地一起炸）进井里，掉出画本出局', () => {
-    // 1000..1100 是一口打穿到底的井
-    const t = slab(0, 1000, 500, 700);
+  it('站在井口旁边的被炸到，脚下连地一起炸没了，掉进井里、掉出画本出局', () => {
+    // 1000..1100 是一口打穿到底的井；井左边是一层薄地（两格），一炸就穿
+    const t = slab(0, 1000, 500, 508);
     slab(1100, 3000, 500, 700, t);
     const s = flat([600, 990], { terrain: t });
-    let pushed: { state: State; events: Ev[] } | null = null;
-    for (let a = 20; a <= 70 && !pushed; a++) {
-      for (let p = 20; p <= 80 && !pushed; p++) {
+    let fell: { state: State; events: Ev[] } | null = null;
+    for (let a = 20; a <= 70 && !fell; a++) {
+      for (let p = 20; p <= 80 && !fell; p++) {
         const r = run(s, { t: 'fire', angle: a, power: p, facing: 1 });
-        if (r.events.some((e) => e.t === 'push' && e.id === 1) && r.events.some((e) => e.t === 'out' && e.id === 1)) pushed = r;
+        if (r.events.some((e) => e.t === 'out' && e.id === 1 && e.why === 'fall')) fell = r;
       }
     }
-    expect(pushed).not.toBeNull();
-    expect(pushed!.events).toContainEqual({ t: 'out', id: 1, why: 'fall' });
-    expect(pushed!.state.chars[1]!.out).toBe(true);
-    expect(pushed!.state.phase).toBe('over');
-    expect(pushed!.state.winner).toBe(0);
-    expect(pushed!.state.endBy).toBe('wipe');
+    expect(fell).not.toBeNull();
+    expect(fell!.events).toContainEqual({ t: 'out', id: 1, why: 'fall' });
+    expect(fell!.state.chars[1]!.out).toBe(true);
+    expect(fell!.state.phase).toBe('over');
+    expect(fell!.state.winner).toBe(0);
+    expect(fell!.state.endBy).toBe('wipe');
   });
 
-  it('推开的方向是离开爆心的方向', () => {
+  it('命中不推人（DESIGN.md 2.5）：被炸到的人脚下还有地就原地不动', () => {
     const s = flat([600, 1400]);
+    let checked = 0;
     for (let p = 20; p <= 80; p++) {
       const shot = previewShot(s, 45, p, 1);
-      if (!shot.end || shot.hit !== null || shot.end.x < 1375 || shot.end.x > 1395) continue;
+      if (!shot.end || Math.abs(shot.end.x - 1400) > 40) continue;
       const r = run(s, { t: 'fire', angle: 45, power: p, facing: 1 });
-      const push = r.events.find((e) => e.t === 'push' && e.id === 1);
-      expect(push && push.t === 'push' && push.x).toBeGreaterThan(1400);
-      return;
+      expect(r.events.some((e) => e.t === 'hurt' && e.id === 1)).toBe(true);
+      expect(r.state.chars[1]!.x).toBe(1400);
+      checked++;
     }
-    throw new Error('没找到落在他左边的一发');
+    expect(checked).toBeGreaterThan(0);
   });
 });
 

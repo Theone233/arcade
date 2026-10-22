@@ -3,6 +3,7 @@
  * 悬空的地形断开以后原地不动（不做塌落）；只有挖空的地方会掉人。
  * 光栅化用多边形的扫描线（偶奇规则），只用加减乘除，同样的输入在哪儿算都一样。
  */
+import { craterReach, inCrater, type CraterKind } from './craters.ts';
 import { clamp } from './fixed.ts';
 
 export const CELL = 4;
@@ -86,7 +87,7 @@ export interface CellBox {
 }
 
 /**
- * 挖一个圆（DESIGN.md 2.3 爆炸挖坑）：格子中心离圆心不到 r 的挖掉；再往外 SCORCH_RING 个单位还剩下的地标成"焦"。
+ * 挖一个圆（地图自带的坑和井口，DESIGN.md 第 3 节）：格子中心离圆心不到 r 的挖掉；再往外 SCORCH_RING 个单位还剩下的地标成"焦"（画坑边用）。
  * 直接改 t（调用方先复制）；回被改过的格子范围。整数运算。
  */
 export const SCORCH_RING = 6;
@@ -110,6 +111,48 @@ export function carve(t: Terrain, cx: number, cy: number, r: number): CellBox {
     }
   }
   return { c0, r0, c1, r1 };
+}
+
+/**
+ * 坑形占的格子（相对坑心所在那一格的偏移 dc、dr，两个一组）：只和坑形、大小、坑心在格子里的位置（0–3）有关，算一次就记下来。
+ * 挖坑是规则核心最热的地方（电脑在心里试炮弹、房间从存储重建都要按坑挖），逐格调坑形函数太慢（烟花的星形每格要建一遍多边形）。
+ */
+const MASKS = new Map<string, Int32Array>();
+function craterMask(kind: CraterKind, r: number, px: number, py: number): Int32Array {
+  const key = `${kind}:${r}:${px}:${py}`;
+  let m = MASKS.get(key);
+  if (m) return m;
+  const span = Math.floor(craterReach(r) / CELL) + 2;
+  const out: number[] = [];
+  for (let dr = -span; dr <= span; dr++) {
+    const dy = dr * CELL + CELL / 2 - py;
+    for (let dc = -span; dc <= span; dc++) if (inCrater(kind, dc * CELL + CELL / 2 - px, dy, r)) out.push(dc, dr);
+  }
+  m = Int32Array.from(out);
+  MASKS.set(key, m);
+  return m;
+}
+
+/**
+ * 武器炸出来的坑（DESIGN.md 2.3、2.3.1）：按这把武器的坑形挖（格子中心落在坑形里的挖掉）。
+ * 不标"焦"（武器的焦痕是画面另画的，view/scorch.ts）。直接改 t；回被改过的格子范围（坑形的包围盒）。整数运算。
+ */
+export function dig(t: Terrain, cx: number, cy: number, r: number, kind: CraterKind): CellBox {
+  const cc = Math.floor(cx / CELL);
+  const cr = Math.floor(cy / CELL);
+  const m = craterMask(kind, r, cx - cc * CELL, cy - cr * CELL);
+  for (let i = 0; i < m.length; i += 2) {
+    const c = cc + m[i]!;
+    const row = cr + m[i + 1]!;
+    if (c >= 0 && row >= 0 && c < t.cols && row < t.rows) t.cells[row * t.cols + c] = 0;
+  }
+  const reach = craterReach(r);
+  return {
+    c0: clamp(Math.floor((cx - reach) / CELL), 0, t.cols - 1),
+    r0: clamp(Math.floor((cy - reach) / CELL), 0, t.rows - 1),
+    c1: clamp(Math.floor((cx + reach) / CELL), 0, t.cols - 1),
+    r1: clamp(Math.floor((cy + reach) / CELL), 0, t.rows - 1),
+  };
 }
 
 /** 一列里从 y 往下找第一块地的顶（世界坐标）；找到 yMax 还没有就回 null */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { plan, planActions } from '../src/ai/index.ts';
+import { PLAIN } from '../src/core/items.ts';
 import { favoriteWeapon, PERSONAS } from '../src/ai/personas.ts';
 import { apply, MAX_HP, newGame } from '../src/core/rules.ts';
 import { LOOKS, type State } from '../src/core/types.ts';
@@ -79,7 +80,7 @@ describe('电脑', () => {
 
   it('剩下的体力会花在道具上（体力回合末清零，不留着）', () => {
     const p = plan(flat([800, 1500], { wind: 0 }));
-    expect(p.loadout.mode !== 'single' || p.loadout.boost > 0).toBe(true);
+    expect(p.loadout.p1 + p.loadout.p2 + p.loadout.fork + p.loadout.b10 + p.loadout.b20 + p.loadout.b50).toBeGreaterThan(0);
   });
 
   it('站在薄得快穿的地方、又打不着对手时，用纸飞机飞到地厚的地方', () => {
@@ -99,8 +100,8 @@ describe('电脑', () => {
   });
 
   it('禁掉的道具不用（模拟器比较用和不用）', () => {
-    const p = plan(flat([800, 1500], { wind: 5 }), { ban: new Set(['lid', 'double', 'triple', 'fork', 'boost', 'plane']) });
-    expect(p.loadout).toEqual({ mode: 'single', boost: 0, lid: false, plane: false });
+    const p = plan(flat([800, 1500], { wind: 5 }), { ban: new Set(['lid', 'p1', 'p2', 'fork', 'boost', 'plane'] as const) });
+    expect(p.loadout).toEqual(PLAIN);
   });
 
   it('CPU 预算：想一手不超过 300 毫秒（手机降速 4 倍时约 1 秒以内）', () => {
@@ -117,6 +118,8 @@ describe('电脑', () => {
   });
 
   it('3v3 想一手也不超过 300 毫秒', () => {
+    // 先热一手（JIT），和上一条一样
+    plan(newGame(KEY, vs(3)));
     let worst = 0;
     for (let k = 0; k < 4; k++) {
       const st = newGame([k, 6, 6, 6, 6, 6, 6, 6], vs(3));

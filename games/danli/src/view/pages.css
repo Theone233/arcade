@@ -255,6 +255,68 @@
   border-radius: 99px;
   padding: 1px 7px;
 }
+.dl-app .dl-lobby .friend {
+  padding: 7px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dl-app .dl-lobby .friend .fh {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.dl-app .dl-lobby .friend .fh b {
+  font-size: 17px;
+  font-weight: 900;
+}
+.dl-app .dl-lobby .friend .fh small {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-lobby .friend .fr {
+  display: flex;
+  gap: 8px;
+}
+.dl-app .dl-lobby .friend .fr .dl-btn {
+  flex: 1;
+  height: 38px;
+  font-size: 16px;
+}
+.dl-app .dl-lobby .friend.row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 8px;
+}
+.dl-app .dl-lobby .friend.row .fh small {
+  display: none;
+}
+.dl-app .dl-lobby .friend.row .fh b {
+  font-size: 15px;
+  writing-mode: vertical-rl;
+  letter-spacing: 1px;
+}
+.dl-app .dl-lobby .friend.row .fr {
+  flex: 1;
+}
+.dl-app .dl-lobby .friend.row .fr .dl-btn {
+  height: 34px;
+  font-size: 15px;
+  padding: 0 8px;
+}
+.dl-app .dl-lobby .friend.row .fnote {
+  flex-basis: 100%;
+}
+.dl-app .dl-lobby .friend .fnote {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--red);
+  line-height: 1.3;
+}
 .dl-app .dl-lobby .tips {
   display: flex;
   gap: 6px;
@@ -848,6 +910,190 @@
   color: var(--ink);
 }
 
+/* ---------- 好友房的房间页（根节点 .dl-room.dl-friend，单机房间的样式照用） ---------- */
+.dl-app .dl-friend .bar .dl-home {
+  font-size: 15px;
+}
+.dl-app .dl-friend .code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 2px 9px;
+  box-shadow: var(--lift);
+  white-space: nowrap;
+}
+.dl-app .dl-friend .code small {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-friend .code b {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.dl-app .dl-friend .tools {
+  display: inline-flex;
+  gap: 6px;
+}
+.dl-app .dl-friend .tools .dl-btn {
+  height: 32px;
+  font-size: 13px;
+  padding: 0 10px;
+}
+.dl-app .dl-friend .bar2 {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.dl-app .dl-friend .dl-seg.ro button:not(.on) {
+  color: var(--muted);
+}
+.dl-app .dl-friend .dl-seg.ro button {
+  cursor: default;
+}
+.dl-app .dl-friend .board {
+  display: flex;
+  flex-direction: column;
+}
+.dl-app .dl-friend .dl-slot.empty {
+  border-style: dashed;
+  background: rgba(255, 250, 240, 0.55);
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.dl-app .dl-friend .dl-slot.empty .hole {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--muted);
+}
+.dl-app .dl-friend .dl-slot.empty .acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.dl-app .dl-friend .dl-slot.empty .dl-btn {
+  height: 26px;
+  font-size: 12px;
+  padding: 0 7px;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.dl-app .dl-friend .dl-slot:disabled {
+  opacity: 1;
+  color: inherit;
+}
+.dl-app .dl-friend .dl-slot .metag.hosttag {
+  background: var(--gold);
+  color: var(--ink);
+}
+.dl-app .dl-friend .dl-slot .ready {
+  position: absolute;
+  right: 4px;
+  bottom: -9px;
+  font-size: 10px;
+  font-weight: 900;
+  font-style: normal;
+  background: #e9e1d2;
+  color: var(--muted);
+  border: 1.5px solid var(--ink);
+  border-radius: 99px;
+  padding: 0 6px;
+}
+.dl-app .dl-friend .dl-slot .ready.on {
+  background: var(--green);
+  color: #fff;
+}
+.dl-app .dl-friend .dl-slot .who small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-app .dl-friend .dl-slot small.away {
+  color: var(--red);
+}
+.dl-app .dl-friend .note.bench {
+  margin: auto 0 0 28px;
+  padding-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-app .dl-friend .sheet .empty,
+.dl-app .dl-friend .sheet .hint {
+  margin: 4px 2px 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dl-app .dl-friend .sheet .empty {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 14px;
+}
+.dl-app .dl-friend .dl-wcard:disabled,
+.dl-app .dl-friend .dl-mapcard:disabled {
+  opacity: 1;
+  color: inherit;
+  cursor: default;
+}
+.dl-app .dl-friend .mapchip .dice {
+  width: 70px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream);
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+}
+.dl-app .dl-friend .foot .say {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dl-app .dl-friend .foot .say .line {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  line-height: 1.3;
+  min-width: 0;
+}
+.dl-app .dl-friend .foot .say .see {
+  height: 30px;
+  font-size: 12.5px;
+  flex: none;
+}
+.dl-app .dl-friend .dl-room-go.wait {
+  filter: saturate(0.55);
+}
+.dl-app .dl-friend .dl-room-go.soft-go {
+  background: var(--green);
+  box-shadow: 0 4px 0 #2b6c33, 0 4px 0 2.5px var(--ink);
+  text-shadow: 0 2px 0 #2b6c33;
+}
+.dl-app .dl-friend .dl-room-go:disabled {
+  filter: grayscale(0.7);
+  opacity: 0.8;
+}
+.dl-app .dl-friend .pick .kick {
+  height: 34px;
+  font-size: 14px;
+}
+.dl-app .dl-friend .pick .faces button:disabled {
+  opacity: 0.55;
+}
+
 /* ---------- 结算 ---------- */
 .dl-app .dl-result .head {
   position: absolute;
@@ -993,6 +1239,13 @@
   flex: 1;
   font-size: 22px;
   letter-spacing: 2px;
+}
+/* 好友房里不是房主：等房主点"再来一局" */
+.dl-app .dl-result .acts .go.wait {
+  font-size: 15px;
+  letter-spacing: 0;
+  filter: grayscale(0.6);
+  opacity: 0.85;
 }
 .dl-app .dl-result .says {
   position: absolute;

@@ -33,7 +33,7 @@ export interface RoomOpts {
   onStart(cfg: RoomConfig): void;
 }
 
-const BLAST_NAME = { small: '小', mid: '中', big: '大' } as const;
+export const BLAST_NAME = { small: '小', mid: '中', big: '大' } as const;
 
 /** 武器卡上的一句话（拖鞋弹弓那句是策划定的：只能平射，打中很疼） */
 const WEAPON_TIP: Record<WeaponId, string> = {
@@ -48,7 +48,7 @@ const WEAPON_TIP: Record<WeaponId, string> = {
 };
 
 /** 角度那一句：只能高抛 / 只能平射 / 一般 */
-function angleLine(w: Weapon): string {
+export function angleLine(w: Weapon): string {
   if (w.minAngle >= 60) return `只能 ${w.minAngle}–${w.maxAngle}° 高抛`;
   if (w.maxAngle <= 25) return `只能 ${w.minAngle}–${w.maxAngle}° 平射`;
   return `${w.minAngle}–${w.maxAngle}°`;
@@ -58,7 +58,7 @@ function angleLine(w: Weapon): string {
 type Edit = 'me' | number;
 type Tab = 'weapon' | 'map' | 'seat';
 
-const EMB = [
+export const EMB = [
   '<svg width="14" height="14" viewBox="-8 -8 16 16" aria-hidden="true"><circle r="6" fill="#fff" stroke="#46291a" stroke-width="1.4"/></svg>',
   '<svg width="14" height="14" viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0,-7.5 2.1,-2.6 7.2,-2.3 3.3,1 4.5,6.1 0,3.3 -4.5,6.1 -3.3,1 -7.2,-2.3 -2.1,-2.6Z" fill="#fff" stroke="#46291a" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 ];
@@ -168,20 +168,10 @@ export function renderRoom(host: HTMLElement, o: RoomOpts): Stage {
     } else if (tab === 'map') {
       const grid = el('div', 'wgrid mapgrid', sheet);
       grid.style.gridTemplateColumns = `repeat(${port ? 2 : 3}, minmax(0, 1fr))`;
-      for (const id of MAP_IDS) mapCard(grid, id);
-      randomCard(grid);
+      for (const id of MAP_IDS) mapCard(grid, id, cfg.map === id, () => set({ ...cfg, map: id }));
+      randomCard(grid, cfg.map === 'random', () => set({ ...cfg, map: 'random' }));
     } else pick(sheet);
-    // 打开页签停在顶部；选中的卡片在第一屏放不下，就滚到某一排的上沿（不停在卡片中间）：
-    // 挑滚得到（不超过最大滚动量）、又能让选中的卡片整张露出来的最靠下的那一排
-    const sel = tab === 'seat' ? null : sheet.querySelector<HTMLElement>('.dl-wcard.on, .dl-mapcard.on');
-    let top = 0;
-    if (sel && sel.offsetTop + sel.offsetHeight + 8 > sheet.clientHeight) {
-      const max = sheet.scrollHeight - sheet.clientHeight;
-      const rows = [...new Set([...sheet.querySelectorAll<HTMLElement>('.dl-wcard, .dl-mapcard')].map((c) => c.offsetTop - 6))].sort((p, q) => p - q);
-      top = sel.offsetTop - 6;
-      for (const r of rows) if (r <= max && r <= sel.offsetTop - 6 && sel.offsetTop + sel.offsetHeight <= r + sheet.clientHeight) top = r;
-    }
-    sheet.scrollTop = top;
+    sheet.scrollTop = tab === 'seat' ? 0 : pickedTop(sheet);
 
     // 底下：地图条、开打
     const foot = el('div', 'foot', L);
@@ -244,59 +234,6 @@ export function renderRoom(host: HTMLElement, o: RoomOpts): Stage {
     });
   }
 
-  function weaponCard(parent: HTMLElement, id: WeaponId, on: boolean, choose: () => void): void {
-    const w = WEAPONS[id];
-    const b = el('button', `dl-wcard${on ? ' on' : ''}`, parent);
-    b.dataset.weapon = id;
-    b.setAttribute('aria-pressed', String(on));
-    if (on) el('span', 'ok', b).append(glyphIcon('check', 13, '#fff'));
-    const hd = el('div', 'hd', b);
-    hd.append(weaponIcon(id, 28));
-    el('b', '', hd, w.name);
-    const pips = (n: number, cls: string): string => `<span class="pips ${cls}">${Array.from({ length: 10 }, (_, i) => `<i class="${i < n ? 'f' : ''}"></i>`).join('')}</span>`;
-    b.insertAdjacentHTML(
-      'beforeend',
-      `<div class="st"><em>攻</em>${pips(w.atk, 'atk')}</div><div class="st"><em>防</em>${pips(w.def, 'def')}</div>` +
-        `<div class="rg"><span>${BLAST_NAME[w.blast]}范围</span><span>${w.minAngle}–${w.maxAngle}°</span></div>` +
-        `<div class="tip${id === 'slipper' ? ' hot' : ''}">${escapeHtml(WEAPON_TIP[id])}</div>` +
-        `<div class="spc">${escapeHtml(w.special.name)}<i class="dl-tag soon">即将推出</i></div>`,
-    );
-    b.addEventListener('click', choose);
-  }
-
-  function mapCard(parent: HTMLElement, id: MapId): void {
-    const m = MAPS[id];
-    const art = MAP_ART[id];
-    const on = cfg.map === id;
-    const b = el('button', `dl-mapcard${on ? ' on' : ''}`, parent);
-    b.dataset.map = id;
-    if (on) el('i', 'dl-picked', b, '已选');
-    if (art.card.tag) el('i', art.card.tag === '慢图' ? 'dl-fast slow' : 'dl-fast', b, art.card.tag);
-    el('div', 'pic', b).append(mapThumb(id, 120, 40));
-    el('b', '', b, m.name);
-    el('p', '', b, art.card.short.replace(/^快图：/, ''));
-    const ft = el('div', 'ft', b);
-    const mats = el('span', 'mats', ft);
-    for (const k of [...new Set(m.lands.map((l) => l.mat ?? m.material))].slice(0, 4)) el('i', '', mats).style.background = MATERIALS[k].grad[1];
-    el('span', 'dl-tag', ft, art.card.players);
-    b.title = art.card.feature;
-    b.addEventListener('click', () => set({ ...cfg, map: id }));
-  }
-
-  function randomCard(parent: HTMLElement): void {
-    const on = cfg.map === 'random';
-    const b = el('button', `dl-mapcard rnd${on ? ' on' : ''}`, parent);
-    b.dataset.map = 'random';
-    if (on) el('i', 'dl-picked', b, '已选');
-    el('div', 'pic dice', b).append(glyphIcon('dice', 30, '#e2432a'));
-    el('b', '', b, '随机');
-    el('p', '', b, `从 ${MAP_IDS.length} 张里抽一张，开打时才揭晓`);
-    const ft = el('div', 'ft', b);
-    el('span', '', ft);
-    el('span', 'dl-tag', ft, '1v1–3v3');
-    b.addEventListener('click', () => set({ ...cfg, map: 'random' }));
-  }
-
   /** 给位子换：人物（我是换小动物）一排、武器一排、底下一句说明和"好了" */
   function pick(sheet: HTMLElement): void {
     const box = el('div', 'pick', sheet);
@@ -352,4 +289,77 @@ export function renderRoom(host: HTMLElement, o: RoomOpts): Stage {
   }
 
   return stage;
+}
+
+/** 一张武器卡：攻防格子、范围、角度、一句话、特技（即将推出）；on 是选中的；choose 为 null 时只看不能点（好友房里不是自己的） */
+export function weaponCard(parent: HTMLElement, id: WeaponId, on: boolean, choose: (() => void) | null): void {
+  const w = WEAPONS[id];
+  const b = el('button', `dl-wcard${on ? ' on' : ''}`, parent);
+  b.dataset.weapon = id;
+  b.setAttribute('aria-pressed', String(on));
+  if (on) el('span', 'ok', b).append(glyphIcon('check', 13, '#fff'));
+  const hd = el('div', 'hd', b);
+  hd.append(weaponIcon(id, 28));
+  el('b', '', hd, w.name);
+  const pips = (n: number, cls: string): string => `<span class="pips ${cls}">${Array.from({ length: 10 }, (_, i) => `<i class="${i < n ? 'f' : ''}"></i>`).join('')}</span>`;
+  b.insertAdjacentHTML(
+    'beforeend',
+    `<div class="st"><em>攻</em>${pips(w.atk, 'atk')}</div><div class="st"><em>防</em>${pips(w.def, 'def')}</div>` +
+      `<div class="rg"><span>${BLAST_NAME[w.blast]}范围</span><span>${w.minAngle}–${w.maxAngle}°</span></div>` +
+      `<div class="tip${id === 'slipper' ? ' hot' : ''}">${escapeHtml(WEAPON_TIP[id])}</div>` +
+      `<div class="spc">${escapeHtml(w.special.name)}<i class="dl-tag soon">即将推出</i></div>`,
+  );
+  if (choose) b.addEventListener('click', choose);
+  else b.disabled = true;
+}
+
+/** 一张地图卡：缩略图、名字、一句话、材质色、推荐人数，"快图""慢图"角标；choose 为 null 时只看（好友房里不是房主） */
+export function mapCard(parent: HTMLElement, id: MapId, on: boolean, choose: (() => void) | null): void {
+  const m = MAPS[id];
+  const art = MAP_ART[id];
+  const b = el('button', `dl-mapcard${on ? ' on' : ''}`, parent);
+  b.dataset.map = id;
+  if (on) el('i', 'dl-picked', b, '已选');
+  if (art.card.tag) el('i', art.card.tag === '慢图' ? 'dl-fast slow' : 'dl-fast', b, art.card.tag);
+  el('div', 'pic', b).append(mapThumb(id, 120, 40));
+  el('b', '', b, m.name);
+  el('p', '', b, art.card.short.replace(/^快图：/, ''));
+  const ft = el('div', 'ft', b);
+  const mats = el('span', 'mats', ft);
+  for (const k of [...new Set(m.lands.map((l) => l.mat ?? m.material))].slice(0, 4)) el('i', '', mats).style.background = MATERIALS[k].grad[1];
+  el('span', 'dl-tag', ft, art.card.players);
+  b.title = art.card.feature;
+  if (choose) b.addEventListener('click', choose);
+  else b.disabled = true;
+}
+
+/** "随机"地图卡 */
+export function randomCard(parent: HTMLElement, on: boolean, choose: (() => void) | null): void {
+  const b = el('button', `dl-mapcard rnd${on ? ' on' : ''}`, parent);
+  b.dataset.map = 'random';
+  if (on) el('i', 'dl-picked', b, '已选');
+  el('div', 'pic dice', b).append(glyphIcon('dice', 30, '#e2432a'));
+  el('b', '', b, '随机');
+  el('p', '', b, `从 ${MAP_IDS.length} 张里抽一张，开打时才揭晓`);
+  const ft = el('div', 'ft', b);
+  el('span', '', ft);
+  el('span', 'dl-tag', ft, '1v1–3v3');
+  if (choose) b.addEventListener('click', choose);
+  else b.disabled = true;
+}
+
+/**
+ * 打开页签停在顶部；选中的卡片在第一屏放不下，就滚到某一排的上沿（不停在卡片中间）：
+ * 挑滚得到（不超过最大滚动量）、又能让选中的卡片整张露出来的最靠下的那一排
+ */
+export function pickedTop(sheet: HTMLElement): number {
+  const sel = sheet.querySelector<HTMLElement>('.dl-wcard.on, .dl-mapcard.on');
+  let top = 0;
+  if (sel && sel.offsetTop + sel.offsetHeight + 8 > sheet.clientHeight) {
+    const max = sheet.scrollHeight - sheet.clientHeight;
+    const rows = [...new Set([...sheet.querySelectorAll<HTMLElement>('.dl-wcard, .dl-mapcard')].map((c) => c.offsetTop - 6))].sort((p, q) => p - q);
+    top = sel.offsetTop - 6;
+    for (const r of rows) if (r <= max && r <= sel.offsetTop - 6 && sel.offsetTop + sel.offsetHeight <= r + sheet.clientHeight) top = r;
+  }
+  return top;
 }

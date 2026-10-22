@@ -2,21 +2,25 @@
  * 冒烟（AGENTS.md 第 4 节"每个游戏一个无头浏览器冒烟"）：起 vite 开发服务器（系统分配端口），手机横屏 844×390、竖屏 390×844 各走一遍
  * （都按手机模拟：触屏、像素比 3、CPU 降速 4 倍当省内存设备；?turbo 动画加速）：
  * 首页 → 准备房间 → 选冰淇淋雪山 → 3v3 → 换我的武器（冲天烟花筒）和小动物（兔兔，和电脑同一张人物选单，换成在场的就对调）、替一个电脑换武器、静音来回点 →
- * 开打 → 我故意把自己炸出局（烟花筒往正上方打、连发 +2，落回自己头上）→ 出现"快进""跳到结果"→ 跳到结果 → 结算页 → 回房间。检查：
+ * 开打 → 我故意把自己炸出局（烟花筒往正上方打、连发 +1 叠两个（3 轮），落回自己头上）→ 出现"快进""跳到结果"→ 跳到结果 → 结算页 → 回房间。检查：
  * - 控制台零报错。开发时平台接口没起，只放过 /api/ 下的 502、504 和掐断；别的请求失败或 4xx、5xx 都算失败；
  * - danli.prefs 记下了房间里的选择；开局的座位、人物、武器、地图和房间里选的一样；顶栏写"第 N 轮 / 15"；对局里的静音也记得住；
  * - "全图"能切过去再切回来；对局中点"大厅"先问一次（点"接着打"留下）；
  * - 横屏那一遍：模拟一次双指放大（画布和 HUD 不能重排）；轮到我时刷新页面，首页有"接着上一局"（写着地图），接着打出手次数对得上；
+ *   叠一组道具（三岔 + 连发 +1 + 连发 +2）真打出去，"已选"那一行、"已选"标记、买不起的红边都对；
  *   出局以后先点一下"快进"再"跳到结果"；
  * - 竖屏那一遍：第一手用一次纸飞机（人真的飞过去了、纸飞机剩 1 次）；
  * - 结算页：6 行（每人一行）、有伤害和结果章、有"再来一局""回房间""大厅"；danli.solo 删掉了；整个画面没被滚走；回房间以后还是 3v3、冰淇淋雪山。
- * 用法：npm run smoke。截图在 shots/smoke-*.png。
+ * 最后走一遍好友房（scripts/net.ts）：打包、本机起真的 Worker（wrangler dev），A 手机横屏、B 手机竖屏两个上下文，
+ * 开房 → 链接进房 → 选人选武器、准备 → 加电脑 2 对 1 → 开打 → 各打几手 → B 刷新回到原局面 → B 超时弃权 → 打完 → 再来一局。
+ * 用法：npm run smoke（只走好友房：npm run smoke net）。截图在 shots/smoke-*.png。
  */
 import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright-core';
 import { createServer } from 'vite';
 import { launch } from './browser.ts';
 import { aimAndFire, myTurn, playTurn } from './drive.ts';
+import { netRoute } from './net.ts';
 
 const root = new URL('..', import.meta.url).pathname;
 mkdirSync(`${root}shots`, { recursive: true });
@@ -34,14 +38,14 @@ type St = { turn: number; round: number; phase: string; actor: number; stamina: 
 type Hook = { __danli: { state(): St; preview(a: unknown): { ok: boolean; events?: { t: string; x?: number }[] } } };
 const stOf = (page: Page): Promise<St> => page.evaluate(() => (window as unknown as Hook).__danli.state());
 
-/** 往正上方打（88°）、连发 +2，挑三颗落点离自己最近的力度：把自己脚下炸穿 */
+/** 往正上方打（88°）、连发 +1 叠两个（3 轮），挑三颗落点离自己最近的力度：把自己脚下炸穿 */
 async function selfDestruct(page: Page): Promise<void> {
   const pick = await page.evaluate(() => {
     const d = (window as unknown as Hook).__danli;
     const me = d.state().chars[d.state().actor]!;
     let best = { power: 6, dist: 1e9 };
     for (let power = 1; power <= 30; power++) {
-      const r = d.preview({ t: 'fire', angle: 88, power, facing: 1, mode: 'triple' });
+      const r = d.preview({ t: 'fire', angle: 88, power, facing: 1, p1: 2 });
       if (!r.ok) continue;
       const booms = (r.events ?? []).filter((e) => e.t === 'boom');
       if (!booms.length) continue;
@@ -50,14 +54,18 @@ async function selfDestruct(page: Page): Promise<void> {
     }
     return best;
   });
-  await page.click('.dl-item[data-item="triple"]');
+  await page.click('.dl-item[data-item="p1"]');
+  await page.click('.dl-item[data-item="p1"]');
   await aimAndFire(page, 88, 1, pick.power);
 }
 
-for (const [name, viewport] of [
-  ['land', { width: 844, height: 390 }],
-  ['port', { width: 390, height: 844 }],
-] as const) {
+const onlyNet = process.argv[2] === 'net';
+for (const [name, viewport] of onlyNet
+  ? []
+  : ([
+      ['land', { width: 844, height: 390 }],
+      ['port', { width: 390, height: 844 }],
+    ] as const)) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
   const errors: string[] = [];
   const isApi = (url: string): boolean => new URL(url).pathname.startsWith('/api/');
@@ -175,10 +183,28 @@ for (const [name, viewport] of [
       await page.waitForTimeout(300);
       if ((await stOf(page)).turn !== turn) errors.push(`接着上一局出手次数对不上：${(await stOf(page)).turn} ≠ ${turn}`);
       await waitMine();
+      // 叠一组道具真打出去：三岔 + 连发 +1 + 连发 +2（正好 100 体力，4 轮 × 3 颗）。
+      // 道具栏上面那一行写着选了什么；连发 +1 想再加一个买不起，描红边
+      await page.click('.dl-item[data-item="fork"]');
+      await page.click('.dl-item[data-item="p1"]');
+      await page.click('.dl-item[data-item="p2"]');
+      const picked = (await page.textContent('.dl-picked')) ?? '';
+      if (!picked.includes('三岔') || !picked.includes('连发+1') || !picked.includes('连发+2')) errors.push(`"已选"那一行不对：${picked}`);
+      if ((await page.getAttribute('.dl-item[data-item="fork"]', 'data-state')) !== 'selected') errors.push('三岔选了没标出来');
+      if ((await page.getAttribute('.dl-item[data-item="p1"]', 'data-more')) !== 'no') errors.push('连发 +1 再加一个买不起，没描红边');
+      const logLen = (): Promise<number> => page.evaluate(() => (window as unknown as { __danli: { log(): unknown[] } }).__danli.log().length);
+      const n0 = await logLen();
+      const sug = await page.evaluate(() => (window as unknown as { __danli: { suggest(): { angle: number; power: number; facing: 1 | -1 } } }).__danli.suggest());
+      await aimAndFire(page, sug.angle, sug.facing, sug.power);
+      const t0 = Date.now();
+      while ((await logLen()) === n0 && Date.now() - t0 < 10_000) await page.waitForTimeout(100);
+      const last = await page.evaluate(() => (window as unknown as { __danli: { log(): { t: string; fork?: number; p1?: number; p2?: number }[] } }).__danli.log().at(-1));
+      if (last?.t !== 'fire' || last.fork !== 1 || last.p1 !== 1 || last.p2 !== 1) errors.push(`三岔 + 连发 +1 + 连发 +2 没打出去：${JSON.stringify(last)}`);
+      else console.log(`${name}: 三岔 + 连发 +1 + 连发 +2 打出去了`);
     } else {
       // 竖屏：第一手用纸飞机
       const before = (await stOf(page)).chars[0]!;
-      await playTurn(page, undefined, { mode: 'single', boost: 0, lid: false, plane: true });
+      await playTurn(page, undefined, { p1: 0, p2: 0, fork: 0, b10: 0, b20: 0, b50: 0, lid: false, plane: true });
       await page.waitForTimeout(300);
       while ((await stOf(page)).actor === 0 && (await stOf(page)).phase === 'play') await page.waitForTimeout(100);
       const after = (await stOf(page)).chars[0]!;
@@ -231,6 +257,21 @@ for (const [name, viewport] of [
     console.error(`${name}: ${errors.length} 个问题\n  ${errors.join('\n  ')}`);
   } else console.log(`${name}: 通过`);
   await page.close();
+}
+
+// 好友房：两个浏览器上下文、真的本地 Worker
+{
+  const errors = await netRoute(browser, {
+    a: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    b: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    turbo: true,
+    snap: (moment, who, page) => page.screenshot({ path: `${root}shots/smoke-net-${moment}-${who}.png` }).then(() => {}),
+    log: (l) => console.log(`好友房：${l}`),
+  });
+  if (errors.length) {
+    failed = true;
+    console.error(`好友房：${errors.length} 个问题\n  ${errors.join('\n  ')}`);
+  } else console.log('好友房：通过');
 }
 
 await browser.close();

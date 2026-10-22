@@ -4,6 +4,7 @@
  * 力度按按住的时长算，手机降速时会有一点出入，所以不保证和电脑想的一模一样。
  */
 import type { Page } from 'playwright-core';
+import { CHARGE_MS } from '../src/net/anim.ts';
 
 interface Hook {
   state(): { phase: string; actor: number; chars: { ai: boolean }[] };
@@ -14,17 +15,23 @@ interface Hook {
 }
 type W = Window & { __danli?: Hook };
 
+/** 一回合的道具：每种几个（和 src/core/items.ts 的 Loadout 一样） */
 export interface Loadout {
-  mode: 'single' | 'double' | 'triple' | 'fork';
-  boost: 0 | 10 | 20 | 50;
+  p1: number;
+  p2: number;
+  fork: number;
+  b10: number;
+  b20: number;
+  b50: number;
   lid: boolean;
   plane: boolean;
 }
 
-/** 按道具栏的按钮把这一套道具选上（道具栏一回合开始是空的） */
-export async function pickItems(page: Page, l: Loadout): Promise<void> {
-  const keys = [l.plane ? 'plane' : '', l.mode !== 'single' ? l.mode : '', l.boost ? `b${l.boost}` : '', l.lid ? 'lid' : ''].filter(Boolean);
-  for (const k of keys) await page.click(`.dl-item[data-item="${k}"]`);
+/** 按道具栏的按钮把这一套道具选上（道具栏一回合开始是空的；能叠的点几下就是几个） */
+export async function pickItems(page: Page, l: Partial<Loadout>): Promise<void> {
+  if (l.plane) await page.click('.dl-item[data-item="plane"]');
+  for (const k of ['fork', 'p2', 'p1', 'b50', 'b20', 'b10'] as const) for (let i = 0; i < (l[k] ?? 0); i++) await page.click(`.dl-item[data-item="${k}"]`);
+  if (l.lid) await page.click('.dl-item[data-item="lid"]');
 }
 
 /** 轮到我、底栏能按了吗 */
@@ -37,7 +44,6 @@ export async function myTurn(page: Page): Promise<boolean> {
   });
 }
 
-const CHARGE_MS = 1800;
 
 /** 拖角度盘：从角色身边按下，拖到这个角度的方向上（远一点更准） */
 export async function dragDial(page: Page, angle: number, facing: 1 | -1): Promise<void> {

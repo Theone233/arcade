@@ -4,7 +4,7 @@ import { favoriteWeapon, personaById, PERSONAS } from '../src/ai/personas.ts';
 import { newGame, setupError } from '../src/core/rules.ts';
 import { botSeats, defaultRoom, loadPrefs, parseRoom, PREFS_KEY, roomSetup, savePrefs, setMyLook, setPersona, type RoomConfig } from '../src/room.ts';
 import { WEAPONS } from '../src/core/weapons.ts';
-import { parseSave } from '../src/solo.ts';
+import { parseSave, SOLO_VERSION } from '../src/solo.ts';
 
 /** 内存里的 localStorage */
 function memory(): Storage & { data: Map<string, string> } {
@@ -130,14 +130,16 @@ describe('danli.prefs', () => {
 
 describe('单机存档 danli.solo', () => {
   const setup = roomSetup({ ...defaultRoom(), size: 3 }, '我', kitchen);
-  const good = { v: 2, key: [1, 2, 3, 4, 5, 6, 7, 8], setup, log: [{ t: 'move', dir: 1 }] };
+  const good = { v: 3, key: [1, 2, 3, 4, 5, 6, 7, 8], setup, log: [{ t: 'move', dir: 1 }, { t: 'fire', angle: 45, power: 40, facing: 1, fork: 1, p1: 1 }] };
 
-  it('第 2 版带整局设置（对阵、各座位的人物和武器、地图），读得回来', () => {
+  it('第 3 版（0.3.0，道具是每种几个）带整局设置，读得回来', () => {
+    expect(SOLO_VERSION).toBe(3);
     expect(parseSave(JSON.stringify(good))).toEqual(good);
   });
 
-  it('0.1.0 的老存档（第 1 版）和坏了的读不出来', () => {
+  it('老存档（第 1、2 版：0.2.0 的道具格式）和坏了的读不出来，直接丢掉', () => {
     expect(parseSave(JSON.stringify({ ...good, v: 1 }))).toBeNull();
+    expect(parseSave(JSON.stringify({ ...good, v: 2, log: [{ t: 'fire', angle: 45, power: 40, facing: 1, mode: 'fork', boost: 20 }] }))).toBeNull();
     expect(parseSave(JSON.stringify({ ...good, setup: { ...setup, players: setup.players.slice(0, 1) } }))).toBeNull();
     expect(parseSave(JSON.stringify({ ...good, key: [1, 2] }))).toBeNull();
     expect(parseSave(JSON.stringify({ ...good, log: 'x' }))).toBeNull();

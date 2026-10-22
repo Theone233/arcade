@@ -1,6 +1,7 @@
 /**
  * 选桌页（首页，设计稿 v2-lobby / v2-lobby-port）：厨房远景 + 一条面团舞台，六只小动物站两边；标题字、红飘带；
  * "开始游戏"进准备房间，有没打完的单机就多一张"接着上一局"（地图缩略图、对阵、第几轮）；右上角"怎么玩"和静音。
+ * 0.3.0 加"好友房"（DESIGN.md 5.6）：开房间、输房间码进房；开房、进房失败的话写在这张卡上。
  */
 import type { MapId } from '../core/maps.ts';
 import { MAPS } from '../core/maps.ts';
@@ -23,6 +24,11 @@ export interface LobbyOpts {
   muted: boolean;
   onRoom(): void;
   onResume(): void;
+  /** 好友房：开房间、按房间码进房 */
+  onOpenRoom(): void;
+  onJoinCode(code: string): void;
+  /** 好友房那张卡上的一句话（开房失败、房间关了……），没有是 null */
+  friendNote: string | null;
   /** 点静音，回新的状态 */
   onMute(): boolean;
 }
@@ -39,7 +45,7 @@ const HOW = [
 type Cast = [Look, Team, number, 1 | -1, Expr, number];
 
 /** 背景：厨房远景，下面一条起伏的面团当舞台，小动物站在上面 */
-function paintBg(v: StageView): void {
+function paintBg(v: StageView, crowded = false): void {
   const { bg: ctx, port, view } = v;
   const k = port ? 0.62 : 0.56;
   const X0 = port ? 1700 : 1180;
@@ -83,7 +89,10 @@ function paintBg(v: StageView): void {
   ctx.globalAlpha = 1;
   const cast: Cast[] = port
     ? [['shiba', 0, 60, 1, 'cheer', 1.7], ['panda', 0, 128, 1, 'normal', 1.7], ['rabbit', 1, 200, -1, 'normal', 1.7], ['cat', 1, 268, -1, 'hurt', 1.7], ['penguin', 0, 330, -1, 'cheer', 1.5]]
-    : [['shiba', 0, 70, 1, 'cheer', 1.6], ['panda', 0, 150, 1, 'normal', 1.6], ['mouse', 0, 222, 1, 'normal', 1.45], ['rabbit', 1, 610, -1, 'normal', 1.6], ['cat', 1, 690, -1, 'hurt', 1.6], ['penguin', 1, 770, -1, 'cheer', 1.6]];
+    : crowded
+      ? // 横屏右边一栏摆满了（接着上一局 + 好友房）：黄队挪到中间、缩小一点，不被卡片压住头
+        [['shiba', 0, 70, 1, 'cheer', 1.6], ['panda', 0, 150, 1, 'normal', 1.6], ['mouse', 0, 222, 1, 'normal', 1.45], ['rabbit', 1, 400, -1, 'normal', 1.3], ['cat', 1, 462, -1, 'hurt', 1.3], ['penguin', 1, 524, -1, 'cheer', 1.3]]
+      : [['shiba', 0, 70, 1, 'cheer', 1.6], ['panda', 0, 150, 1, 'normal', 1.6], ['mouse', 0, 222, 1, 'normal', 1.45], ['rabbit', 1, 610, -1, 'normal', 1.6], ['cat', 1, 690, -1, 'hurt', 1.6], ['penguin', 1, 770, -1, 'cheer', 1.6]];
   for (const [look, team, x, f, e, s] of cast) {
     ctx.save();
     ctx.translate(x, gy + 10);
@@ -96,7 +105,7 @@ function paintBg(v: StageView): void {
 export function renderLobby(host: HTMLElement, o: LobbyOpts): Stage {
   let muted = o.muted;
   const stage = new Stage(host, 'dl-lobby', (v) => {
-    paintBg(v);
+    paintBg(v, !v.port && (!!o.resume || !!o.friendNote));
     const L = v.layer;
     const bar = el('div', 'bar', L);
     const home = el('a', 'dl-btn dl-home', bar);
@@ -137,6 +146,14 @@ export function renderLobby(host: HTMLElement, o: LobbyOpts): Stage {
       el('i', 'pg', b, `第 ${r.round} 轮`);
       b.addEventListener('click', () => o.onResume());
     }
+    const friend = el('div', 'friend dl-card', acts);
+    const fh = el('div', 'fh', friend);
+    el('b', '', fh, '好友房');
+    el('small', '', fh, '和朋友在线打，空位电脑补');
+    const fr = el('div', 'fr', friend);
+    el('button', 'dl-btn go open-room', fr, '开房间').addEventListener('click', () => o.onOpenRoom());
+    el('button', 'dl-btn soft join-room', fr, '输房间码').addEventListener('click', () => askCode(host, o.onJoinCode));
+    if (o.friendNote) el('p', 'fnote', friend, o.friendNote);
     const tips = el('div', 'tips', acts);
     for (const t of ['看风', '调角度', '按住蓄力', '轰出画本就赢']) el('span', '', tips, t);
     const pos = (e: HTMLElement, css: Partial<CSSStyleDeclaration>): void => void Object.assign(e.style, css);
@@ -147,7 +164,9 @@ export function renderLobby(host: HTMLElement, o: LobbyOpts): Stage {
     } else {
       pos(title, { left: '36px', top: '54px' });
       pos(rib, { left: '70px', top: '206px' });
-      pos(acts, { right: '24px', top: '74px', width: '268px' });
+      // 横屏右边一栏：好友房那张卡收成一行，别压住站在面团上的黄队小动物
+      pos(acts, { right: '24px', top: '62px', width: '268px', gap: '8px' });
+      friend.classList.add('row');
       tips.hidden = true;
     }
   });
@@ -164,4 +183,36 @@ function showHow(host: HTMLElement): void {
   const row = el('div', 'dl-card-row', card);
   el('button', 'dl-btn go', row, '知道了').addEventListener('click', () => mask.remove());
   mask.addEventListener('click', (e) => e.target === mask && mask.remove());
+}
+
+/** "输房间码"：6 位数字，输够了才能点"进房" */
+function askCode(host: HTMLElement, go: (code: string) => void): void {
+  const mask = el('div', 'dl-mask code', host);
+  const card = el('div', 'dl-card', mask);
+  el('h2', '', card, '输房间码');
+  el('p', 'dl-card-text', card, '朋友开的房间，房间页顶上写着 6 位数字');
+  const input = el('input', 'dl-code-input', card);
+  input.inputMode = 'numeric';
+  input.maxLength = 6;
+  input.autocomplete = 'off';
+  input.placeholder = '123456';
+  input.setAttribute('aria-label', '房间码');
+  const row = el('div', 'dl-card-row', card);
+  el('button', 'dl-btn soft', row, '算了').addEventListener('click', () => mask.remove());
+  const ok = el('button', 'dl-btn go', row, '进房');
+  const paint = (): void => {
+    input.value = input.value.replace(/\D/g, '').slice(0, 6);
+    ok.disabled = input.value.length !== 6;
+  };
+  paint();
+  input.addEventListener('input', paint);
+  const submit = (): void => {
+    if (input.value.length !== 6) return;
+    mask.remove();
+    go(input.value);
+  };
+  ok.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => e.key === 'Enter' && submit());
+  mask.addEventListener('click', (e) => e.target === mask && mask.remove());
+  input.focus();
 }

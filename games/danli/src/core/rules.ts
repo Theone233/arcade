@@ -4,16 +4,16 @@
  * 对阵 1v1、2v2、3v3：两队各 1–3 人，座位顺序就是 setup.players 的顺序。
  *
  * 一回合：轮到的角色先爬（耗体力）、调朝向，然后带着这回合选的道具发射（道具也耗体力，和爬共用这回合的 100 点）。
- * 炮弹落地或打中人就爆炸：挖坑、扣血、推开、掉落、出局；连发一颗一颗算（前一颗的坑、掉落会影响后一颗），三岔三颗同时飞、按落地先后炸；
+ * 炮弹落地或打中人就爆炸：挖坑、扣血（不推人，0.3.0 起）、脚下空了就掉、出局；连发一颗一颗算（前一颗的坑、掉落会影响后一颗），三岔三颗同时飞、按落地先后炸；
  * 纸飞机不炸，人瞬移到落点。然后换下一个：两队交替出手，队内按座位轮（出局的跳过）；一队全部出局就输；
  * 打满 MAX_ROUNDS 轮（所有还活着的角色各出手一次算一轮；人少的那队轮得快，一轮里有人会出手两次）按全队剩余血量总和定胜负。
  */
 import { shuffle, stream, type Entropy, type RandomStream } from 'arcade-kit/rng';
 import { idiv, isqrt } from './fixed.ts';
-import { FORK_SPREAD, loadoutCost, loadoutError, MODES, PLAIN, shotScale, SPECIALS, type Loadout } from './items.ts';
+import { COMMON, digRadius, FORK_SPREAD, loadoutCost, loadoutError, PLAIN, shellsPer, shotScale, SPECIALS, volleys, type Loadout } from './items.ts';
 import { buildTerrain, isMapId, MAPS, type MapDef } from './maps.ts';
 import { BODY_CY, BODY_H, BODY_R, launch, simulate, type Shot } from './physics.ts';
-import { carve, cloneTerrain, solidAt, type Terrain } from './terrain.ts';
+import { cloneTerrain, dig as digCrater, solidAt, type Terrain } from './terrain.ts';
 import { LOOKS, type Action, type Char, type Dir, type Ev, type FireAction, type Flight, type OutWhy, type Setup, type State, type Step, type Team } from './types.ts';
 import { blastDamage, isWeaponId, weapon } from './weapons.ts';
 
@@ -31,8 +31,6 @@ export const STEP_COST = 2;
 /** 一步最多往上、往下多少（再高就爬不上去；再低就是悬崖，停住不走） */
 export const MAX_UP = 12;
 export const MAX_DOWN = 12;
-/** 爆心推开的最远距离 */
-export const PUSH = 24;
 /** 摔多高以内不扣血；再高每 10 单位扣 1，最多 FALL_MAX */
 export const FALL_SAFE = 60;
 export const FALL_MAX = 20;
@@ -152,9 +150,23 @@ export function newGame(key: Entropy, setup: Setup): State {
   const bad = setupError(setup);
   if (bad) throw new Error(`开局设置不对：${bad}`);
   const m = MAPS[setup.map];
-  const terrain = buildTerrain(m);
+  const { xs, first } = opening(key, setup);
+  return startFrom(key, setup, buildTerrain(m), xs, first, windFor(key, 1));
+}
+
+/** 开局要抽的两样（'open' 随机流）：每个座位的出生点 x、哪队先手 */
+export function opening(key: Entropy, setup: Setup): { xs: number[]; first: Team } {
   const open = stream(key, 'open');
-  const xs = pickSpawns(m, setup.players.map((p) => p.team), open);
+  const xs = pickSpawns(MAPS[setup.map], setup.players.map((p) => p.team), open);
+  return { xs, first: open.below(2) as Team };
+}
+
+/**
+ * 按定好的出生点（每个座位的 x）、先手的队、第一回合的风开局（newGame 抽完这几样以后也走这里）。
+ * 好友房的页面拿不到种子（DESIGN.md 5.6），按房间下发的这几样从头重放；terrain 是这张图刚光栅化好的地形（调用方可以给一份缓存的副本）。
+ */
+export function startFrom(key: Entropy, setup: Setup, terrain: Terrain, xs: readonly number[], first: Team, wind: number): State {
+  const m = MAPS[setup.map];
   const chars: Char[] = setup.players.map((p, id) => {
     const x = xs[id]!;
     return {
@@ -180,10 +192,9 @@ export function newGame(key: Entropy, setup: Setup): State {
     for (const o of chars) if (o.team !== c.team && (!near || Math.abs(o.x - c.x) < Math.abs(near.x - c.x))) near = o;
     c.facing = near && near.x < c.x ? -1 : 1;
   }
-  const first = open.below(2) as Team;
   const s: State = { v: 1, key, setup, terrain, chars, turn: 1, round: 1, acted: [], actor: -1, wind: 0, stamina: MAX_STAMINA, lastOf: [-1, -1], phase: 'play', winner: null, endBy: null };
   s.actor = nextOf(s, first);
-  s.wind = windFor(key, 1);
+  s.wind = wind;
   return s;
 }
 
@@ -225,9 +236,13 @@ export function stepTarget(t: Terrain, width: number, c: Pick<Char, 'x' | 'y'>, 
   return { error: wall ? 'steep' : 'cliff' };
 }
 
-/** 出手里的道具（没写的按不用算） */
-export function loadoutOf(a: Pick<FireAction, 'mode' | 'boost' | 'lid' | 'plane'>): Loadout {
-  return { mode: a.mode ?? PLAIN.mode, boost: a.boost ?? PLAIN.boost, lid: a.lid ?? false, plane: a.plane ?? false };
+/** 出手里的道具（没写的按 0 / 不用算；形状不对的留给 loadoutError 拒） */
+export function loadoutOf(a: Partial<Loadout>): Loadout {
+  const l: Loadout = { ...PLAIN };
+  for (const k of COMMON) if (a[k] !== undefined) l[k] = a[k] as number;
+  if (a.lid !== undefined) l.lid = a.lid;
+  if (a.plane !== undefined) l.plane = a.plane;
+  return l;
 }
 
 /** 这个角色这回合能不能这样出手：组合合法、特殊道具还有次数、体力够。能就回 null */
@@ -263,6 +278,13 @@ export function apply(state: State, a: Action): Step {
     s.stamina -= to.cost;
     return { ok: true, state: s, events: [{ t: 'move', id: c.id, x: c.x, y: c.y, cost: to.cost }] };
   }
+  if (a.t === 'pass') {
+    // 弃权（好友房超时、或者自己点）：这一回合不爬、不打，算出过手
+    const s = copy(state);
+    const events: Ev[] = [{ t: 'pass', id: me.id }];
+    finishTurn(s, events);
+    return { ok: true, state: s, events };
+  }
   if (a.t === 'fire') {
     const w = weapon(me.weapon);
     if (!Number.isInteger(a.angle) || a.angle < w.minAngle || a.angle > w.maxAngle) return { ok: false, error: 'angle' };
@@ -295,26 +317,33 @@ function fire(state: State, angle: number, power: number, facing: Dir, l: Loadou
   me.angle = angle;
   me.power = power;
   me.facing = facing;
-  const events: Ev[] = [{ t: 'fire', id: me.id, angle, power, facing, mode: l.mode, boost: l.boost, lid: l.lid, plane: l.plane, cost }];
+  const events: Ev[] = [{ t: 'fire', id: me.id, angle, power, facing, loadout: { ...l }, cost }];
   if (l.plane) {
     paperPlane(s, me, angle, power, facing, events);
-  } else if (l.mode === 'fork') {
-    // 三岔：三颗同时出膛（角度各差 FORK_SPREAD），按落地的先后炸；后炸的那颗如果打中的人已经出局，就按落点炸
-    const shots = [angle - FORK_SPREAD, angle, angle + FORK_SPREAD].map((a) => previewShot(s, Math.max(0, Math.min(90, a)), power, facing, true, l.lid));
-    events.push({ t: 'shot', flights: shots.map(flight), plane: false });
-    const order = shots.map((sh, i) => ({ sh, i })).sort((a, b) => a.sh.path.length - b.sh.path.length || a.i - b.i);
-    for (const { sh } of order) {
-      if (!sh.end) continue;
-      const hit = sh.hit !== null && !s.chars[sh.hit]!.out ? sh.hit : null;
-      blast(s, me, sh.end, hit, facing, shotScale(l), events);
-    }
-    settle(s, events);
   } else {
-    // 普通和连发：一颗一颗来，每颗炸完、掉落都算完再出下一颗（前一颗的坑会影响后一颗）；自己出局了就不再扔
-    for (let k = 0; k < MODES[l.mode].count && !me.out; k++) {
-      const sh = previewShot(s, angle, power, facing, true, l.lid);
-      events.push({ t: 'shot', flights: [flight(sh)], plane: false });
-      if (sh.end) blast(s, me, sh.end, sh.hit, facing, shotScale(l), events);
+    // 地形这一手只复制一次（后面每一颗都在这份上挖）
+    s.terrain = cloneTerrain(s.terrain);
+    const scale = shotScale(l);
+    // 这一手颗数越多，每颗的坑越小（DESIGN.md 2.6）；伤害半径不变
+    const dig = digRadius(weapon(me.weapon).dig, l);
+    // 一轮一轮来：每轮的坑、掉落都算完再出下一轮（前一轮的坑会影响后一轮）；自己出局了就不再扔
+    for (let k = 0; k < volleys(l) && !me.out; k++) {
+      if (shellsPer(l) === 1) {
+        const sh = previewShot(s, angle, power, facing, true, l.lid);
+        events.push({ t: 'shot', flights: [flight(sh)], plane: false });
+        if (sh.end) blast(s, me, sh.end, sh.hit, scale, dig, events);
+      } else {
+        // 三岔：这一轮三颗同时出膛（角度 −6°、0、+6°，夹在 0–90°），按落地的先后炸（一样快的按角度从小到大）；
+        // 后炸的那颗打中的人已经出局，就按落点炸
+        const shots = [angle - FORK_SPREAD, angle, angle + FORK_SPREAD].map((a) => previewShot(s, Math.max(0, Math.min(90, a)), power, facing, true, l.lid));
+        events.push({ t: 'shot', flights: shots.map(flight), plane: false });
+        const order = shots.map((sh, i) => ({ sh, i })).sort((a, b) => a.sh.path.length - b.sh.path.length || a.i - b.i);
+        for (const { sh } of order) {
+          if (!sh.end) continue;
+          const hit = sh.hit !== null && !s.chars[sh.hit]!.out ? sh.hit : null;
+          blast(s, me, sh.end, hit, scale, dig, events);
+        }
+      }
       settle(s, events);
     }
   }
@@ -323,9 +352,9 @@ function fire(state: State, angle: number, power: number, facing: Dir, l: Loadou
 }
 
 /** 一颗炮弹落地：直接打中人时炸点放到他身子中间（坑一定挖到他脚下，DESIGN.md 2.3"打人也会把人脚下炸出洞"），否则在落点炸 */
-function blast(s: State, me: Char, end: { x: number; y: number }, hit: number | null, facing: Dir, scale: number, events: Ev[]): void {
+function blast(s: State, me: Char, end: { x: number; y: number }, hit: number | null, scale: number, dig: number, events: Ev[]): void {
   const t = hit === null ? null : s.chars[hit]!;
-  explode(s, me, t ? t.x : end.x, t ? t.y - BODY_CY : end.y, hit, facing, scale, events);
+  explode(s, me, t ? t.x : end.x, t ? t.y - BODY_CY : end.y, hit, scale, dig, events);
 }
 
 /**
@@ -381,16 +410,14 @@ function besideChar(t: Terrain, width: number, c: Char): { x: number; y: number 
   return null;
 }
 
-/** 爆炸：挖坑（坑的大小不看道具）、扣血（乘道具的倍率）、推开 */
-function explode(s: State, shooter: Char, ex: number, ey: number, direct: number | null, facing: Dir, scale: number, events: Ev[]): void {
-  const m = mapOf(s);
+/** 爆炸：挖坑（半径 dig，按这一手的总颗数缩小过）、扣血（乘道具的倍率，伤害半径不变）。不推人（DESIGN.md 2.5，0.3.0 起）：脚下挖空了由 settle 让人往下掉 */
+function explode(s: State, shooter: Char, ex: number, ey: number, direct: number | null, scale: number, dig: number, events: Ev[]): void {
   const sw = weapon(shooter.weapon);
   const r = sw.radius;
-  s.terrain = cloneTerrain(s.terrain);
-  carve(s.terrain, ex, ey, sw.dig);
-  // 事件里的 r 是坑的半径（画面照它在自己那份地形上挖）
-  events.push({ t: 'boom', x: ex, y: ey, r: sw.dig });
-  const pushes: { c: Char; amount: number; dir: Dir }[] = [];
+  // 地形在 fire 里已经复制过一份，这里直接挖
+  digCrater(s.terrain, ex, ey, dig, sw.id);
+  // 事件里的 r 是坑的大小、w 是谁家的坑形（画面照它在自己那份地形上挖，和规则核心同一套）
+  events.push({ t: 'boom', x: ex, y: ey, r: dig, w: sw.id });
   for (const c of s.chars) {
     if (c.out) continue;
     const dx = c.x - ex;
@@ -402,30 +429,6 @@ function explode(s: State, shooter: Char, ex: number, ey: number, direct: number
       c.hp = Math.max(0, c.hp - dmg);
       events.push({ t: 'hurt', id: c.id, dmg, hp: c.hp });
     }
-    pushes.push({ c, amount: idiv(PUSH * (r - dd), r), dir: dx > 0 ? 1 : dx < 0 ? -1 : facing });
-  }
-  for (const { c, amount, dir } of pushes) {
-    if (c.hp <= 0) continue;
-    const x0 = c.x;
-    const y0 = c.y;
-    for (let k = 0; k < amount; k++) {
-      const nx = c.x + dir;
-      if (nx < 0 || nx >= m.width) {
-        c.x = nx;
-        break;
-      }
-      let lifted = -1;
-      for (let u = 0; u <= 8; u++) {
-        if (bodyClear(s.terrain, nx, c.y - u)) {
-          lifted = u;
-          break;
-        }
-      }
-      if (lifted < 0) break;
-      c.x = nx;
-      c.y -= lifted;
-    }
-    if (c.x !== x0 || c.y !== y0) events.push({ t: 'push', id: c.id, x: c.x, y: c.y });
   }
   for (const c of s.chars) {
     if (!c.out && c.hp <= 0) knockOut(c, 'hp', events);
@@ -501,12 +504,13 @@ function finishTurn(s: State, events: Ev[]): void {
 }
 
 /** 从头按操作重放（存档、回放、测试用）；中间有一步不合法就停在那里并回报 */
-export function replay(key: Entropy, setup: Setup, log: readonly Action[]): { state: State; bad: number | null } {
+export function replay(key: Entropy, setup: Setup, log: readonly Action[], onEvents?: (events: readonly Ev[]) => void): { state: State; bad: number | null } {
   let s = newGame(key, setup);
   for (let i = 0; i < log.length; i++) {
     const r = apply(s, log[i]!);
     if (!r.ok) return { state: s, bad: i };
     s = r.state;
+    onEvents?.(r.events);
   }
   return { state: s, bad: null };
 }

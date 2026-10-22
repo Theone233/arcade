@@ -65,6 +65,8 @@ export interface Tag {
   hp: number;
   maxHp: number;
   out: boolean;
+  /** 好友房：名牌上方的小签（"掉线""电脑代打"） */
+  badge?: string;
 }
 
 /** 头顶的名牌（屏幕坐标，(x, y) 是名牌底边中点）：队色竖条 + 队标、名字、血量数字和条 */
@@ -101,6 +103,23 @@ export function nameTag(ctx: CanvasRenderingContext2D, tag: Tag, x: number, y: n
   ctx.fillText(String(tag.hp), x0 + w - 5, y0 + 10);
   hpBar(ctx, tag.team, x0 + 19, y0 + 19, w - 25, 6, tag.hp / tag.maxHp);
   if (tag.out) stamp(ctx, x0 + w / 2 + 6, y0 + h / 2, 0.8);
+  if (tag.badge && !tag.out) {
+    // 名牌右上角挂一张小签：灰底，掉线、电脑代打一眼看得出
+    ctx.font = `800 10px ${FONT}`;
+    const bw = Math.ceil(ctx.measureText(tag.badge).width) + 10;
+    const bx = x0 + w - bw + 4;
+    const by = y0 - 13;
+    ctx.fillStyle = '#6d6259';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, 15, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(tag.badge, bx + bw / 2, by + 8);
+  }
   ctx.restore();
 }
 

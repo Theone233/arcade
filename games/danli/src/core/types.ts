@@ -2,7 +2,7 @@
  * 规则核心的状态、操作和事件（DESIGN.md 第 2 节）。所有状态都公开（2.7），电脑和画面都只读它。
  */
 import type { Entropy } from 'arcade-kit/rng';
-import type { Boost, ShotMode, Special } from './items.ts';
+import type { Loadout, Special } from './items.ts';
 import type { MapId } from './maps.ts';
 import type { Terrain } from './terrain.ts';
 import type { WeaponId } from './weapons.ts';
@@ -79,19 +79,16 @@ export interface State {
   endBy: 'wipe' | 'turns' | null;
 }
 
-/** 出手：角度、力度、朝向，加上这一发用的道具（不写就是不用） */
-export interface FireAction {
+/** 出手：角度、力度、朝向，加上这一发用的道具（每种几个；不写就是 0 / 不用，见 items.ts 的 Loadout） */
+export interface FireAction extends Partial<Loadout> {
   t: 'fire';
   angle: number;
   power: number;
   facing: Dir;
-  mode?: ShotMode;
-  boost?: Boost;
-  lid?: boolean;
-  plane?: boolean;
 }
 
-export type Action = { t: 'move'; dir: Dir } | { t: 'face'; dir: Dir } | FireAction;
+/** pass：弃权（好友房超时，0.3.0），这一回合不爬、不打 */
+export type Action = { t: 'move'; dir: Dir } | { t: 'face'; dir: Dir } | FireAction | { t: 'pass' };
 
 /** 一颗炮弹（或纸飞机）的飞行：path 是每一帧（1/60 秒）的位置，x、y 交替；end 是落点，飞出画本是 null；target 是直接打中的角色 */
 export interface Flight {
@@ -105,14 +102,15 @@ export type OutWhy = 'fall' | 'hp';
 export type Ev =
   | { t: 'move'; id: number; x: number; y: number; cost: number }
   | { t: 'face'; id: number; dir: Dir }
-  | { t: 'fire'; id: number; angle: number; power: number; facing: Dir; mode: ShotMode; boost: Boost; lid: boolean; plane: boolean; cost: number }
+  | { t: 'pass'; id: number }
+  | { t: 'fire'; id: number; angle: number; power: number; facing: Dir; loadout: Loadout; cost: number }
   /** 一起飞出去的几颗（三岔是三颗同时飞；连发是一颗一颗来，每颗一个 shot 事件）；plane 是纸飞机 */
   | { t: 'shot'; flights: Flight[]; plane: boolean }
   /** 纸飞机：人从 from 瞬移到 to；to 是 null 就是飞出画本作废，人留在原地 */
   | { t: 'warp'; id: number; from: { x: number; y: number }; to: { x: number; y: number } | null }
-  | { t: 'boom'; x: number; y: number; r: number }
+  /** 爆炸：坑心、坑的大小（挖坑半径按颗数缩小过）、谁的坑形（坑形按武器分，core/craters.ts） */
+  | { t: 'boom'; x: number; y: number; r: number; w: WeaponId }
   | { t: 'hurt'; id: number; dmg: number; hp: number }
-  | { t: 'push'; id: number; x: number; y: number }
   | { t: 'fall'; id: number; x: number; from: number; to: number; dmg: number }
   | { t: 'out'; id: number; why: OutWhy }
   | { t: 'turn'; id: number; turn: number; round: number; wind: number }

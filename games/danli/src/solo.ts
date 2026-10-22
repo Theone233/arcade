@@ -1,17 +1,20 @@
 /**
  * 单机（DESIGN.md 第 8 节）：一局 = 种子（256 位熵）+ 开局设置 + 一串操作。存档只存这三样（danli.solo），读档时从头重放，
  * 地形网格不用存（同一个种子加同一串操作，结果完全一样）。打完就删。
- * 0.2.0 起是第 2 版：开局设置是整局的（对阵、各座位的人物和武器、地图）；0.1.0 的老存档读不出来，直接丢掉。
+ * 0.3.0 起是第 3 版：常用道具改成可叠加，发射的道具是"每种几个"（core/items.ts 的 Loadout）；第 2 版（0.2.0）和更老的存档读不出来，直接丢掉。
  */
 import { isEntropy, type Entropy } from 'arcade-kit/rng';
 import { apply, newGame, replay, setupError } from './core/rules.ts';
 import type { MapId } from './core/maps.ts';
 import type { Action, Setup, State, Step } from './core/types.ts';
+import { burnsOf, type Burn } from './view/scorch.ts';
 
 export const SOLO_KEY = 'danli.solo';
+/** 存档版本：对不上的直接丢掉 */
+export const SOLO_VERSION = 3;
 
 export interface SoloSave {
-  v: 2;
+  v: 3;
   key: number[];
   setup: Setup;
   log: Action[];
@@ -22,7 +25,7 @@ export function parseSave(raw: string | null): SoloSave | null {
   if (!raw) return null;
   try {
     const save = JSON.parse(raw) as SoloSave;
-    if (save?.v !== 2 || !isEntropy(save.key) || !Array.isArray(save.log) || setupError(save.setup)) return null;
+    if (save?.v !== SOLO_VERSION || !isEntropy(save.key) || !Array.isArray(save.log) || setupError(save.setup)) return null;
     return save;
   } catch {
     return null;
@@ -38,12 +41,14 @@ export function newKey(): Entropy {
 
 export class Solo {
   state: State;
+  /** 读档时重放出来的坑（按顺序），画面照它重建焦痕 */
+  readonly burns: Burn[] = [];
 
   readonly save: SoloSave;
 
   constructor(save: SoloSave) {
     this.save = save;
-    const r = replay(save.key, save.setup, save.log);
+    const r = replay(save.key, save.setup, save.log, (evs) => this.burns.push(...burnsOf(evs)));
     if (r.bad !== null) {
       save.log.length = r.bad;
     }
@@ -52,7 +57,7 @@ export class Solo {
 
   static fresh(setup: Setup): Solo {
     const key = newKey();
-    const s = new Solo({ v: 2, key: [...key], setup, log: [] });
+    const s = new Solo({ v: SOLO_VERSION, key: [...key], setup, log: [] });
     s.state = newGame(key, setup);
     s.store();
     return s;

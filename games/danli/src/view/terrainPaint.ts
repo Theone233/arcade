@@ -188,8 +188,9 @@ function byCodeOf(mats: Readonly<Record<string, Material>>): Map<number, Materia
 
 /**
  * 把 terrain 在世界范围 [x0, x0+w) × [y0, y0+h) 里的部分画到 ctx（ctx 已是世界坐标）。回 false 是这一块没有地。
+ * overlay：地表皮画完、材质间细线和外轮廓墨线之前，裁在"有地"的轮廓里再画一层（武器的焦痕，DESIGN.md 2.3.1）。
  */
-export function paintTerrainRect(ctx: Ctx, t: Terrain, x0: number, y0: number, w: number, h: number, mats: Readonly<Record<string, Material>>): boolean {
+export function paintTerrainRect(ctx: Ctx, t: Terrain, x0: number, y0: number, w: number, h: number, mats: Readonly<Record<string, Material>>, overlay?: (ctx: Ctx) => void): boolean {
   const codes = byCodeOf(mats);
   // 材质码查不到（不该发生）就当面团画
   const byCode = (code: number): Material => codes.get(code) ?? codes.get(1)!;
@@ -239,6 +240,7 @@ export function paintTerrainRect(ctx: Ctx, t: Terrain, x0: number, y0: number, w
   }
   ctx.lineWidth = 12;
   for (const [code, p] of crusts) { ctx.strokeStyle = byCode(code).crust!; ctx.stroke(p); }
+  overlay?.(ctx);
   ctx.restore();
   // 材质之间的细线
   if (multi) {

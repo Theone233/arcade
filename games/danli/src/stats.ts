@@ -4,7 +4,7 @@
  * - 伤害：这一手里对方挨的血（自己、队友挨的不算），算给出手的人；摔下来扣的血也算（是他炸塌的）；
  * - 命中：这一手扔出去几颗（连发、三岔每颗都算，纸飞机不算），其中几颗炸伤了对方；
  * - 轰出画本：这一手里对方掉出画本出局的人数。
- * 读档、跳到结果也一样能算（同一个种子加同一串操作，结果完全一样）。
+ * 读档、跳到结果也一样能算（同一个种子加同一串操作，结果完全一样）；好友房按房间下发的开局和每一回合重放（statsFrom）。
  */
 import { apply, newGame } from './core/rules.ts';
 import type { Action, Ev, Setup, State, Team } from './core/types.ts';
@@ -30,15 +30,26 @@ export interface GameStats {
 }
 
 export function computeStats(key: Entropy, setup: Setup, log: readonly Action[]): GameStats {
-  let s = newGame(key, setup);
+  return statsFrom(newGame(key, setup), log.map((a) => ({ actions: [a] })));
+}
+
+/**
+ * 从某个开局按一手一手的操作重放（好友房：页面没有种子，开局和每回合的风由房间给，见 net/replay.ts）。
+ * wind 给了就把下一回合的风换成它
+ */
+export function statsFrom(start: State, turns: readonly { actions: readonly Action[]; wind?: number }[]): GameStats {
+  let s = start;
   const ps: PlayerStats[] = s.chars.map((c) => ({ id: c.id, dmg: 0, shots: 0, hits: 0, kos: 0, end: 'alive', hp: c.hp }));
-  for (const a of log) {
-    const r = apply(s, a);
-    if (!r.ok) break;
-    const me = s.chars[s.actor]!;
-    if (a.t === 'fire') tally(ps[me.id]!, me.team, s, r.events);
-    for (const e of r.events) if (e.t === 'out') ps[e.id]!.end = e.why;
-    s = r.state;
+  out: for (const t of turns) {
+    for (const a of t.actions) {
+      const r = apply(s, a);
+      if (!r.ok) break out;
+      const me = s.chars[s.actor]!;
+      if (a.t === 'fire') tally(ps[me.id]!, me.team, s, r.events);
+      for (const e of r.events) if (e.t === 'out') ps[e.id]!.end = e.why;
+      s = r.state;
+    }
+    if (t.wind !== undefined && s.phase === 'play') s = { ...s, wind: t.wind };
   }
   for (const p of ps) p.hp = s.chars[p.id]!.hp;
   return { players: ps, falls: ps.filter((p) => p.end === 'fall').length, busts: ps.filter((p) => p.end === 'hp').length, state: s };
@@ -57,7 +68,7 @@ function tally(p: PlayerStats, team: Team, before: State, events: readonly Ev[])
     hit = false;
   };
   for (const e of events) {
-    if (e.t === 'fire') plane = e.plane;
+    if (e.t === 'fire') plane = e.loadout.plane;
     else if (e.t === 'shot' && !plane) p.shots += e.flights.length;
     else if (e.t === 'boom') {
       close();
