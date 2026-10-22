@@ -17,6 +17,10 @@
     // 只有这些先过 Worker：站点根和 /api/me（单独部署时）、首页三种写法（登录闸门）、巡检的 health、好友房的开房和进房；其余静态资源直接回
     "run_worker_first": ["/", "/api/me", "/games/danli", "/games/danli/", "/games/danli/index.html", "/games/danli/health", "/games/danli/rooms", "/games/danli/rooms/*"]
   },
+  // 好友房写入额度：按总仓库平台后端文档 4.7 的写入总账分到 3,000 / 4,000 行（各游戏收场线加起来不超过每天 10 万写行）
+  "vars": {
+    "KIT_QUOTA": { "busyWrites": 3000, "stopWrites": 4000, "roomsPerUser": 5, "dailyRoomsPerUser": 30 }
+  },
   "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "DanliRoom" }, { "name": "METER", "class_name": "RoomMeter" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DanliRoom", "RoomMeter"] }]
 }
