@@ -8,7 +8,7 @@ import { planLite } from '../src/ai/online.ts';
 import { vs } from './helpers.ts';
 import { WEAPON_IDS } from '../src/core/weapons.ts';
 import { apply, newGame } from '../src/core/rules.ts';
-import { flightMs, playMs, volleyPace } from '../src/net/anim.ts';
+import { FLIGHT_EXTRA_MAX, FLIGHT_SLOW_PCT, flightMs, playMs, volleyPace } from '../src/net/anim.ts';
 import { cloneTerrain } from '../src/core/terrain.ts';
 import type { State } from '../src/core/types.ts';
 import { replay } from '../src/core/rules.ts';
@@ -454,24 +454,34 @@ describe('快照上限', () => {
 });
 
 describe('动画停顿（net/anim.ts）', () => {
-  it('连发第 3 轮起放快：节奏不减、前两轮原速', () => {
-    expect([0, 1, 2, 3, 4, 5, 6, 9].map(volleyPace)).toEqual([1, 1, 2, 3, 4, 5, 6, 9]);
-    expect(flightMs(120, 1)).toBe(2000);
-    expect(flightMs(120, 3)).toBe(666);
+  it('飞行放慢 1.6 倍（多出来的最多 1 秒），连发第 3 轮起翻倍着放快', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 9].map(volleyPace)).toEqual([1, 1, 3, 6, 12, 24, 48, 384]);
+    // 96 步（典型的一发，规则 1.6 秒）：画面 2.56 秒
+    expect(flightMs(96, 1)).toBe(2560);
+    expect(flightMs(96, 1) / 1600).toBeCloseTo(FLIGHT_SLOW_PCT / 100);
+    // 高抛 120 步（2 秒）：多出来的封顶 1 秒
+    expect(flightMs(120, 1)).toBe(2000 + FLIGHT_EXTRA_MAX);
+    expect(flightMs(120, 3)).toBe(1000);
   });
 
-  it('最长的一手（三个 +2 满力往天上打，7 轮）停顿不超过 20 秒', () => {
+  it('最长的一手（三个 +2、三岔 + 连发 +1 + 连发 +2 满力往天上打）停顿不超过 20 秒', () => {
     let worst = 0;
-    for (const seed of [1, 2, 3, 4, 5]) {
-      for (const facing of [1, -1] as const) {
-        const setup = vs(1);
-        const s = newGame([seed, 7, 7, 7, 7, 7, 7, 7], { ...setup, players: setup.players.map((p) => ({ ...p, weapon: 'rocket' as const })) });
-        const r = apply(s, { t: 'fire', angle: 88, power: 100, facing, p2: 3 });
-        expect(r.ok).toBe(true);
-        if (r.ok) worst = Math.max(worst, playMs(r.events, 100));
+    for (const map of ['kitchen', 'breakfast', 'bento'] as const) {
+      for (const seed of [1, 2, 3]) {
+        for (const facing of [1, -1] as const) {
+          for (const [weapon, angle] of [['rocket', 88], ['rocket', 74], ['carrot', 75]] as const) {
+            for (const l of [{ p2: 3 }, { fork: 1, p1: 1, p2: 1 }]) {
+              const setup = vs(1, { map });
+              const s = newGame([seed, 7, 7, 7, 7, 7, 7, 7], { ...setup, players: setup.players.map((p) => ({ ...p, weapon })) });
+              s.actor = 0;
+              const r = apply(s, { t: 'fire', angle, power: 100, facing, ...l });
+              if (r.ok) worst = Math.max(worst, playMs(r.events, 100));
+            }
+          }
+        }
       }
     }
-    expect(worst).toBeGreaterThan(10_000);
+    expect(worst).toBeGreaterThan(15_000);
     expect(worst).toBeLessThanOrEqual(20_000);
   });
 });

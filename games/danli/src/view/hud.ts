@@ -64,6 +64,8 @@ export interface ItemView {
   /** 还能再加一个（体力够、没到上限、组合合法）；不能就标红边 */
   can: boolean;
   /** 特殊道具这一局还剩几次 */
+  /** 特殊道具（纸飞机、锅盖）：选上了画勾 */
+  special?: boolean;
   uses?: number;
 }
 
@@ -325,7 +327,7 @@ export class Hud {
       this.itemSig.set(v.key, sig);
       const pal = state === 'short' ? PAL_DIM : state === 'empty' ? PAL_GRAY : PAL;
       const pawFill = state === 'short' ? '#e2432a' : state === 'empty' ? '#b4a896' : '#3fa34d';
-      const mark = v.count === 0 ? '' : v.once ? (v.uses !== undefined ? TICK : '<span class="dl-item-n once">已选</span>') : `<span class="dl-item-n">×${v.count}</span>`;
+      const mark = v.count === 0 ? '' : v.once ? (v.special ? TICK : '<span class="dl-item-n once">已选</span>') : `<span class="dl-item-n">×${v.count}</span>`;
       b.innerHTML =
         `<span class="dl-item-face">${itemIconSvg(ICON[v.key], pal)}</span>` +
         `<span class="dl-item-tag"><svg viewBox="-6 -7 12 12" aria-hidden="true">${pawSvg(PAL, 0, 0, 1, pawFill)}</svg><b>${v.cost}</b></span>` +

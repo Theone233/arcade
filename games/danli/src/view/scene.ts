@@ -31,6 +31,17 @@ export const ZOOM_MIN = 0.28;
 export const ZOOM_MAX = 1.5;
 /** 低于这个缩放，角色换成图钉 */
 export const PIN_ZOOM = 0.7;
+/** 框弹道时最多缩到多小（低于 PIN_ZOOM 角色画成图钉）；框不下就跟着炮弹走 */
+const FRAME_MIN_Z = 0.5;
+/** 框弹道时四周留多少（屏幕像素） */
+const FRAME_PAD = 48;
+/**
+ * 框不下时跟着炮弹的"活动框"（占看得见那一块的比例）：炮弹在框里镜头不动，出了框才推着镜头走，所以画面里看得见它往上减速、往下加速；
+ * 横着往飞的方向让出空间（框偏向身后那一侧），不把炮弹锁在正中。
+ */
+const FOLLOW_BACK = 0.4;
+const FOLLOW_FRONT = 0.1;
+const FOLLOW_V = 0.32;
 
 interface Disp {
   id: number;
@@ -124,6 +135,8 @@ export class Scene {
   insetBottom = 0;
   private cam = { x: 1500, y: 400, z: 1 };
   private goal = { x: 1500, y: 400, z: 1 };
+  /** 这一发的镜头：整条弹道框得进来就定在这里；框不下是 null（跟着炮弹走） */
+  private shotView: { x: number; y: number; z: number } | null = null;
   private mode: Mode = 'follow';
   private manual = false;
   private chars: Disp[] = [];
@@ -317,9 +330,25 @@ export class Scene {
     }
     const lead = this.bullets[0];
     if (lead) {
-      const a = this.chars.find((c) => c.id === this.actor);
-      const high = a ? lead.y < a.y - 260 : false;
-      this.goal = { x: lead.x, y: lead.y, z: high || this.bullets.length > 1 ? 0.7 : 1 };
+      // 弹道框得下：镜头定住，炮弹在画面里飞（看得见往上减速、往下加速）；框不下：跟着炮弹，往它飞的方向让出空间，不把它锁在正中
+      if (this.shotView) this.goal = { ...this.shotView };
+      else {
+        const z = FRAME_MIN_Z;
+        const w = this.W / z;
+        const h = this.viewH() / z;
+        const g = { x: this.goal.x, y: this.goal.y, z };
+        // 横：往右飞时炮弹待在中线左边 0.4 到右边 0.1 之间，往左飞反过来；竖：中线上下 0.32
+        const back = FOLLOW_BACK * w;
+        const front = FOLLOW_FRONT * w;
+        const lo = lead.vx >= 0 ? g.x - back : g.x - front;
+        const hi = lead.vx >= 0 ? g.x + front : g.x + back;
+        if (lead.x < lo) g.x += lead.x - lo;
+        else if (lead.x > hi) g.x += lead.x - hi;
+        const v = FOLLOW_V * h;
+        if (lead.y < g.y - v) g.y = lead.y + v;
+        else if (lead.y > g.y + v) g.y = lead.y - v;
+        this.goal = g;
+      }
       this.clampTo(this.goal);
       return;
     }
@@ -576,7 +605,11 @@ export class Scene {
     }
   }
 
-  /** 放一批同时飞的炮弹（普通、连发的一颗，三岔的三颗，或者纸飞机）；镜头跟着第一颗还在飞的 */
+  /**
+   * 放一批同时飞的炮弹（普通、连发的一颗，三岔的三颗，或者纸飞机）。轨迹出手时就算好了：
+   * 镜头先把整条弹道（起点、最高点、落点）框进来（DESIGN.md 2.2.1），框不下就跟着第一颗还在飞的、往前留空间。
+   * 放慢以后一帧常常落在两步之间：按 path 插值，不会一顿一顿。
+   */
   private async playShot(paths: readonly number[][], plane: boolean, pace: number): Promise<void> {
     const n = Math.max(0, ...paths.map((p) => p.length / 2));
     if (n === 0) return;
@@ -584,6 +617,7 @@ export class Scene {
     this.manual = false;
     const live = paths.map((path) => ({ path, b: { x: path[0]!, y: path[1]!, vx: 0, vy: 0, trail: [] as number[], plane }, last: 0 }));
     this.bullets = live.map((l) => l.b);
+    this.shotView = this.frameOf(paths);
     await this.tween(flightMs(n, pace), (p) => {
       const at = p * (n - 1);
       for (const l of live) {
@@ -594,19 +628,47 @@ export class Scene {
           continue;
         }
         const i = Math.floor(at);
+        const f = at - i;
+        const j = Math.min(len - 1, i + 1);
         const b = l.b;
-        b.vx = l.path[Math.min(len - 1, i + 1) * 2]! - l.path[i * 2]!;
-        b.vy = l.path[Math.min(len - 1, i + 1) * 2 + 1]! - l.path[i * 2 + 1]!;
-        b.x = l.path[i * 2]!;
-        b.y = l.path[i * 2 + 1]!;
+        b.vx = l.path[j * 2]! - l.path[i * 2]!;
+        b.vy = l.path[j * 2 + 1]! - l.path[i * 2 + 1]!;
+        b.x = l.path[i * 2]! + b.vx * f;
+        b.y = l.path[i * 2 + 1]! + b.vy * f;
         for (let k = l.last; k < i; k += 3) b.trail.push(l.path[k * 2]!, l.path[k * 2 + 1]!);
         if (b.trail.length > 60) b.trail.splice(0, b.trail.length - 60);
         l.last = i;
       }
     });
     this.bullets = [];
+    this.shotView = null;
     this.goal = { ...this.cam };
     if (this.mode === 'follow') this.manual = true;
+  }
+
+  /** 把这几条弹道整个框进来的镜头（缩放不小于 FRAME_MIN_Z、不大于 1）；框不下回 null */
+  private frameOf(paths: readonly number[][]): { x: number; y: number; z: number } | null {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (const p of paths) {
+      for (let i = 0; i + 1 < p.length; i += 2) {
+        x0 = Math.min(x0, p[i]!);
+        x1 = Math.max(x1, p[i]!);
+        y0 = Math.min(y0, p[i + 1]!);
+        y1 = Math.max(y1, p[i + 1]!);
+      }
+    }
+    if (x0 > x1) return null;
+    // 起点上的人、落点的爆炸也要露出来：上下多留一点
+    y0 -= 60;
+    y1 += 40;
+    const z = Math.min(1, (this.W - 2 * FRAME_PAD) / (x1 - x0 || 1), (this.viewH() - 2 * FRAME_PAD) / (y1 - y0 || 1));
+    if (z < FRAME_MIN_Z) return null;
+    const g = { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z };
+    this.clampTo(g);
+    return g;
   }
 
   /** 纸飞机落地：原地一团纸屑，人在落点冒出来；to 是 null 就是飞出画本作废 */

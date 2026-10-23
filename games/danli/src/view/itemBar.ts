@@ -51,7 +51,7 @@ export function removeItem(l: Loadout, key: ItemKey): Loadout {
   return { ...l, [key]: Math.max(0, l[key] - 1) };
 }
 
-/** 道具栏每个按钮现在的样子：选了几个、还能不能再加一个（体力、上限、组合），特殊道具这一局还剩几次 */
+/** 道具栏每个按钮现在的样子：选了几个、还能不能再加一个（体力、上限、组合），锅盖这一局还剩几次 */
 export function itemViews(s: State, l: Loadout): ItemView[] {
   const me = s.chars[s.actor]!;
   return ITEMS.map(({ key, label, title }) => {
@@ -60,8 +60,9 @@ export function itemViews(s: State, l: Loadout): ItemView[] {
     const cost = special ? SPECIALS[special].cost : COMMONS[key as Common].cost;
     const once = isOnce(key);
     // 一回合 1 个的、已经选上了：再点是取消，不算"买不起"
-    const can = once && n > 0 ? true : !loadoutBlocked(s, me, addItem(l, key)) && !(special && me.special[special] <= 0);
-    return { key, label, title, cost, count: n, once, can, ...(special ? { uses: me.special[special] } : {}) };
+    const can = once && n > 0 ? true : !loadoutBlocked(s, me, addItem(l, key)) && !(special === 'lid' && me.special.lid <= 0);
+    // 次数只有锅盖有（纸飞机 0.3.1 起不限次数，按钮上不标）
+    return { key, label, title, cost, count: n, once, can, special: special !== null, ...(special === 'lid' ? { uses: me.special.lid } : {}) };
   });
 }
 

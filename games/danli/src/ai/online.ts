@@ -149,7 +149,7 @@ export function planLite(s: State): Plan {
   const lid = me.special.lid > 0 && Math.abs(s.wind) >= LID_WIND && s.stamina >= SPECIALS.lid.cost;
   const best = aimFrom(s, lid);
   const pick = best ?? { angle: idiv(w.minAngle + w.maxAngle, 2), power: 60, facing: me.facing, score: -10_000, end: null };
-  if (me.special.plane > 0 && s.stamina >= SPECIALS.plane.cost && inDanger(s) && (pick.score < GOOD_SHOT || roll < PLANE_CHANCE)) {
+  if (s.stamina >= SPECIALS.plane.cost && inDanger(s) && (pick.score < GOOD_SHOT || roll < PLANE_CHANCE)) {
     const p = planeLite(s, me);
     if (p) return withError(s, p, rng);
   }

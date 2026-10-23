@@ -4,7 +4,7 @@
  * 时间是假的（Date.now 换成 clock.now，kit 的房间只用它）：闹钟、超时、掉线宽限一下就到；不依赖 vitest，scripts/cpu.ts 用普通 Node 也能跑。
  */
 import type { RoomInfo } from 'arcade-kit/protocol';
-import type { NetAction, RoomView } from '../src/net/rules.ts';
+import { CLIENT_VERSION, type NetAction, type RoomView } from '../src/net/rules.ts';
 import { FakeCtx, FakeSocket } from './fake-workers.ts';
 
 interface RoomLike {
@@ -108,10 +108,11 @@ export class Harness {
     if (r.r !== 'created') throw new Error(`开房失败：${r.r}`);
   }
 
-  async join(user: string, name = user): Promise<Peer> {
+  /** cv：页面版本（kit 的 clientVersion），默认是现在的 CLIENT_VERSION */
+  async join(user: string, name = user, cv = CLIENT_VERSION): Promise<Peer> {
     const before = this.ctx.sockets.length;
     await this.room.fetch(
-      new Request(`https://arcade-kit.internal/ws?cv=0&code=${this.code}`, {
+      new Request(`https://arcade-kit.internal/ws?cv=${cv}&code=${this.code}`, {
         headers: { upgrade: 'websocket', 'x-kit-user': encodeURIComponent(JSON.stringify({ userId: user, name })) },
       }),
     );

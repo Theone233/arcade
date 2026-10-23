@@ -9,7 +9,7 @@
  * - 横屏那一遍：模拟一次双指放大（画布和 HUD 不能重排）；轮到我时刷新页面，首页有"接着上一局"（写着地图），接着打出手次数对得上；
  *   叠一组道具（三岔 + 连发 +1 + 连发 +2）真打出去，"已选"那一行、"已选"标记、买不起的红边都对；
  *   出局以后先点一下"快进"再"跳到结果"；
- * - 竖屏那一遍：第一手用一次纸飞机（人真的飞过去了、纸飞机剩 1 次）；
+ * - 竖屏那一遍：第一手用一次纸飞机（人真的飞过去了；纸飞机不限次数，按钮上不标剩几次）；
  * - 结算页：6 行（每人一行）、有伤害和结果章、有"再来一局""回房间""大厅"；danli.solo 删掉了；整个画面没被滚走；回房间以后还是 3v3、冰淇淋雪山。
  * 最后走一遍好友房（scripts/net.ts）：打包、本机起真的 Worker（wrangler dev），A 手机横屏、B 手机竖屏两个上下文，
  * 开房 → 链接进房 → 选人选武器、准备 → 加电脑 2 对 1 → 开打 → 各打几手 → B 刷新回到原局面 → B 超时弃权 → 打完 → 再来一局。
@@ -34,7 +34,7 @@ let failed = false;
 type Prefs = { muted: boolean; room: { size: number; map: string; me: { weapon: string; look: string }; foes: { persona: string; weapon: string }[] } };
 const prefsOf = (page: Page): Promise<Prefs | null> => page.evaluate(() => JSON.parse(localStorage.getItem('danli.prefs') ?? 'null') as Prefs | null);
 
-type St = { turn: number; round: number; phase: string; actor: number; stamina: number; setup: { map: string }; chars: { x: number; out: boolean; ai: boolean; look: string; name: string; team: number; weapon: string; special: { plane: number } }[] };
+type St = { turn: number; round: number; phase: string; actor: number; stamina: number; setup: { map: string }; chars: { x: number; out: boolean; ai: boolean; look: string; name: string; team: number; weapon: string; special: Record<string, number> }[] };
 type Hook = { __danli: { state(): St; preview(a: unknown): { ok: boolean; events?: { t: string; x?: number }[] } } };
 const stOf = (page: Page): Promise<St> => page.evaluate(() => (window as unknown as Hook).__danli.state());
 
@@ -208,7 +208,8 @@ for (const [name, viewport] of onlyNet
       await page.waitForTimeout(300);
       while ((await stOf(page)).actor === 0 && (await stOf(page)).phase === 'play') await page.waitForTimeout(100);
       const after = (await stOf(page)).chars[0]!;
-      if (after.special.plane !== 1) errors.push(`用了纸飞机，次数没扣（还剩 ${after.special.plane}）`);
+      if ('plane' in after.special) errors.push(`纸飞机不限次数，状态里不该还记着次数：${JSON.stringify(after.special)}`);
+      if (await page.$('.dl-item[data-item="plane"] .dl-item-uses')) errors.push('纸飞机按钮上还标着剩几次');
       if (after.x === before.x && !after.out) errors.push('纸飞机用了，人没动（可能飞出画本作废了）');
     }
     // 把自己炸出局

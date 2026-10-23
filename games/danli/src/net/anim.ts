@@ -18,11 +18,12 @@ export const START_MS = 3000;
 export const PASS_MS = 900;
 
 /**
- * 连发的节奏：一手扔好几轮时，第 3 轮起放快（第 3 轮 2 倍、第 4 轮 3 倍……第 n 轮 n − 1 倍），炮弹飞、爆炸、掉血、往下掉都按这个倍数缩短；
- * 出局、换人不加速（要看清谁出局了）。k 是这一手的第几轮（从 0 数）。不然三个 +2 满力往天上打（7 轮）一手要停 30 秒。
+ * 连发的节奏：一手扔好几轮时，第 3 轮起放快（第 3 轮 3 倍，往后每轮再翻一倍：6、12、24……），炮弹飞、爆炸、掉血、往下掉都按这个倍数缩短；
+ * 出局、换人不加速（要看清谁出局了）。k 是这一手的第几轮（从 0 数）。
+ * 0.3.1 飞行放慢以后，三个 +2 满力往天上打（7 轮）照原来的倍数要停 26 秒，翻倍着放快才压到 20 秒以内（好友房的停顿，test/net.test.ts 卡住）。
  */
 export function volleyPace(k: number): number {
-  return k < 2 ? 1 : k;
+  return k < 2 ? 1 : 3 * (1 << (k - 2));
 }
 
 /** 一段动画按节奏缩短后的毫秒数（整数）：画面（view/scene.ts）和房间的停顿用同一个数 */
@@ -30,9 +31,17 @@ export function paced(ms: number, pace: number): number {
   return Math.floor(ms / pace);
 }
 
-/** 一轮炮弹飞多久：飞得最久那一颗的步数，每秒 60 步 */
+/**
+ * 弹道飞行动画放慢多少（DESIGN.md 2.2.1，0.3.1）：规则里一步是 1/60 秒，原来就按这个放，一发只飞 1 秒多，看不出上升减速、下落加速；
+ * 画面按 1.6 倍时长放（帧和帧之间插值，不会一顿一顿），轨迹和落点不变。本来就飞得久的高抛（2 秒以上）多出来的最多 1 秒，不然连发一手太长。
+ */
+export const FLIGHT_SLOW_PCT = 160;
+export const FLIGHT_EXTRA_MAX = 1000;
+
+/** 一轮炮弹飞多久：飞得最久那一颗的步数，每秒 60 步，按 FLIGHT_SLOW_PCT 放慢（多出来的不超过 FLIGHT_EXTRA_MAX），再按连发的节奏缩短 */
 export function flightMs(steps: number, pace: number): number {
-  return paced(Math.floor((steps * 1000) / 60), pace);
+  const base = Math.floor((steps * 1000) / 60);
+  return paced(base + Math.min(Math.floor((base * (FLIGHT_SLOW_PCT - 100)) / 100), FLIGHT_EXTRA_MAX), pace);
 }
 
 /** 掉一段（高 h）放多久：和画面（view/scene.ts 的 playFall）同一个数；连发第 3 轮起的掉落也跟着放快 */

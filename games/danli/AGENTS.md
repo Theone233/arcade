@@ -16,12 +16,13 @@
   - kit 一开房就开局（房主的页面进房就发 `start`），准备、对局、结算是游戏自己的阶段，`over` 永远是 false（"再来一局"在同一个房间）；准备阶段的操作都是 `free`；
   - 一回合一条 `act`（`turn` / `pass`；道具是每种几个 `p1 p2 fork b10 b20 b50` 加 `lid` `plane`，0 个不写，`parse` 不认识的字段一律拒）；`auto`（电脑代出）只由房间的 `ai` / `timeout` 给，`parse` 不收；错误码只用固定短码；
   - 视图里绝不能有种子（房间的、这一局的）和服务端的局面（`lite`、`carves`），`test/net.test.ts` 检查；改了视图看一眼快照上限（20 KB）；
-  - 页面的动画时长不能超过 `src/net/anim.ts` 估的（房间按它停顿）；改了 `view/scene.ts` 的节奏要一起改；
+  - 页面的动画时长不能超过 `src/net/anim.ts` 估的（房间按它停顿）；飞行、掉落、连发放快的时长画面和房间共用 `anim.ts` 的 `flightMs`、`fallMs`、`paced`，改了节奏两边一起变；最长一手 ≤ 20 秒（`test/net.test.ts`）；
   - 准备、结算阶段房主是 kit 眼里"该出手的人"（时限一天），掉线满 60 秒 kit 调 `ai` → `handoff` 交出房主；`handoff` 和 `auto` 一样 `parse` 不收；
   - 改了电脑（`ai/online.ts`）、规则核心的计算量，跑 `npm run cpu`（开发机每一步 p99 ≤ 3 ms，有环境变量 CI 时 8 ms；`npm test` 也会跑）；
   - Node 版本钉在 `.nvmrc`（22.18.0 起原生跑 TS，`scripts/*.ts` 和 `npm run cpu` 靠它）；
   - 房间测试在 Node 里跑真的 kit 房间（`test/fake-workers.ts` 顶替 Workers 运行时，`vitest.config.ts` 把 `cloudflare:workers` 指过去），只复刻 kit 用到的那几样；kit 换了存储或运行时的用法要跟着补；
-  - 规则的结构版本 `RULES_VERSION`：状态格式、规则含义变了要加一（进行中的房间按开局时的版本打完）。
+  - 规则的结构版本 `RULES_VERSION`：状态格式、规则含义变了要加一（进行中的房间按开局时的版本打完）；
+    规则含义变了，`RULES_VERSION` 和 `CLIENT_VERSION` / `minClientVersion` 一起升（`src/net/rules.ts` 的 `CLIENT_VERSION`，房间 `worker/room.ts` 只收不低于它的页面，旧页面收到 4005、提示刷新，免得按旧规则重放对不上）。
 - 电脑人物在 `src/ai/personas.ts`（0.2.0 是橘子、团团、企企、柴柴、兔兔、鼠鼠）：加、改名字时在 PR 说明里写上，由平台另开 PR 登记进保留昵称。
 - 改了数值（`core/weapons.ts`、`core/items.ts`、`core/rules.ts` 的常量、`core/physics.ts` 的重力风力、`core/maps.ts` 的地形和出生点）或电脑，跑模拟器（`scripts/sim.ts`）把结果写进 README 的"数值"一节：
   `npm run sim 100 ab`（1v1，加道具用和不用的对比）、`npm run sim 100 2v2`、`npm run sim 100 3v3`、`npm run sim 16 weapons`（8 把武器两两对打）、
@@ -31,7 +32,7 @@
 - 改了界面：跑 `npm run smoke`（手机横竖屏各走一遍"首页 → 准备房间 → 冰淇淋雪山、3v3、换武器和小动物 → 开打 → 把自己炸出局 → 跳到结果 → 结算 → 回房间"，
   再走一遍好友房：本机起真的 Worker，A、B 两个上下文，开房、链接进房、选人选武器、加电脑 2 对 1、开打、B 刷新、B 超时弃权、打完、再来一局），
   `npm run shots` 截验收图（`shots/v030-*.png`：首页、房间四张（武器、地图、地图往下滑的"快图""慢图"、换人物）、6 张图各一张开局、出局、结算，
-  好友房的 6 个位子坐满、2 对 1 的房间、"某某正在瞄准"、结算，角色贴着斜坡站、8 把武器的坑形和焦痕拼图，已被 gitignore），自己看一遍。冒烟、截图的 Worker 用系统分配的端口，`npm run dev:worker` 用 4179。
+  好友房的 6 个位子坐满、2 对 1 的房间、"某某正在瞄准"、结算，角色贴着斜坡站、8 把武器的坑形和焦痕拼图，`v031-desk-flight.png` 一发高抛每 0.25 秒一张的连拍，已被 gitignore），自己看一遍。冒烟、截图的 Worker 用系统分配的端口，`npm run dev:worker` 用 4179。
 - 坑形（`core/craters.ts`，美术交付）是规则：改了就是规则含义变了（`RULES_VERSION`），要过 `test/craters.test.ts`（不出包围盒、只扫方框和逐格判断一样、画面按事件挖和规则核心一样）；
   焦痕（`view/scorchPaint.ts`）只是画面，按位置散列，不用 `Math.random`。服务端存的坑是"x、y、大小、武器序号"四个数一个。
 - 美术代理交付的画法（地图数据、地形、远景、角色、武器图标、标题字、页面设计稿）改写成 TS 放在模块里（`core/mapData.ts`、`view/mapArt.ts`、`view/terrainPaint.ts`、
