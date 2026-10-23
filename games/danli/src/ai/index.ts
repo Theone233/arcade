@@ -291,7 +291,7 @@ export function plan(s: State, opts: PlanOpts = {}): Plan {
   // 纸飞机：危险或被困时，打不出像样的一发就飞去安全的地方；打得出也有 PLANE_CHANCE 的机会先飞走（这回合就不开炮了）
   const rng = stream(s.key, 'ai', s.turn);
   const roll = rng.below(100);
-  if (!ban.has('plane') && me.special.plane > 0 && s.stamina >= SPECIALS.plane.cost && (inDanger(s) || trapped(where)) && (pick.score < GOOD_SHOT || roll < PLANE_CHANCE)) {
+  if (!ban.has('plane') && s.stamina >= SPECIALS.plane.cost && (inDanger(s) || trapped(where)) && (pick.score < GOOD_SHOT || roll < PLANE_CHANCE)) {
     const p = planPlane(s);
     if (p) return withError(s, p, rng);
   }

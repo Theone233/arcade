@@ -30,7 +30,7 @@ describe('体力', () => {
     expect(VOLLEY_PCT.length).toBe(MAX_VOLLEYS + 1);
     expect(FORK_PCT).toBe(35);
     expect([SPECIALS.plane.cost, SPECIALS.lid.cost]).toEqual([60, 30]);
-    expect([SPECIALS.plane.perGame, SPECIALS.lid.perGame]).toEqual([2, 2]);
+    expect([SPECIALS.plane.perGame, SPECIALS.lid.perGame]).toEqual([null, 2]);
     // 三岔 > 50；三岔 + 连发 +1 + 连发 +2 ≤ 100；+1 < +2 < 两个 +1；加力 50% > 50
     expect(COMMONS.fork.cost).toBeGreaterThan(50);
     expect(loadoutCost(loadout({ fork: 1, p1: 1, p2: 1 }))).toBeLessThanOrEqual(100);
@@ -153,10 +153,20 @@ describe('特殊道具的次数', () => {
     expect(s.chars[1]!.special.lid).toBe(2);
   });
 
-  it('纸飞机每局 2 次', () => {
-    const s = flat([1000, 2900]);
-    s.chars[0]!.special.plane = 0;
-    expect(apply(s, { t: 'fire', angle: 45, power: 30, facing: 1, plane: true })).toEqual({ ok: false, error: 'no_plane' });
+  it('纸飞机每局不限次数（0.3.1）：连着用好几回合都行，还是花 60、只能单独用', () => {
+    let s = flat([1000, 2900]);
+    for (let k = 0; k < 4; k++) {
+      s.actor = 0;
+      s.stamina = 100;
+      const r = apply(s, { t: 'fire', angle: 60, power: 20, facing: 1, plane: true });
+      expect(r.ok, `第 ${k + 1} 次`).toBe(true);
+      if (r.ok) s = r.state;
+    }
+    s.actor = 0;
+    s.stamina = 59;
+    expect(apply(s, { t: 'fire', angle: 60, power: 20, facing: 1, plane: true })).toEqual({ ok: false, error: 'tired' });
+    s.stamina = 100;
+    expect(apply(s, { t: 'fire', angle: 60, power: 20, facing: 1, plane: true, b10: 1 })).toEqual({ ok: false, error: 'plane_alone' });
   });
 });
 
@@ -323,7 +333,7 @@ describe('纸飞机', () => {
     expect(warp).toMatchObject({ t: 'warp', id: 0, from: { x: 1000, y: 500 }, to: { x: sh.flights[0]!.end!.x, y: 500 } });
     expect(r.state.chars[0]!.x).toBe(sh.flights[0]!.end!.x);
     expect(r.state.actor).toBe(1);
-    expect(r.state.chars[0]!.special.plane).toBe(1);
+    expect(r.state.chars[0]!.special).toEqual({ lid: 2 });
   });
 
   it('落到墙上：落在落点上方第一个站得下的地方', () => {
@@ -359,7 +369,6 @@ describe('纸飞机', () => {
     const r = fire(s, { angle: 30, power: 100, facing: 1, plane: true });
     expect(r.events.find((e) => e.t === 'warp')).toEqual({ t: 'warp', id: 0, from: { x: 2950, y: 500 }, to: null });
     expect(r.state.chars[0]).toMatchObject({ x: 2950, y: 500, out: false });
-    expect(r.state.chars[0]!.special.plane).toBe(1);
     expect(r.state.stamina).toBe(MAX_STAMINA);
   });
 

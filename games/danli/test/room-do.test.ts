@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { planLite } from '../src/ai/online.ts';
 import type { State } from '../src/core/types.ts';
 import { startOf, stepRec } from '../src/net/replay.ts';
-import { turnAct, type NetAction, type RoomView } from '../src/net/rules.ts';
+import { CLIENT_VERSION, turnAct, type NetAction, type RoomView } from '../src/net/rules.ts';
 import { clock, Harness, roomClass, type Peer } from './room-harness.ts';
 
 beforeEach(() => clock.install());
@@ -180,6 +180,23 @@ describe('好友房（真的 kit 房间）', () => {
     expect(b.view!.slots.find((x) => x?.k === 'human' && x.seat === b.seat)).toMatchObject({ look: 'rabbit', weapon: 'rocket', ready: false });
     console.log(`打了 ${turns} 步，超时弃权 ${timeouts} 次，写入：最多一步 ${h.maxWrites} 行、一共 ${h.steps.reduce((x, y) => x + y, 0)} 行`);
     expect(h.maxWrites).toBeLessThanOrEqual(2);
+  });
+
+  it('旧页面（clientVersion 1）进房被拒（4005，提示刷新），现在的版本能进', async () => {
+    expect(CLIENT_VERSION).toBe(2);
+    const h = new Harness(await roomClass());
+    await h.create('userA');
+    const old = await h.join('userA', '小A', 1);
+    expect(old.ws.closed?.code).toBe(4005);
+    const a = await h.join('userA', '小A', CLIENT_VERSION);
+    expect(a.ws.closed).toBeNull();
+    await h.send(a, { t: 'start' });
+    expect(a.room!.status).toBe('playing');
+    const b = await h.join('userB', '小B', CLIENT_VERSION - 1);
+    expect(b.ws.closed?.code).toBe(4005);
+    const b2 = await h.join('userB', '小B');
+    expect(b2.ws.closed).toBeNull();
+    expect(b2.view!.phase).toBe('lobby');
   });
 
   it('旧操作（baseSeq 过时）回 stale，不套到新的一手上', async () => {

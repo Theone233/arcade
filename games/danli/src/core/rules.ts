@@ -183,7 +183,7 @@ export function startFrom(key: Entropy, setup: Setup, terrain: Terrain, xs: read
       facing: 1,
       angle: 45,
       power: null,
-      special: { plane: SPECIALS.plane.perGame, lid: SPECIALS.lid.perGame },
+      special: { lid: SPECIALS.lid.perGame },
     };
   });
   // 开局朝着最近的对手
@@ -245,11 +245,10 @@ export function loadoutOf(a: Partial<Loadout>): Loadout {
   return l;
 }
 
-/** 这个角色这回合能不能这样出手：组合合法、特殊道具还有次数、体力够。能就回 null */
+/** 这个角色这回合能不能这样出手：组合合法、锅盖还有次数、体力够。能就回 null */
 export function loadoutBlocked(s: State, c: Char, l: Loadout): string | null {
   const bad = loadoutError(l);
   if (bad) return bad;
-  if (l.plane && c.special.plane <= 0) return 'no_plane';
   if (l.lid && c.special.lid <= 0) return 'no_lid';
   if (loadoutCost(l) > s.stamina) return 'tired';
   return null;
@@ -313,7 +312,6 @@ function fire(state: State, angle: number, power: number, facing: Dir, l: Loadou
   const cost = loadoutCost(l);
   s.stamina -= cost;
   if (l.lid) me.special.lid -= 1;
-  if (l.plane) me.special.plane -= 1;
   me.angle = angle;
   me.power = power;
   me.facing = facing;

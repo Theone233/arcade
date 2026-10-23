@@ -3,7 +3,7 @@
  * - 常用道具（0.3.0 改成可叠加）：一回合能选多个、同一个也能选多次，只看体力；三岔、加力 50% 一回合最多 1 次（显式校验，不只靠价钱）。
  *   - 轮数 = 1 + 连发数（+1 算 1、+2 算 2），最多 MAX_VOLLEYS 轮；每轮的颗数：选了三岔是 3，没选是 1；
  *   - 每颗伤害按总轮数取 VOLLEY_PCT，三岔每颗再乘 FORK_PCT；加力加在一起乘到每一颗上；
- * - 特殊道具：每局次数有限。纸飞机（人瞬移到落点，不能和别的道具一起用）、锅盖（这一发不受风，能和常用道具叠，一回合 1 个）。
+ * - 特殊道具：纸飞机（人瞬移到落点，不能和别的道具一起用；0.3.1 起每局不限次数）、锅盖（每局 2 次，这一发不受风，能和常用道具叠，一回合 1 个）。
  * 每一颗炮弹都炸坑；一手扔不止 1 颗时，每颗的挖坑半径打一点折（DIG_PCT），伤害半径不变；倍率只乘在伤害上（万分比整数）。
  */
 
@@ -62,8 +62,12 @@ export const VOLLEY_PCT: readonly number[] = [0, 100, 54, 37, 29, 23, 20, 17, 15
  */
 export const DIG_PCT: readonly number[] = [0, 100, ...Array.from({ length: MAX_VOLLEYS * 3 - 1 }, () => 98)];
 
-export const SPECIALS: Readonly<Record<Special, { name: string; cost: number; perGame: number }>> = {
-  plane: { name: '纸飞机', cost: 60, perGame: 2 },
+/** 有次数限制的特殊道具（纸飞机 0.3.1 起不限次数，DESIGN.md 2.6） */
+export type Limited = 'lid';
+
+export const SPECIALS: Readonly<Record<Special, { name: string; cost: number; perGame: number | null }>> & { lid: { perGame: number } } = {
+  /** perGame 是 null：每局不限次数（还是花 60、只能单独用） */
+  plane: { name: '纸飞机', cost: 60, perGame: null },
   lid: { name: '锅盖', cost: 30, perGame: 2 },
 };
 

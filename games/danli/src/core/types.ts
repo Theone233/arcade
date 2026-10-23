@@ -2,7 +2,7 @@
  * 规则核心的状态、操作和事件（DESIGN.md 第 2 节）。所有状态都公开（2.7），电脑和画面都只读它。
  */
 import type { Entropy } from 'arcade-kit/rng';
-import type { Loadout, Special } from './items.ts';
+import type { Limited, Loadout } from './items.ts';
 import type { MapId } from './maps.ts';
 import type { Terrain } from './terrain.ts';
 import type { WeaponId } from './weapons.ts';
@@ -30,8 +30,8 @@ export interface Char {
   /** 上一次用的角度和力度（界面的默认值和"上次"刻度） */
   angle: number;
   power: number | null;
-  /** 特殊道具这一局还剩几次 */
-  special: Record<Special, number>;
+  /** 有次数限制的特殊道具这一局还剩几次（锅盖；纸飞机 0.3.1 起不限次数，不记） */
+  special: Record<Limited, number>;
 }
 
 export interface PlayerSetup {

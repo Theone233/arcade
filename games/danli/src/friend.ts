@@ -12,7 +12,7 @@ import type { SocialHandle } from 'arcade-kit/social';
 import type { Look } from './core/types.ts';
 import type { WeaponId } from './core/weapons.ts';
 import { gameStats, namedGame, NetGame } from './friendGame.ts';
-import type { NetAction, RoomView } from './net/rules.ts';
+import { CLIENT_VERSION, type NetAction, type RoomView } from './net/rules.ts';
 import { el } from './view/dom.ts';
 import { renderFriendRoom, seatName } from './view/friendRoom.ts';
 import { renderResult } from './view/result.ts';
@@ -20,8 +20,6 @@ import type { Stage } from './view/stage.ts';
 import type { Size } from './view/viewport.ts';
 
 export const ROOM_KEY = 'danli.room';
-/** 页面版本（kit 的 clientVersion）：房间可以让太旧的页面刷新 */
-const CLIENT_VERSION = 1;
 
 export interface SavedRoom {
   code: string;
